@@ -6,6 +6,28 @@ VDatum is "a free software tool being developed jointly by NOAA's [National Geod
 
 Vyperdatum allows for VDatum to be used in production bathymetric processing software in a clean and precise way.  In addition, Vyperdatum builds a custom Compound and Vertical CRS object that well documents the resulting transformation, so that the inverse transformation can be accurately applied later to get back to the pivot datum (NAD83(2011)/EPSG:6319.
 
+## Installation
+
+Vyperdatum is not on PyPi, but can be installed using pip.
+
+(For Windows Users) Download and install Visual Studio Build Tools 2019 (If you have not already): [MSVC Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+
+Download and install conda (If you have not already): [conda installation](https://docs.conda.io/projects/conda/en/latest/user-guide/install/)
+
+Download and install git (If you have not already): [git installation](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+
+Some dependencies need to be installed from the conda-forge channel.  I have an example below of how to build this environment using conda.
+
+Perform these in order:
+
+`conda create -n vyper python=3.8.8 `
+
+`conda activate vyper `
+
+`conda install -c conda-forge gdal=3.2.1`
+
+`pip install git+https://github.com/noaa-ocs-hydrography/vyperdatum.git#egg=vyperdatum `
+
 ## Quickstart
 
 Vyperdatum offers to main classes:
