@@ -28,6 +28,7 @@ From there it is simple to start performing transformations.  Use the following 
         x = np.array([-76.19698, -76.194, -76.198])
         y = np.array([37.1299, 37.1399, 37.1499])
         z = np.array([10.5, 11.0, 11.5])
+        
         # source ('nad83') = nad83(2011)/nad83(2011)height
         # destination ('mllw') = nad83/mllw
         vp.transform_points('nad83', 'mllw', x, y, z=z)
@@ -59,6 +60,7 @@ From there it is simple to start performing transformations.  Use the following 
         x = np.array([898745.505, 898736.854, 898728.203])
         y = np.array([256015.372, 256003.991, 255992.610])
         z = np.array([10.5, 11.0, 11.5])
+        
         # force vertical datum used here to indicate source is at vert=mllw
         vp.transform_points(3631, 'mllw', x, y, z=z, force_input_vertical_datum='mllw')
         
@@ -75,8 +77,10 @@ From there it is simple to start performing transformations.  Use the following 
 
         new_file = r"C:\data\tiff\output.tiff"
         test_file = r"C:\data\tiff\test.tiff"
+        
         # source EPSG:26919 read automatically, NAD83 height assumed
         vr = VyperRaster(test_file, is_height=True)
+        
         layers, layernames, layernodata = vr.transform_raster('mllw', 100, allow_points_outside_coverage=False, output_file=output_file)
         
         print(vr.out_crs.to_compound_wkt())
@@ -104,7 +108,9 @@ From there it is simple to start performing transformations.  Use the following 
  
         new_file = r"C:\data\tiff\output.tiff"
         test_file = r"C:\data\tiff\test.tiff"
+        
         # source EPSG:26919 read automatically, NAD83 height assumed
         vr = VyperRaster(test_file, is_height=True)
+        
         layers, layernames, layernodata = vr.transform_raster('mllw', 100, allow_points_outside_coverage=False, 
                                                               force_input_vertical_datum='navd88', output_file=output_file) 
