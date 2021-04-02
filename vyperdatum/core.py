@@ -70,9 +70,13 @@ class VyperCore:
         self.logger.debug(msg)
 
     def close(self):
-        for handler in self.logger.handlers:
-            handler.close()
-            self.logger.removeHandler(handler)
+        # we want this to wait till all handlers are closed, it seems like you have to make multiple passes sometimes
+        # maybe a waiting for threads to terminate thing
+        while self.logger.handlers:
+            for handler in self.logger.handlers:
+                handler.close()
+                self.logger.removeHandler(handler)
+        self.logger = None
 
     def base_to_geographic_extents(self, input_datum: int):
         """
@@ -279,6 +283,8 @@ class VyperCore:
             else:
                 input_datum = 'NAD83'
         else:
+            self.geographic_min_x, self.geographic_min_y = self.min_x, self.min_y
+            self.geographic_max_x, self.geographic_max_y = self.max_x, self.max_y
             self.base_horiz_crs = None
         try:
             incrs = VerticalPipelineCRS()

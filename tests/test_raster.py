@@ -303,3 +303,50 @@ def test_raster_write_to_geotiff():
     assert not os.path.exists(output_file)
     os.remove(logfile)
     assert not os.path.exists(logfile)
+
+
+def test_raster_write_to_geotiff_new2d():
+    logfile = os.path.join(os.path.split(test_file)[0], 'test_log.txt')
+    vr = VyperRaster(test_file, is_height=False, logfile=logfile)
+    output_file = os.path.join(os.path.split(test_file)[0], 'vyperdatum_file_4326.tif')
+    # take the utm nad83 raster input, and write a geographic wgs84 raster with NOAA MLLW depths
+    layers, layernames, layernodata = vr.transform_raster('mllw', 100, include_region_index=True,
+                                                          allow_points_outside_coverage=True, output_file=output_file,
+                                                          new_2d_crs=4326)
+
+    # original 26919 geotransform that we pulled from the file
+    assert vr.geotransform[0] == 339262.0
+    assert vr.geotransform[3] == 4693254.0
+    assert vr.geotransform[1] == 4.0
+    assert vr.geotransform[5] == -4.0
+    assert vr.geotransform[2] == 0.0
+    assert vr.geotransform[2] == 0.0
+
+    # since we supplied a new 2d crs for the output, we get his output_geotranform
+    assert approx(vr.output_geotransform[0] == -70.94997811389081, 0.0000000001)
+    assert approx(vr.output_geotransform[3] == 42.37624115875231, 0.0000000001)
+    assert approx(vr.output_geotransform[1] == 4.707791728663476e-05, 0.0000000001)
+    assert approx(vr.output_geotransform[5] == -3.661334879672518e-05, 0.0000000001)
+    assert vr.output_geotransform[2] == 0.0
+    assert vr.output_geotransform[2] == 0.0
+
+    assert os.path.exists(output_file)
+
+    ofile = gdal.Open(output_file)
+    newlayers = [ofile.GetRasterBand(i + 1).ReadAsArray() for i in range(ofile.RasterCount)]
+    newnodatavalue = [ofile.GetRasterBand(i + 1).GetNoDataValue() for i in range(ofile.RasterCount)]
+    newlayernames = [ofile.GetRasterBand(i + 1).GetDescription() for i in range(ofile.RasterCount)]
+    ofile = None
+
+    assert approx(layers[0] == newlayers[0], 0.001)
+    assert approx(layers[1] == newlayers[1], 0.001)
+    assert approx(layers[2] == newlayers[2], 0.001)
+
+    assert newlayernames == newlayernames
+    assert layernodata == newnodatavalue
+
+    vr.close()  # have to close to close logger file handle
+    os.remove(output_file)
+    assert not os.path.exists(output_file)
+    os.remove(logfile)
+    assert not os.path.exists(logfile)

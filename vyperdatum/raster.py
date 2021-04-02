@@ -3,6 +3,7 @@ import os
 import numpy as np
 from osgeo import gdal
 from pyproj import Transformer, CRS
+from pyproj.exceptions import CRSError
 
 
 from vyperdatum.core import VyperCore
@@ -33,6 +34,8 @@ class VyperRaster(VyperCore):
         self.raster_vdatum_sep = None
         self.raster_vdatum_uncertainty = None
         self.raster_vdatum_region_index = None
+
+        self.output_geotransform = None
 
         if input_file:
             self.initialize()
@@ -315,7 +318,7 @@ class VyperRaster(VyperCore):
 
     def transform_raster(self, output_datum: str, sampling_distance: float, input_datum: int = None,
                          include_region_index: bool = False, allow_points_outside_coverage: bool = False,
-                         force_input_vertical_datum: str = None, output_file: str = None):
+                         force_input_vertical_datum: str = None, new_2d_crs: int = None, output_file: str = None):
         """
         Main method of this class, contains all the other methods and allows you to transform the source raster to a
         different vertical datum using VDatum.
@@ -336,6 +339,9 @@ class VyperRaster(VyperCore):
             Optional, if the user enters a 2d epsg for input datum, we assume the input vertical datum is NAD83 elheight.
             Use this to force a vertical datum other than ellipsoid height, see pipeline.datum_definition keys for possible
             options for string
+        new_2d_crs
+            Optional, if the user provides a 2d CRS here, we transform the geotransform to this new crs, and write the
+            output file in this crs
         output_file
             if provided, writes the new raster to geotiff
 
@@ -358,6 +364,11 @@ class VyperRaster(VyperCore):
 
         if output_datum:
             self.set_output_datum(output_datum)
+        if new_2d_crs:
+            self._custom_output_crs(new_2d_crs)
+            use_custom_geotransform = True
+        else:
+            use_custom_geotransform = False
 
         if self.regions is None:
             self.log_error(f'Unable to find regions for raster using ({self.geographic_min_x},{self.geographic_min_y}), '
@@ -373,12 +384,54 @@ class VyperRaster(VyperCore):
             else:
                 tiffdata = np.concatenate([layers[0][None, :, :], layers[1][None, :, :]])
             tiffdata = np.round(tiffdata, 3)
-            self._write_gdal_geotiff(output_file, tiffdata, layernames, layernodata)
+            self._write_gdal_geotiff(output_file, tiffdata, layernames, layernodata, use_custom_geotransform=use_custom_geotransform)
         end_cnt = perf_counter()
         self.log_info(f'Raster transformation complete: Elapsed time {end_cnt - start_cnt} seconds')
         return layers, layernames, layernodata
-        
-    def _write_gdal_geotiff(self, outfile: str, data: tuple, band_names: tuple, nodatavalue: tuple):
+
+    def _custom_output_crs(self, destination_epsg: int):
+        try:
+            out_crs = CRS.from_epsg(int(destination_epsg))
+        except CRSError:
+            self.log_error(f'Expected integer epsg code that is readable by the pyproj CRS object, got {destination_epsg}',
+                           ValueError)
+        if out_crs.is_vertical:
+            self.log_error(f'Only 2d coordinate system epsg supported when using the new_2d_crs option, got {destination_epsg}',
+                           ValueError)
+        in_crs = CRS.from_epsg(6319)
+        # Transformer.transform input order is based on the CRS, see CRS.geodetic_crs.axis_info
+        # - lon, lat - this appears to be valid when using CRS from proj4 string
+        # - lat, lon - this appears to be valid when using CRS from epsg
+        # use the always_xy option to force the transform to expect lon/lat order
+        transformer = Transformer.from_crs(in_crs, out_crs, always_xy=True)
+        new_min_x, new_min_y = transformer.transform(self.geographic_min_x, self.geographic_min_y)
+        new_max_x, new_max_y = transformer.transform(self.geographic_max_x, self.geographic_max_y)
+
+        # if out_crs.is_projected:
+        #     if new_min_x < 0:
+        #         new_min_x = int(np.ceil(new_min_x))
+        #     else:
+        #         new_min_x = int(np.floor(new_min_x))
+        #     if new_min_y < 0:
+        #         new_min_y = int(np.ceil(new_min_y))
+        #     else:
+        #         new_min_y = int(np.floor(new_min_y))
+        #     if new_max_x < 0:
+        #         new_max_x = int(np.floor(new_max_x))
+        #     else:
+        #         new_max_x = int(np.ceil(new_max_x))
+        #     if new_max_y < 0:
+        #         new_max_y = int(np.floor(new_max_y))
+        #     else:
+        #         new_max_y = int(np.ceil(new_max_y))
+
+        x_rez = (new_max_x - new_min_x) / self.width
+        y_rez = (new_max_y - new_min_y) / self.height
+        self.output_geotransform = (new_min_x, x_rez, 0.0, new_max_y, 0.0, -y_rez)
+        self.out_crs.horiz_wkt = out_crs.to_wkt()
+
+    def _write_gdal_geotiff(self, outfile: str, data: tuple, band_names: tuple, nodatavalue: tuple,
+                            use_custom_geotransform: bool = False):
         """
         Build a geotiff from the transformed raster data
 
@@ -392,12 +445,17 @@ class VyperRaster(VyperCore):
             names for each layer that we want to write to file
         nodatavalue
             nodatavalues for each layer that we want to write to file
+        use_custom_geotransform
+            if True, rely on the custom output geotransform we made from the provided 2d epsg in transform raster
         """
 
         numlyrs, rows, cols = data.shape
         driver = gdal.GetDriverByName('GTiff')
         out_raster = driver.Create(outfile, cols, rows, numlyrs, gdal.GDT_Float32)
-        out_raster.SetGeoTransform(self.geotransform)
+        if use_custom_geotransform:
+            out_raster.SetGeoTransform(self.output_geotransform)
+        else:
+            out_raster.SetGeoTransform(self.geotransform)
         for lyr_num in range(numlyrs):
             outband = out_raster.GetRasterBand(lyr_num + 1)
             outband.SetNoDataValue(nodatavalue[lyr_num])

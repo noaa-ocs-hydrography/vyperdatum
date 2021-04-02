@@ -95,7 +95,7 @@ From there it is simple to start performing transformations.  Use the following 
         vp.unc
         Out: array([0.065, 0.065, 0.065])
 
-- GeoTIFF transformation of source GeoTIFF with (horizontal=EPSG:26919, vertical=NAD83(2011) height) to EPSG:26919/MLLW 
+- GeoTIFF transformation - GeoTIFF with horizontal=EPSG:26919, vertical=NAD83(2011) height (assumed) to EPSG:26919/MLLW.  
 
         new_file = r"C:\data\tiff\output.tiff"
         test_file = r"C:\data\tiff\test.tiff"
@@ -126,7 +126,7 @@ From there it is simple to start performing transformations.  Use the following 
                                                step proj=vgridshift grids=REGION\\tss.gtx
                                                step proj=vgridshift grids=REGION\\mllw.gtx"]]]
 
- - GeoTIFF transformation with explicit input vertical datum
+ - GeoTIFF transformation - transform to EPSG:26919 MLLW, designates the input raster to be at vertical=NAVD88
  
         new_file = r"C:\data\tiff\output.tiff"
         test_file = r"C:\data\tiff\test.tiff"
@@ -135,4 +135,16 @@ From there it is simple to start performing transformations.  Use the following 
         vr = VyperRaster(test_file, is_height=True)
         
         layers, layernames, layernodata = vr.transform_raster('mllw', 100, allow_points_outside_coverage=False, 
-                                                              force_input_vertical_datum='navd88', output_file=output_file) 
+                                                              force_input_vertical_datum='navd88', output_file=output_file)
+ 
+  - GeoTIFF transformation - transform to EPSG:4326 mhw, designates the input raster to be at vertical=mllw
+ 
+        new_file = r"C:\data\tiff\output.tiff"
+        test_file = r"C:\data\tiff\test.tiff"
+        
+        # source EPSG:26919 read automatically, NAD83 height assumed
+        vr = VyperRaster(test_file, is_height=True)
+        
+        layers, layernames, layernodata = vr.transform_raster('mhw', 100, allow_points_outside_coverage=False, 
+                                                              force_input_vertical_datum='mllw', output_file=output_file,
+                                                              new_2d_crs=4326)
