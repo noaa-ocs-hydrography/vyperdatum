@@ -320,7 +320,7 @@ def test_raster_write_to_geotiff_new2d():
     assert vr.geotransform[1] == 4.0
     assert vr.geotransform[5] == -4.0
     assert vr.geotransform[2] == 0.0
-    assert vr.geotransform[2] == 0.0
+    assert vr.geotransform[4] == 0.0
 
     # since we supplied a new 2d crs for the output, we get his output_geotranform
     assert approx(vr.output_geotransform[0] == -70.94997811389081, 0.0000000001)
@@ -328,7 +328,7 @@ def test_raster_write_to_geotiff_new2d():
     assert approx(vr.output_geotransform[1] == 4.707791728663476e-05, 0.0000000001)
     assert approx(vr.output_geotransform[5] == -3.661334879672518e-05, 0.0000000001)
     assert vr.output_geotransform[2] == 0.0
-    assert vr.output_geotransform[2] == 0.0
+    assert vr.output_geotransform[4] == 0.0
 
     assert os.path.exists(output_file)
 
