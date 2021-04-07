@@ -36,7 +36,7 @@ class VyperCore:
 
     def __init__(self, vdatum_directory: str = None, logfile: str = None, silent: bool = False):
         # if vdatum_directory is provided initialize VdatumData with that path
-        self.vdatum = VdatumData(vdatum_directory=vdatum_directory)
+        self.vdatum = VdatumData(vdatum_directory=vdatum_directory, parent=self)
         self.silent = silent
 
         self.min_x = None
@@ -459,7 +459,9 @@ class VdatumData:
     Optionally, user may provide a vdatum directory here on initialization to set the vdatum path the first time
     """
 
-    def __init__(self, vdatum_directory: str = None):
+    def __init__(self, vdatum_directory: str = None, parent=None):
+        self.parent = parent
+
         self.grid_files = {}  # dict of file names to file paths for the gtx files
         self.polygon_files = {}  # dict of file names to file paths for the kml files
         self.uncertainties = {}  # dict of file names to uncertainties for each grid
@@ -487,16 +489,20 @@ class VdatumData:
             value to set in the dict
         """
 
-        config = configparser.ConfigParser()
-        config.read(self.config_path_file)
-        for k, v in self._config.items():
-            config['Default'][k] = v
+        try:
+            config = configparser.ConfigParser()
+            config.read(self.config_path_file)
+            for k, v in self._config.items():
+                config['Default'][k] = v
 
-        self._config[ky] = value  # set the class attribute
-        config['Default'][ky] = value  # set the ini matching attribute
-        with open(self.config_path_file, 'w') as configfile:
-            config.write(configfile)
-
+            self._config[ky] = value  # set the class attribute
+            config['Default'][ky] = value  # set the ini matching attribute
+            with open(self.config_path_file, 'w') as configfile:
+                config.write(configfile)
+        except:
+            # get a number of exceptions here when reading and writing to the config file in multiprocessing
+            if self.parent:
+                self.parent.log_warning('Unable to set {} in config file {}'.format(ky, self.config_path_file))
         if ky == 'vdatum_path':
             self.vdatum_path = value
 
