@@ -34,9 +34,10 @@ class VyperCore:
 
     """
 
-    def __init__(self, vdatum_directory: str = None, logfile: str = None):
+    def __init__(self, vdatum_directory: str = None, logfile: str = None, silent: bool = False):
         # if vdatum_directory is provided initialize VdatumData with that path
         self.vdatum = VdatumData(vdatum_directory=vdatum_directory)
+        self.silent = silent
 
         self.min_x = None
         self.min_y = None
@@ -61,13 +62,16 @@ class VyperCore:
             raise exception(msg)
 
     def log_warning(self, msg):
-        self.logger.warning(msg)
+        if not self.silent:
+            self.logger.warning(msg)
 
     def log_info(self, msg):
-        self.logger.info(msg)
+        if not self.silent:
+            self.logger.info(msg)
 
     def log_debug(self, msg):
-        self.logger.debug(msg)
+        if not self.silent:
+            self.logger.debug(msg)
 
     def close(self):
         # we want this to wait till all handlers are closed, it seems like you have to make multiple passes sometimes
@@ -206,7 +210,7 @@ class VyperCore:
                     new_crs.add_pipeline(new_pipeline, r)
             return new_crs
         else:
-            self.log_error('No regions specified, unable to construct new vyperdatum crs', ValueError)
+            self.log_error('No Vdatum regions found, data is probably out of bounds', ValueError)
 
     def _transform_to_nad83(self, source_epsg: int, x: np.array, y: np.array, z: np.array = None):
         """

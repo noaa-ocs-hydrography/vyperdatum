@@ -15,8 +15,9 @@ class VyperRaster(VyperCore):
     vertical datum CRS, optionally writing to geotiff.
     """
 
-    def __init__(self, input_file: str = None, is_height: bool = True, vdatum_directory: str = None, logfile: str = None):
-        super().__init__(vdatum_directory, logfile)
+    def __init__(self, input_file: str = None, is_height: bool = True, vdatum_directory: str = None,
+                 logfile: str = None, silent: bool = False):
+        super().__init__(vdatum_directory, logfile, silent)
         self.input_file = input_file
         self.is_height = is_height
         self.input_wkt = None
