@@ -36,8 +36,8 @@ class VyperCore:
 
     def __init__(self, vdatum_directory: str = None, logfile: str = None, silent: bool = False):
         # if vdatum_directory is provided initialize VdatumData with that path
-        self.vdatum = VdatumData(vdatum_directory=vdatum_directory, parent=self)
         self.silent = silent
+        self.vdatum = VdatumData(vdatum_directory=vdatum_directory, parent=self)
 
         self.min_x = None
         self.min_y = None
