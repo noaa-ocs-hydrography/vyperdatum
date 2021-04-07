@@ -467,7 +467,7 @@ class VdatumData:
         self.uncertainties = {}  # dict of file names to uncertainties for each grid
         self.vdatum_path = ''  # path to the parent vdatum folder
 
-        self._config = {}  # dict of all the settings
+        self._config = {'vdatum_path': ''}  # dict of all the settings
         self.config_path_file = ''  # path to the config file that maintains the settings between runs
 
         self._get_stored_vdatum_config()
@@ -532,13 +532,18 @@ class VdatumData:
         """
     
         settings = {}
-        config_file = configparser.ConfigParser()
-        config_file.read(self.config_path_file)
-        sections = config_file.sections()
-        for section in sections:
-            config_file_section = config_file[section]
-            for key in config_file_section:
-                settings[key] = config_file_section[key]
+        try:
+            config_file = configparser.ConfigParser()
+            config_file.read(self.config_path_file)
+            sections = config_file.sections()
+            for section in sections:
+                config_file_section = config_file[section]
+                for key in config_file_section:
+                    settings[key] = config_file_section[key]
+        except:
+            # get a number of exceptions here when reading and writing to the config file in multiprocessing
+            if self.parent:
+                self.parent.log_warning('Unable to read from config file {}'.format(self.config_path_file))
         return settings
 
     def _create_new_config_file(self, default_settings: dict) -> dict:
@@ -557,13 +562,18 @@ class VdatumData:
         dict
             settings within the file
         """
-        config_folder, config_file = os.path.split(self.config_path_file)
-        if not os.path.exists(config_folder):
-            os.mkdir(config_folder)
-        config = configparser.ConfigParser()
-        config['Default'] = default_settings
-        with open(self.config_path_file, 'w') as configfile:
-            config.write(configfile)
+        try:
+            config_folder, config_file = os.path.split(self.config_path_file)
+            if not os.path.exists(config_folder):
+                os.mkdir(config_folder)
+            config = configparser.ConfigParser()
+            config['Default'] = default_settings
+            with open(self.config_path_file, 'w') as configfile:
+                config.write(configfile)
+        except:
+            # get a number of exceptions here when reading and writing to the config file in multiprocessing
+            if self.parent:
+                self.parent.log_warning('Unable to create new config file {}'.format(self.config_path_file))
         return default_settings
 
     def set_vdatum_directory(self, vdatum_path: str):
