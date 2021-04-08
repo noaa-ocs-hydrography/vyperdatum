@@ -510,15 +510,20 @@ class VdatumData:
         """
         Runs on initialization, will read from the ini file and set the vdatum path, config attribute
         """
-        vyperdatum_folder = os.path.join(os.path.expanduser('~'), 'vyperdatum')
-        self.config_path_file = os.path.join(vyperdatum_folder, 'vdatum.config')
-        # get the config
-        if os.path.exists(self.config_path_file):
-            self._config = self._read_from_config_file()
-        else:
-            default_vdatum_path = os.path.join(os.path.splitdrive(sys.executable)[0], '/VDatum')
-            self._config = self._create_new_config_file({'vdatum_path': default_vdatum_path})
-        self.vdatum_path = self._config['vdatum_path']
+        try:
+            vyperdatum_folder = os.path.join(os.path.expanduser('~'), 'vyperdatum')
+            self.config_path_file = os.path.join(vyperdatum_folder, 'vdatum.config')
+            # get the config
+            if os.path.exists(self.config_path_file):
+                self._config = self._read_from_config_file()
+            else:
+                default_vdatum_path = os.path.join(os.path.splitdrive(sys.executable)[0], '/VDatum')
+                self._config = self._create_new_config_file({'vdatum_path': default_vdatum_path})
+            self.vdatum_path = self._config['vdatum_path']
+        except:
+            # get a number of exceptions here when reading and writing to the config file in multiprocessing
+            if self.parent:
+                self.parent.log_warning('Unable to read from existing config file {}'.format(self.config_path_file))
             
     def _read_from_config_file(self):
         """
