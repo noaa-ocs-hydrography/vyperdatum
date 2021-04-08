@@ -6,18 +6,18 @@ datum_definition = {
     'xgeoid18b': ['proj=vgridshift grids=core\\xgeoid18b\\AK_18B.gtx'],
     'navd88'   : ['proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx'],
     'tss'      : ['proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
-                  'proj=vgridshift grids=REGION\\tss.gtx'],
+                  '+inv proj=vgridshift grids=REGION\\tss.gtx'],
     'mllw'     : ['proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
-                  'proj=vgridshift grids=REGION\\tss.gtx',
+                  '+inv proj=vgridshift grids=REGION\\tss.gtx',
                   'proj=vgridshift grids=REGION\\mllw.gtx'],
     'noaa chart datum': ['proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
-                         'proj=vgridshift grids=REGION\\tss.gtx',
+                         '+inv proj=vgridshift grids=REGION\\tss.gtx',
                          'proj=vgridshift grids=REGION\\mllw.gtx'],
     'mhw'     : ['proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
-                 'proj=vgridshift grids=REGION\\tss.gtx',
+                 '+inv proj=vgridshift grids=REGION\\tss.gtx',
                  'proj=vgridshift grids=REGION\\mhw.gtx'],
     'noaa chart height': ['proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
-                          'proj=vgridshift grids=REGION\\tss.gtx',
+                          '+inv proj=vgridshift grids=REGION\\tss.gtx',
                           'proj=vgridshift grids=REGION\\mhw.gtx']
     }
 
