@@ -192,3 +192,45 @@ def test_transform_dataset_with_log():
     vc.close()
     os.remove(logfile)
     assert not os.path.exists(logfile)
+
+
+def test_vdatum_software_compare():
+    point_x = -122.4780505
+    point_y = 47.7890222
+
+    vdatum_sep_from_shapefile_nad83_mllw = 23.73747
+
+    vdatum_online_nad83_mllw = 23.738
+    vdatum_online_nad83_navd88 = 23.083
+    vdatum_online_navd88_lmsl = -1.310
+    vdatum_online_lmsl_mllw = 1.965
+
+    vc = VyperCore()
+    vc.set_region_by_bounds(-122.4781505, 47.7890222, -122.4780505, 47.7891222)
+    x = np.array([point_x])
+    y = np.array([point_y])
+    z = np.array([0.0])
+
+    vc.set_input_datum('nad83')
+    vc.set_output_datum('mllw')
+    _, _, vyperdatum_nad83_mllw, _, _ = vc.transform_dataset(x, y, z, include_vdatum_uncertainty=False,
+                                                             include_region_index=False)
+    vc.set_input_datum('nad83')
+    vc.set_output_datum('navd88')
+    _, _, vyperdatum_nad83_navd88, _, _ = vc.transform_dataset(x, y, z, include_vdatum_uncertainty=False,
+                                                               include_region_index=False)
+    vc.set_input_datum('navd88')
+    vc.set_output_datum('tss')
+    _, _, vyperdatum_navd88_lmsl, _, _ = vc.transform_dataset(x, y, z, include_vdatum_uncertainty=False,
+                                                              include_region_index=False)
+    vc.set_input_datum('tss')
+    vc.set_output_datum('mllw')
+    _, _, vyperdatum_lmsl_mllw, _, _ = vc.transform_dataset(x, y, z, include_vdatum_uncertainty=False,
+                                                            include_region_index=False)
+
+    # currently there is this small difference between the nad83_geoid12b transformation that is in vyperdatum that is not
+    # in vdatum online/vdatum sep from shapefile
+    assert approx(vdatum_online_nad83_mllw == vyperdatum_nad83_mllw, 0.05)
+    assert approx(vdatum_online_nad83_navd88 == vyperdatum_nad83_navd88, 0.05)
+    assert vdatum_online_navd88_lmsl == vyperdatum_navd88_lmsl
+    assert vdatum_online_lmsl_mllw == vyperdatum_lmsl_mllw
