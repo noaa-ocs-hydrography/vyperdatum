@@ -47,7 +47,7 @@ def test_set_input_datum():
 
     assert vc.in_crs.datum_name == 'mllw'
     assert vc.in_crs.pipeline_string == 'proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
-                                        'step proj=vgridshift grids=REGION\\tss.gtx ' \
+                                        'step +inv proj=vgridshift grids=REGION\\tss.gtx ' \
                                         'step proj=vgridshift grids=REGION\\mllw.gtx'
     assert vc.in_crs.regions == ['NCcoast11_8301', 'NCinner11_8301']
 
@@ -74,13 +74,13 @@ def test_transform_dataset():
 
     assert (x == newx).all()
     assert (y == newy).all()
-    assert (newz == np.array([49.490, 49.990, 50.490])).all()
+    assert (newz == np.array([49.518, 50.018, 50.518])).all()
 
     assert vc.out_crs.to_wkt() == 'VERTCRS["mllw",VDATUM["mllw"],' \
                                   'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \
                                   'REMARK["regions=[NCcoast11_8301,NCinner11_8301],' \
                                   'pipeline=proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
-                                  'step proj=vgridshift grids=REGION\\tss.gtx ' \
+                                  'step +inv proj=vgridshift grids=REGION\\tss.gtx ' \
                                   'step proj=vgridshift grids=REGION\\mllw.gtx"]]'
 
 
@@ -96,12 +96,12 @@ def test_transform_dataset_alaska():
 
     assert approx(x == newx, 0.01)
     assert approx(y == newy, 0.01)
-    assert approx(newz == np.array([15.442, 15.676, 15.823]), 0.001)
+    assert approx(newz == np.array([14.932, 15.128, 15.232]), 0.001)
 
     assert vc.out_crs.to_wkt() == 'VERTCRS["mllw",VDATUM["mllw"],' \
                                   'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \
                                   'REMARK["regions=[AKglacier00_8301,AKwhale00_8301],pipeline=proj=pipeline ' \
-                                  'step proj=vgridshift grids=core\\xgeoid17b\\AK_17B.gtx step proj=vgridshift ' \
+                                  'step proj=vgridshift grids=core\\xgeoid17b\\AK_17B.gtx step +inv proj=vgridshift ' \
                                   'grids=REGION\\tss.gtx step proj=vgridshift grids=REGION\\mllw.gtx"]]'
 
 
@@ -136,7 +136,7 @@ def test_transform_dataset_unc():
 
     assert (x == newx).all()
     assert (y == newy).all()
-    assert (newz == np.array([49.490, 49.990, 50.490])).all()  # no vert transformation with 2d source epsg
+    assert (newz == np.array([49.518, 50.018, 50.518])).all()  # no vert transformation with 2d source epsg
     assert (newunc == np.array([0.065, 0.065, 0.065])).all()  # ncinner.mllw=1.5, conus.navd88=5.0
 
 
@@ -155,7 +155,7 @@ def test_transform_dataset_stateplane():
 
     assert (newx == approx(np.array([-75.7917999, -75.7918999, -75.7919999]), 0.000001))
     assert (newy == approx(np.array([36.0156999, 36.01559999, 36.01549999]), 0.000001))
-    assert (newz == np.array([49.490, 49.990, 50.490])).all()  # no vert transformation with 2d source epsg
+    assert (newz == np.array([49.518, 50.018, 50.518])).all()  # no vert transformation with 2d source epsg
     assert (newunc == np.array([0.065, 0.065, 0.065])).all()  # ncinner.mllw=1.5, conus.navd88=5.0
 
 
@@ -171,7 +171,7 @@ def test_transform_dataset_region_index():
 
     assert (x == newx).all()
     assert (y == newy).all()
-    assert (newz == np.array([49.490, 49.990, 50.490])).all()
+    assert (newz == np.array([49.518, 50.018, 50.518])).all()
     assert (newunc == np.array([0.065, 0.065, 0.065])).all()  # ncinner.mllw=1.5, conus.navd88=5.0
     assert np.array(vc.regions)[newregion].tolist() == ['NCinner11_8301', 'NCinner11_8301', 'NCinner11_8301']
 

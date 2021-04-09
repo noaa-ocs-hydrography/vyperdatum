@@ -117,7 +117,7 @@ def test_raster_set_output_datum():
                                   'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \
                                   'REMARK["regions=[MENHMAgome23_8301],' \
                                   'pipeline=proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
-                                  'step proj=vgridshift grids=REGION\\tss.gtx ' \
+                                  'step +inv proj=vgridshift grids=REGION\\tss.gtx ' \
                                   'step proj=vgridshift grids=REGION\\mllw.gtx"]]'
 
 
@@ -152,7 +152,7 @@ def test_raster_compound_crs():
                                            'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \
                                            'REMARK["regions=[MENHMAgome23_8301],' \
                                            'pipeline=proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
-                                           'step proj=vgridshift grids=REGION\\tss.gtx ' \
+                                           'step +inv proj=vgridshift grids=REGION\\tss.gtx ' \
                                            'step proj=vgridshift grids=REGION\\mllw.gtx"]]]'
 
 
@@ -161,10 +161,10 @@ def test_raster_datum_sep():
     vr.set_output_datum('mllw')
     vr.get_datum_sep(100, include_region_index=True)
 
-    assert vr.raster_vdatum_sep[0][0] == approx(29.202, 0.001)
-    assert vr.raster_vdatum_sep[100][100] == approx(29.178, 0.001)
-    assert vr.raster_vdatum_sep[1050][100] == approx(29.064, 0.001)
-    assert vr.raster_vdatum_sep[400][400] == approx(29.110, 0.001)
+    assert vr.raster_vdatum_sep[0][0] == approx(29.415, 0.001)
+    assert vr.raster_vdatum_sep[100][100] == approx(29.391, 0.001)
+    assert vr.raster_vdatum_sep[1050][100] == approx(29.273, 0.001)
+    assert vr.raster_vdatum_sep[400][400] == approx(29.325, 0.001)
 
     assert vr.raster_vdatum_uncertainty[0][0] == approx(0.066, 0.001)
     assert vr.raster_vdatum_uncertainty[100][100] == approx(0.066, 0.001)
@@ -193,9 +193,9 @@ def test_raster_apply_sep():
     cont_layer = layers[2]
 
     assert np.isnan(elev_layer[0][0])
-    assert elev_layer[100][100] == approx(-39.788, 0.001)
-    assert elev_layer[1050][100] == approx(-50.364, 0.001)
-    assert elev_layer[400][400] == approx(-39.670387, 0.001)
+    assert elev_layer[100][100] == approx(-40.001, 0.001)
+    assert elev_layer[1050][100] == approx(-50.573, 0.001)
+    assert elev_layer[400][400] == approx(-39.885, 0.001)
 
     assert np.isnan(unc_layer[0][0])
     assert unc_layer[100][100] == approx(1.276, 0.001)
@@ -218,9 +218,9 @@ def test_raster_transform_raster():
     cont_layer = layers[2]
 
     assert np.isnan(elev_layer[0][0])
-    assert elev_layer[100][100] == approx(-39.788, 0.001)
-    assert elev_layer[1050][100] == approx(-50.364, 0.001)
-    assert elev_layer[400][400] == approx(-39.670387, 0.001)
+    assert elev_layer[100][100] == approx(-40.001, 0.001)
+    assert elev_layer[1050][100] == approx(-50.573, 0.001)
+    assert elev_layer[400][400] == approx(-39.885, 0.001)
 
     assert np.isnan(unc_layer[0][0])
     assert unc_layer[100][100] == approx(1.276, 0.001)
@@ -242,19 +242,19 @@ def test_raster_height_vs_sounding():
     assert test_x_coord == 339662.0
     assert test_y_coord == 4685186.0
     assert vr.layers[vr._get_elevation_layer_index()][100][100] == approx(-10.61, 0.001)
-    assert vr.raster_vdatum_sep[100][100] == approx(29.178, 0.001)
+    assert vr.raster_vdatum_sep[100][100] == approx(29.391, 0.001)
 
-    # final elevation = -(-10.61) - 29.178 = -18.568
+    # final elevation = -(-10.61) - 29.391 = -18.781
     elev_layer = layers[0]
-    assert elev_layer[100][100] == approx(-18.568, 0.001)
+    assert elev_layer[100][100] == approx(-18.781, 0.001)
 
     vr = VyperRaster(test_file, is_height=False)
     layers, layernames, layernodata = vr.transform_raster('mllw', 100, include_region_index=True,
                                                           allow_points_outside_coverage=True)
 
-    # final sounding = -10.61 - 29.178 = -39.788
+    # final sounding = -10.61 - 29.391 = -40.001
     elev_layer = layers[0]
-    assert elev_layer[100][100] == approx(-39.788, 0.001)
+    assert elev_layer[100][100] == approx(-40.001, 0.001)
 
 
 def test_raster_forced_input_vertical_datum():
@@ -270,11 +270,11 @@ def test_raster_forced_input_vertical_datum():
     assert test_x_coord == 339662.0
     assert test_y_coord == 4685186.0
     assert vr.layers[vr._get_elevation_layer_index()][100][100] == approx(-10.61, 0.001)
-    assert vr.raster_vdatum_sep[100][100] == approx(1.446, 0.001)  # geoid12b to mllw
+    assert vr.raster_vdatum_sep[100][100] == approx(1.659, 0.001)  # geoid12b to mllw
 
-    # final sounding at mllw = -10.61 - 1.446 = -12.056
+    # final sounding at mllw = -10.61 - 1.659 = -12.269
     elev_layer = layers[0]
-    assert elev_layer[100][100] == approx(-12.056, 0.001)
+    assert elev_layer[100][100] == approx(-12.269, 0.001)
 
 
 def test_raster_write_to_geotiff():
