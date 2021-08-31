@@ -21,8 +21,8 @@ def test_get_regional_pipeline_upperlower():
 
 def test_get_regional_pipeline_nad83_tss():
     pipe = get_regional_pipeline('NAD83', 'TSS', get_test_grid())
-    assert pipe.count('step proj') == 1
-    assert pipe.count('step +inv proj') == 1
+    assert pipe.count('+step +proj') == 1
+    assert pipe.count('+step +inv +proj') == 1
     assert pipe.count('gtx') == 2
     transformer = Transformer.from_pipeline(pipe)
     result = transformer.transform(xx=-124.853, yy=41.227, zz=0)
@@ -31,8 +31,8 @@ def test_get_regional_pipeline_nad83_tss():
 
 def test_get_regional_pipeline_tss_nad83():
     pipe = get_regional_pipeline('tss', 'nad83', get_test_grid())
-    assert pipe.count('step inv proj') == 1
-    assert pipe.count('step inv +inv proj') == 1
+    assert pipe.count('+step +inv +proj') == 1
+    assert pipe.count('+step +proj') == 1
     assert pipe.count('gtx') == 2
     transformer = Transformer.from_pipeline(pipe)
     result = transformer.transform(xx=-124.853, yy=41.227, zz=0)
@@ -41,8 +41,8 @@ def test_get_regional_pipeline_tss_nad83():
 
 def test_get_regional_pipeline_mllw():
     pipe = get_regional_pipeline('nad83', 'mllw', get_test_grid())
-    assert pipe.count('step proj') == 2
-    assert pipe.count('step +inv proj') == 1
+    assert pipe.count('+step +proj') == 2
+    assert pipe.count('+step +inv +proj') == 1
     assert pipe.count('gtx') == 3
     assert pipe.count('mllw') == 1
     transformer = Transformer.from_pipeline(pipe)
@@ -52,8 +52,8 @@ def test_get_regional_pipeline_mllw():
 
 def test_get_regional_pipeline_mhw():
     pipe = get_regional_pipeline('nad83', 'mhw', get_test_grid())
-    assert pipe.count('step proj') == 2
-    assert pipe.count('step +inv proj') == 1
+    assert pipe.count('+step +proj') == 2
+    assert pipe.count('+step +inv +proj') == 1
     assert pipe.count('gtx') == 3
     assert pipe.count('mhw') == 1
     transformer = Transformer.from_pipeline(pipe)

@@ -46,9 +46,9 @@ def test_set_input_datum():
     vc.set_input_datum('mllw')
 
     assert vc.in_crs.datum_name == 'mllw'
-    assert vc.in_crs.pipeline_string == 'proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
-                                        'step +inv proj=vgridshift grids=REGION\\tss.gtx ' \
-                                        'step proj=vgridshift grids=REGION\\mllw.gtx'
+    assert vc.in_crs.pipeline_string == '+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
+                                        '+step +inv +proj=vgridshift grids=REGION\\tss.gtx ' \
+                                        '+step +proj=vgridshift grids=REGION\\mllw.gtx'
     assert vc.in_crs.regions == ['NCcoast11_8301', 'NCinner11_8301']
 
 
@@ -58,7 +58,7 @@ def test_set_output_datum():
     vc.set_output_datum('geoid12b')
 
     assert vc.out_crs.datum_name == 'geoid12b'
-    assert vc.out_crs.pipeline_string == 'proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx'
+    assert vc.out_crs.pipeline_string == '+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx'
     assert vc.out_crs.regions == ['NCcoast11_8301', 'NCinner11_8301']
 
 
@@ -79,9 +79,9 @@ def test_transform_dataset():
     assert vc.out_crs.to_wkt() == 'VERTCRS["mllw",VDATUM["mllw"],' \
                                   'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \
                                   'REMARK["regions=[NCcoast11_8301,NCinner11_8301],' \
-                                  'pipeline=proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
-                                  'step +inv proj=vgridshift grids=REGION\\tss.gtx ' \
-                                  'step proj=vgridshift grids=REGION\\mllw.gtx"]]'
+                                  'pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
+                                  '+step +inv +proj=vgridshift grids=REGION\\tss.gtx ' \
+                                  '+step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
 
 
 def test_transform_dataset_alaska():
@@ -100,9 +100,9 @@ def test_transform_dataset_alaska():
 
     assert vc.out_crs.to_wkt() == 'VERTCRS["mllw",VDATUM["mllw"],' \
                                   'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \
-                                  'REMARK["regions=[AKglacier00_8301,AKwhale00_8301],pipeline=proj=pipeline ' \
-                                  'step proj=vgridshift grids=core\\xgeoid17b\\AK_17B.gtx step +inv proj=vgridshift ' \
-                                  'grids=REGION\\tss.gtx step proj=vgridshift grids=REGION\\mllw.gtx"]]'
+                                  'REMARK["regions=[AKglacier00_8301,AKwhale00_8301],pipeline=+proj=pipeline ' \
+                                  '+step +proj=vgridshift grids=core\\xgeoid17b\\AK_17B.gtx +step +inv +proj=vgridshift ' \
+                                  'grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
 
 
 def test_transform_dataset_inv():

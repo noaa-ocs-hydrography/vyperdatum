@@ -2,23 +2,23 @@
 
 datum_definition = {
     'nad83'    : [],
-    'geoid12b' : ['proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx'],
-    'xgeoid18b': ['proj=vgridshift grids=core\\xgeoid18b\\AK_18B.gtx'],
-    'navd88'   : ['proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx'],
-    'tss'      : ['proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
-                  '+inv proj=vgridshift grids=REGION\\tss.gtx'],
-    'mllw'     : ['proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
-                  '+inv proj=vgridshift grids=REGION\\tss.gtx',
-                  'proj=vgridshift grids=REGION\\mllw.gtx'],
-    'noaa chart datum': ['proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
-                         '+inv proj=vgridshift grids=REGION\\tss.gtx',
-                         'proj=vgridshift grids=REGION\\mllw.gtx'],
-    'mhw'     : ['proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
-                 '+inv proj=vgridshift grids=REGION\\tss.gtx',
-                 'proj=vgridshift grids=REGION\\mhw.gtx'],
-    'noaa chart height': ['proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
-                          '+inv proj=vgridshift grids=REGION\\tss.gtx',
-                          'proj=vgridshift grids=REGION\\mhw.gtx']
+    'geoid12b' : ['+proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx'],
+    'xgeoid18b': ['+proj=vgridshift grids=core\\xgeoid18b\\AK_18B.gtx'],
+    'navd88'   : ['+proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx'],
+    'tss'      : ['+proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
+                  '+inv +proj=vgridshift grids=REGION\\tss.gtx'],
+    'mllw'     : ['+proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
+                  '+inv +proj=vgridshift grids=REGION\\tss.gtx',
+                  '+proj=vgridshift grids=REGION\\mllw.gtx'],
+    'noaa chart datum': ['+proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
+                         '+inv +proj=vgridshift grids=REGION\\tss.gtx',
+                         '+proj=vgridshift grids=REGION\\mllw.gtx'],
+    'mhw'     : ['+proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
+                 '+inv +proj=vgridshift grids=REGION\\tss.gtx',
+                 '+proj=vgridshift grids=REGION\\mhw.gtx'],
+    'noaa chart height': ['+proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
+                          '+inv +proj=vgridshift grids=REGION\\tss.gtx',
+                          '+proj=vgridshift grids=REGION\\mhw.gtx']
     }
 
 
@@ -60,8 +60,8 @@ def get_regional_pipeline(from_datum: str, to_datum: str, region_name: str, is_a
     output_datum_def = datum_definition[to_datum].copy()
     input_datum_def, output_datum_def = compare_datums(input_datum_def, output_datum_def)
     reversed_input_def = inverse_datum_def(input_datum_def)
-    transformation_def = ['proj=pipeline', *reversed_input_def, *output_datum_def]
-    pipeline = ' step '.join(transformation_def)
+    transformation_def = ['+proj=pipeline', *reversed_input_def, *output_datum_def]
+    pipeline = ' +step '.join(transformation_def)
     regional_pipeline = pipeline.replace('REGION', region_name)
     if is_alaska:
         regional_pipeline = regional_pipeline.replace('geoid12b', 'xgeoid17b')
@@ -135,5 +135,9 @@ def inverse_datum_def(datum_def: list):
     """
     inverse = []
     for layer in datum_def[::-1]:
-        inverse.append(' '.join(['inv', layer]))
+        if '+inv' in layer:
+            nlayer = layer.replace('+inv ', '')
+            inverse.append(nlayer)
+        else:
+            inverse.append(' '.join(['+inv', layer]))
     return inverse
