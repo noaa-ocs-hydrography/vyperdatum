@@ -26,9 +26,9 @@ def test_transform_dataset():
     assert vp.out_crs.to_wkt() == 'VERTCRS["mllw",VDATUM["mllw"],' \
                                   'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \
                                   'REMARK["regions=[MDVAchb12_8301],' \
-                                  'pipeline=proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
-                                  'step +inv proj=vgridshift grids=REGION\\tss.gtx ' \
-                                  'step proj=vgridshift grids=REGION\\mllw.gtx"]]'
+                                  'pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
+                                  '+step +inv +proj=vgridshift grids=REGION\\tss.gtx ' \
+                                  '+step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
 
 
 def test_transform_dataset_mhw():
@@ -45,9 +45,9 @@ def test_transform_dataset_mhw():
     assert vp.out_crs.to_wkt() == 'VERTCRS["noaa chart datum",VDATUM["noaa chart datum"],' \
                                   'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \
                                   'REMARK["regions=[MDVAchb12_8301],' \
-                                  'pipeline=proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
-                                  'step +inv proj=vgridshift grids=REGION\\tss.gtx ' \
-                                  'step proj=vgridshift grids=REGION\\mllw.gtx"]]'
+                                  'pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
+                                  '+step +inv +proj=vgridshift grids=REGION\\tss.gtx ' \
+                                  '+step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
 
 
 def test_transform_dataset_geoid():
@@ -64,9 +64,9 @@ def test_transform_dataset_geoid():
     assert vp.out_crs.to_wkt() == 'VERTCRS["noaa chart datum",VDATUM["noaa chart datum"],' \
                                   'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \
                                   'REMARK["regions=[MDVAchb12_8301],' \
-                                  'pipeline=proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
-                                  'step +inv proj=vgridshift grids=REGION\\tss.gtx ' \
-                                  'step proj=vgridshift grids=REGION\\mllw.gtx"]]'
+                                  'pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
+                                  '+step +inv +proj=vgridshift grids=REGION\\tss.gtx ' \
+                                  '+step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
 
 
 def test_transform_dataset_inv_geoid():
@@ -83,7 +83,7 @@ def test_transform_dataset_inv_geoid():
     assert vp.out_crs.to_wkt() == 'VERTCRS["navd88",VDATUM["navd88"],' \
                                   'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \
                                   'REMARK["regions=[MDVAchb12_8301],' \
-                                  'pipeline=proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx"]]'
+                                  'pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx"]]'
 
 
 def test_transform_dataset_2d_noop():
@@ -100,5 +100,22 @@ def test_transform_dataset_2d_noop():
     assert vp.out_crs.to_wkt() == 'VERTCRS["mllw",VDATUM["mllw"],' \
                                   'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \
                                   'REMARK["regions=[NCinner11_8301],' \
-                                  'pipeline=proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx step ' \
-                                  '+inv proj=vgridshift grids=REGION\\tss.gtx step proj=vgridshift grids=REGION\\mllw.gtx"]]'
+                                  'pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step ' \
+                                  '+inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
+
+
+def test_transform_dataset_2d_plus_mllw_to_navd88():
+    vp = VyperPoints()
+    x = np.array([661951, 661952, 661953])
+    y = np.array([4497577, 4497578, 4497576])
+    z = np.array([0, 0, 0])
+    vp.transform_points(26918, 'navd88', x, y, z=z, force_input_vertical_datum='mllw')
+
+    assert vp.x == approx(np.array([-73.0855, -73.0855, -73.0855]), abs=0.0001)
+    assert vp.y == approx(np.array([40.6131, 40.6131, 40.6131]), abs=0.0001)
+    assert vp.z == approx(np.array([-0.697, -0.697, -0.697]), abs=0.001)
+
+    assert vp.out_crs.to_wkt() == 'VERTCRS["navd88",VDATUM["navd88"],'\
+                                  'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],'\
+                                  'REMARK["regions=[NYgr8bay22_8301],'\
+                                  'pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx"]]'
