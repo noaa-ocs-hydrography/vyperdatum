@@ -94,9 +94,9 @@ def test_transform_dataset_alaska():
     z = np.array([10.5, 11.0, 11.5])
     newx, newy, newz, _, _ = vc.transform_dataset(x, y, z, include_vdatum_uncertainty=False)
 
-    assert approx(x == newx, 0.01)
-    assert approx(y == newy, 0.01)
-    assert approx(newz == np.array([14.932, 15.128, 15.232]), 0.001)
+    assert x == approx(newx, abs=0.01)
+    assert y == approx(newy, abs=0.01)
+    assert newz == approx(np.array([14.932, 15.128, 15.232]), abs=0.001)
 
     assert vc.out_crs.to_wkt() == 'VERTCRS["mllw",VDATUM["mllw"],' \
                                   'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \
@@ -153,10 +153,10 @@ def test_transform_dataset_stateplane():
 
     newx, newy, newz, newunc, _ = vc.transform_dataset(x, y, z)
 
-    assert (newx == approx(np.array([-75.7917999, -75.7918999, -75.7919999]), 0.000001))
-    assert (newy == approx(np.array([36.0156999, 36.01559999, 36.01549999]), 0.000001))
-    assert (newz == np.array([49.518, 50.018, 50.518])).all()  # no vert transformation with 2d source epsg
-    assert (newunc == np.array([0.065, 0.065, 0.065])).all()  # ncinner.mllw=1.5, conus.navd88=5.0
+    assert newx == approx(np.array([-75.7917999, -75.7918999, -75.7919999]), abs=0.000001)
+    assert newy == approx(np.array([36.0156999, 36.01559999, 36.01549999]), abs=0.000001)
+    assert newz == approx(np.array([49.518, 50.018, 50.518]), abs=0.001)  # no vert transformation with 2d source epsg
+    assert newunc == approx(np.array([0.065, 0.065, 0.065]), abs=0.001)  # ncinner.mllw=1.5, conus.navd88=5.0
 
 
 def test_transform_dataset_region_index():
@@ -230,7 +230,7 @@ def test_vdatum_software_compare():
 
     # currently there is this small difference between the nad83_geoid12b transformation that is in vyperdatum that is not
     # in vdatum online/vdatum sep from shapefile
-    assert approx(vdatum_online_nad83_mllw == vyperdatum_nad83_mllw, 0.05)
-    assert approx(vdatum_online_nad83_navd88 == vyperdatum_nad83_navd88, 0.05)
+    assert vdatum_online_nad83_mllw == approx(vyperdatum_nad83_mllw, abs=0.05)
+    assert vdatum_online_nad83_navd88 == approx(vyperdatum_nad83_navd88, abs=0.05)
     assert vdatum_online_navd88_lmsl == vyperdatum_navd88_lmsl
     assert vdatum_online_lmsl_mllw == vyperdatum_lmsl_mllw

@@ -93,9 +93,9 @@ def test_transform_dataset_2d_noop():
     z = np.array([10.5, 11.0, 11.5])
     vp.transform_points(3631, 'mllw', x, y, z=z, include_vdatum_uncertainty=False, force_input_vertical_datum='mllw')
 
-    assert approx(vp.x == np.array([-75.7918, -75.7919, -75.792]), 0.0001)
-    assert approx(vp.y == np.array([36.0157, 36.0156, 36.0155]), 0.0001)
-    assert (vp.z == z).all()
+    assert vp.x == approx(np.array([-75.7918, -75.7919, -75.792]), abs=0.0001)
+    assert vp.y == approx(np.array([36.0157, 36.0156, 36.0155]), abs=0.0001)
+    assert vp.z == approx(z, abs=0.001)
 
     assert vp.out_crs.to_wkt() == 'VERTCRS["mllw",VDATUM["mllw"],' \
                                   'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \

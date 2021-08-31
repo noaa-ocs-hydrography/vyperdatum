@@ -35,10 +35,10 @@ def test_raster_initialize():
     assert vr_one.max_y == 4693254.0
 
     # those same extents, but in NAD83(2011) geographic coordinates, epsg=6319
-    assert vr_one.geographic_min_x == approx(-70.94997811389081, 0.0000001)
-    assert vr_one.geographic_min_y == approx(42.29873069934964, 0.0000001)
-    assert vr_one.geographic_max_x == approx(-70.87503006957049, 0.0000001)
-    assert vr_one.geographic_max_y == approx(42.37624115875231, 0.0000001)
+    assert vr_one.geographic_min_x == approx(-70.94997811389081, abs=0.0000001)
+    assert vr_one.geographic_min_y == approx(42.29873069934964, abs=0.0000001)
+    assert vr_one.geographic_max_x == approx(-70.87503006957049, abs=0.0000001)
+    assert vr_one.geographic_max_y == approx(42.37624115875231, abs=0.0000001)
 
     assert vr_one.input_file == vr_two.input_file
     assert vr_one.geotransform == vr_two.geotransform
@@ -78,14 +78,14 @@ def test_raster_data():
     assert test_y_coord == 4685186.0
 
     assert np.isnan(vr.layers[0][0][0])
-    assert elev_layer[100][100] == approx(-10.61, 0.001)
-    assert elev_layer[1050][100] == approx(-21.3, 0.001)
-    assert elev_layer[400][400] == approx(-10.560385, 0.001)
+    assert elev_layer[100][100] == approx(-10.61, abs=0.001)
+    assert elev_layer[1050][100] == approx(-21.3, abs=0.001)
+    assert elev_layer[400][400] == approx(-10.560385, abs=0.001)
 
     assert np.isnan(vr.layers[1][0][0])
-    assert unc_layer[100][100] == approx(1.21, 0.001)
-    assert unc_layer[1050][100] == approx(1.43, 0.001)
-    assert unc_layer[400][400] == approx(12.316812, 0.001)
+    assert unc_layer[100][100] == approx(1.21, abs=0.001)
+    assert unc_layer[1050][100] == approx(1.43, abs=0.001)
+    assert unc_layer[400][400] == approx(12.316812, abs=0.001)
 
     assert np.isnan(vr.layers[2][0][0])
     assert cont_layer[100][100] == 124.0
@@ -161,15 +161,15 @@ def test_raster_datum_sep():
     vr.set_output_datum('mllw')
     vr.get_datum_sep(100, include_region_index=True)
 
-    assert vr.raster_vdatum_sep[0][0] == approx(29.415, 0.001)
-    assert vr.raster_vdatum_sep[100][100] == approx(29.391, 0.001)
-    assert vr.raster_vdatum_sep[1050][100] == approx(29.273, 0.001)
-    assert vr.raster_vdatum_sep[400][400] == approx(29.325, 0.001)
+    assert vr.raster_vdatum_sep[0][0] == approx(29.415, abs=0.001)
+    assert vr.raster_vdatum_sep[100][100] == approx(29.391, abs=0.001)
+    assert vr.raster_vdatum_sep[1050][100] == approx(29.273, abs=0.001)
+    assert vr.raster_vdatum_sep[400][400] == approx(29.325, abs=0.001)
 
-    assert vr.raster_vdatum_uncertainty[0][0] == approx(0.066, 0.001)
-    assert vr.raster_vdatum_uncertainty[100][100] == approx(0.066, 0.001)
-    assert vr.raster_vdatum_uncertainty[1050][100] == approx(0.066, 0.001)
-    assert vr.raster_vdatum_uncertainty[400][400] == approx(0.066, 0.001)
+    assert vr.raster_vdatum_uncertainty[0][0] == approx(0.066, abs=0.001)
+    assert vr.raster_vdatum_uncertainty[100][100] == approx(0.066, abs=0.001)
+    assert vr.raster_vdatum_uncertainty[1050][100] == approx(0.066, abs=0.001)
+    assert vr.raster_vdatum_uncertainty[400][400] == approx(0.066, abs=0.001)
 
     assert vr.raster_vdatum_region_index[0][0] == 0
     assert vr.raster_vdatum_region_index[100][100] == 0
@@ -193,14 +193,14 @@ def test_raster_apply_sep():
     cont_layer = layers[2]
 
     assert np.isnan(elev_layer[0][0])
-    assert elev_layer[100][100] == approx(-40.001, 0.001)
-    assert elev_layer[1050][100] == approx(-50.573, 0.001)
-    assert elev_layer[400][400] == approx(-39.885, 0.001)
+    assert elev_layer[100][100] == approx(-40.001, abs=0.001)
+    assert elev_layer[1050][100] == approx(-50.573, abs=0.001)
+    assert elev_layer[400][400] == approx(-39.885, abs=0.001)
 
     assert np.isnan(unc_layer[0][0])
-    assert unc_layer[100][100] == approx(1.276, 0.001)
-    assert unc_layer[1050][100] == approx(1.4959999, 0.001)
-    assert unc_layer[400][400] == approx(12.382812, 0.001)
+    assert unc_layer[100][100] == approx(1.276, abs=0.001)
+    assert unc_layer[1050][100] == approx(1.4959999, abs=0.001)
+    assert unc_layer[400][400] == approx(12.382812, abs=0.001)
 
     assert np.isnan(cont_layer[0][0])
     assert cont_layer[100][100] == 124.0
@@ -218,14 +218,14 @@ def test_raster_transform_raster():
     cont_layer = layers[2]
 
     assert np.isnan(elev_layer[0][0])
-    assert elev_layer[100][100] == approx(-40.001, 0.001)
-    assert elev_layer[1050][100] == approx(-50.573, 0.001)
-    assert elev_layer[400][400] == approx(-39.885, 0.001)
+    assert elev_layer[100][100] == approx(-40.001, abs=0.001)
+    assert elev_layer[1050][100] == approx(-50.573, abs=0.001)
+    assert elev_layer[400][400] == approx(-39.885, abs=0.001)
 
     assert np.isnan(unc_layer[0][0])
-    assert unc_layer[100][100] == approx(1.276, 0.001)
-    assert unc_layer[1050][100] == approx(1.4959999, 0.001)
-    assert unc_layer[400][400] == approx(12.382812, 0.001)
+    assert unc_layer[100][100] == approx(1.276, abs=0.001)
+    assert unc_layer[1050][100] == approx(1.4959999, abs=0.001)
+    assert unc_layer[400][400] == approx(12.382812, abs=0.001)
 
     assert np.isnan(cont_layer[0][0])
     assert cont_layer[100][100] == 124.0
@@ -241,12 +241,12 @@ def test_raster_height_vs_sounding():
     test_y_coord = vr.min_y + 100 * vr.resolution_y
     assert test_x_coord == 339662.0
     assert test_y_coord == 4685186.0
-    assert vr.layers[vr._get_elevation_layer_index()][100][100] == approx(-10.61, 0.001)
-    assert vr.raster_vdatum_sep[100][100] == approx(29.391, 0.001)
+    assert vr.layers[vr._get_elevation_layer_index()][100][100] == approx(-10.61, abs=0.001)
+    assert vr.raster_vdatum_sep[100][100] == approx(29.391, abs=0.001)
 
     # final elevation = -(-10.61) - 29.391 = -18.781
     elev_layer = layers[0]
-    assert elev_layer[100][100] == approx(-18.781, 0.001)
+    assert elev_layer[100][100] == approx(-18.781, abs=0.001)
 
     vr = VyperRaster(test_file, is_height=False)
     layers, layernames, layernodata = vr.transform_raster('mllw', 100, include_region_index=True,
@@ -254,7 +254,7 @@ def test_raster_height_vs_sounding():
 
     # final sounding = -10.61 - 29.391 = -40.001
     elev_layer = layers[0]
-    assert elev_layer[100][100] == approx(-40.001, 0.001)
+    assert elev_layer[100][100] == approx(-40.001, abs=0.001)
 
 
 def test_raster_forced_input_vertical_datum():
@@ -269,12 +269,12 @@ def test_raster_forced_input_vertical_datum():
     test_y_coord = vr.min_y + 100 * vr.resolution_y
     assert test_x_coord == 339662.0
     assert test_y_coord == 4685186.0
-    assert vr.layers[vr._get_elevation_layer_index()][100][100] == approx(-10.61, 0.001)
-    assert vr.raster_vdatum_sep[100][100] == approx(1.659, 0.001)  # geoid12b to mllw
+    assert vr.layers[vr._get_elevation_layer_index()][100][100] == approx(-10.61, abs=0.001)
+    assert vr.raster_vdatum_sep[100][100] == approx(1.659, abs=0.001)  # geoid12b to mllw
 
     # final sounding at mllw = -10.61 - 1.659 = -12.269
     elev_layer = layers[0]
-    assert elev_layer[100][100] == approx(-12.269, 0.001)
+    assert elev_layer[100][100] == approx(-12.269, abs=0.001)
 
 
 def test_raster_write_to_geotiff():
@@ -291,9 +291,9 @@ def test_raster_write_to_geotiff():
     newlayernames = [ofile.GetRasterBand(i + 1).GetDescription() for i in range(ofile.RasterCount)]
     ofile = None
 
-    assert approx(layers[0] == newlayers[0], 0.001)
-    assert approx(layers[1] == newlayers[1], 0.001)
-    assert approx(layers[2] == newlayers[2], 0.001)
+    assert layers[0] == approx(newlayers[0], abs=0.001, nan_ok=True)
+    assert layers[1] == approx(newlayers[1], abs=0.001, nan_ok=True)
+    assert layers[2] == approx(newlayers[2], abs=0.001, nan_ok=True)
 
     assert newlayernames == newlayernames
     assert layernodata == newnodatavalue
@@ -323,10 +323,10 @@ def test_raster_write_to_geotiff_new2d():
     assert vr.geotransform[4] == 0.0
 
     # since we supplied a new 2d crs for the output, we get his output_geotranform
-    assert approx(vr.output_geotransform[0] == -70.94997811389081, 0.0000000001)
-    assert approx(vr.output_geotransform[3] == 42.37624115875231, 0.0000000001)
-    assert approx(vr.output_geotransform[1] == 4.707791728663476e-05, 0.0000000001)
-    assert approx(vr.output_geotransform[5] == -3.661334879672518e-05, 0.0000000001)
+    assert vr.output_geotransform[0] == approx(-70.94997811389081, abs=0.000001)
+    assert vr.output_geotransform[3] == approx(42.37624115875231, abs=0.000001)
+    assert vr.output_geotransform[1] == approx(4.707791728663476e-05, abs=0.000001)
+    assert vr.output_geotransform[5] == approx(-3.661334879672518e-05, abs=0.000001)
     assert vr.output_geotransform[2] == 0.0
     assert vr.output_geotransform[4] == 0.0
 
@@ -338,9 +338,9 @@ def test_raster_write_to_geotiff_new2d():
     newlayernames = [ofile.GetRasterBand(i + 1).GetDescription() for i in range(ofile.RasterCount)]
     ofile = None
 
-    assert approx(layers[0] == newlayers[0], 0.001)
-    assert approx(layers[1] == newlayers[1], 0.001)
-    assert approx(layers[2] == newlayers[2], 0.001)
+    assert layers[0] == approx(newlayers[0], abs=0.001, nan_ok=True)
+    assert layers[1] == approx(newlayers[1], abs=0.001, nan_ok=True)
+    assert layers[2] == approx(newlayers[2], abs=0.001, nan_ok=True)
 
     assert newlayernames == newlayernames
     assert layernodata == newnodatavalue
