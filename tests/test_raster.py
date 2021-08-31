@@ -116,9 +116,9 @@ def test_raster_set_output_datum():
                                   'VDATUM["mllw"],' \
                                   'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \
                                   'REMARK["regions=[MENHMAgome23_8301],' \
-                                  'pipeline=proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
-                                  'step +inv proj=vgridshift grids=REGION\\tss.gtx ' \
-                                  'step proj=vgridshift grids=REGION\\mllw.gtx"]]'
+                                  'pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
+                                  '+step +inv +proj=vgridshift grids=REGION\\tss.gtx ' \
+                                  '+step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
 
 
 def test_raster_compound_crs():
@@ -151,9 +151,9 @@ def test_raster_compound_crs():
                                            'VDATUM["mllw"],' \
                                            'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \
                                            'REMARK["regions=[MENHMAgome23_8301],' \
-                                           'pipeline=proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
-                                           'step +inv proj=vgridshift grids=REGION\\tss.gtx ' \
-                                           'step proj=vgridshift grids=REGION\\mllw.gtx"]]]'
+                                           'pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
+                                           '+step +inv +proj=vgridshift grids=REGION\\tss.gtx ' \
+                                           '+step +proj=vgridshift grids=REGION\\mllw.gtx"]]]'
 
 
 def test_raster_datum_sep():
