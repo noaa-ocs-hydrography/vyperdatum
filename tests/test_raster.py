@@ -115,7 +115,7 @@ def test_raster_set_output_datum():
     assert vr.out_crs.to_wkt() == 'VERTCRS["mllw",' \
                                   'VDATUM["mllw"],' \
                                   'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \
-                                  'REMARK["regions=[MENHMAgome23_8301],' \
+                                  f'REMARK["regions=[{",".join(vr.regions)}],'\
                                   'pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
                                   '+step +inv +proj=vgridshift grids=REGION\\tss.gtx ' \
                                   '+step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
@@ -150,7 +150,7 @@ def test_raster_compound_crs():
                                            'VERTCRS["mllw",' \
                                            'VDATUM["mllw"],' \
                                            'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \
-                                           'REMARK["regions=[MENHMAgome23_8301],' \
+                                           f'REMARK["regions=[{",".join(vr.regions)}],'\
                                            'pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
                                            '+step +inv +proj=vgridshift grids=REGION\\tss.gtx ' \
                                            '+step +proj=vgridshift grids=REGION\\mllw.gtx"]]]'
@@ -177,7 +177,7 @@ def test_raster_datum_sep():
     assert vr.raster_vdatum_region_index[400][400] == 0
 
     # region index is just an index for the regions attribute
-    assert vr.regions[0] == 'MENHMAgome23_8301'
+    assert vr.regions[0].find('MENHMAgome') != -1
     # see if the data is fully covered by the vdatum regions
     assert vr.is_covered
 

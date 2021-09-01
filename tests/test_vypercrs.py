@@ -68,9 +68,9 @@ def test_transformation_inv_nad83():
 
     cstwo = VerticalPipelineCRS("nad83")
     pipe = get_transformation_pipeline(cs, cstwo, "TXlaggal01_8301")
-    assert pipe == 'proj=pipeline step inv proj=vgridshift grids=TXlaggal01_8301\\mllw.gtx ' \
-                   'step inv +inv proj=vgridshift grids=TXlaggal01_8301\\tss.gtx ' \
-                   'step inv proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx'
+    assert pipe == '+proj=pipeline +step +inv +proj=vgridshift grids=TXlaggal01_8301\\mllw.gtx ' \
+                   '+step +proj=vgridshift grids=TXlaggal01_8301\\tss.gtx ' \
+                   '+step +inv +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx'
 
 
 def test_transformation_tss():
@@ -83,7 +83,7 @@ def test_transformation_tss():
                        "TXlagmat01_8301")
 
     pipe = get_transformation_pipeline(cs, cstwo, "TXlagmat01_8301")
-    assert pipe == 'proj=pipeline step proj=vgridshift grids=TXlagmat01_8301\\mllw.gtx'
+    assert pipe == '+proj=pipeline +step +proj=vgridshift grids=TXlagmat01_8301\\mllw.gtx'
 
 
 def test_transformation_noregion():

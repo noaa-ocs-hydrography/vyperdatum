@@ -36,7 +36,7 @@ def test_get_regional_pipeline_tss_nad83():
     assert pipe.count('gtx') == 2
     transformer = Transformer.from_pipeline(pipe)
     result = transformer.transform(xx=-124.853, yy=41.227, zz=0)
-    assert result == (-124.853, 41.227000000000004, -32.898481067287214)
+    assert result == (-124.853, 41.227000000000004, -30.86302107201744)
 
 
 def test_get_regional_pipeline_mllw():
