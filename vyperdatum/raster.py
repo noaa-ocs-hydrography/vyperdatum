@@ -5,7 +5,6 @@ from osgeo import gdal
 from pyproj import Transformer, CRS
 from pyproj.exceptions import CRSError
 
-
 from vyperdatum.core import VyperCore
 
 
@@ -291,7 +290,7 @@ class VyperRaster(VyperCore):
         self.log_info(f'Applying vdatum separation model to {self.raster_vdatum_sep.size} total points')
 
         if self.is_height:
-            final_elevation_layer = -elevation_layer - self.raster_vdatum_sep
+            final_elevation_layer = elevation_layer + self.raster_vdatum_sep
         else:
             final_elevation_layer = elevation_layer - self.raster_vdatum_sep
 
