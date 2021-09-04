@@ -450,6 +450,65 @@ class VyperCore:
         else:
             self.log_error('No regions specified, unable to transform points', ValueError)
 
+    def transform_dataset_for_region(self, region, x: np.array, y: np.array, z: np.array = None, include_vdatum_uncertainty: bool = True):
+        """
+        Transform all relevant points provided for the defined region.
+
+        Parameters
+        ----------
+        region
+            the name of a region as found in VDatum
+        x
+            longitude of the input data
+        y
+            latitude of the input data
+        z
+            optional, depth value of the input data, if not provided will use all zeros include_vdatum_uncertainty
+        include_vdatum_uncertainty
+            if True, will return the combined separation uncertainty for each point
+
+        Returns
+        -------
+        tuple
+            contains: transformed x value (if EPSG code is provided, else original x value),
+                      transformed y value (if EPSG code is provided, else original y value),
+                      transformed z value,
+                      combined uncertainty for each vdatum layer if include_vdatum_uncertainty, otherwise None,
+                      pipeline string used for conversion.
+        """
+        if region in self.vdatum.regions:
+            if self.base_horiz_crs:
+                x, y, z = self._transform_to_nad83(self.base_horiz_crs, x, y, z)
+            ans_x = np.full_like(x, np.nan)
+            ans_y = np.full_like(y, np.nan)
+            if z is None:
+                z = np.zeros(len(x))
+            ans_z = np.full_like(z, np.nan)
+            if include_vdatum_uncertainty:
+                ans_unc = np.full_like(z, np.nan)
+            else:
+                ans_unc = None
+
+            # get the pipeline
+            pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.is_alaska())
+            if pipeline:
+                tmp_x, tmp_y, tmp_z = self._run_pipeline(x, y, pipeline, z=z)
+            else:
+                tmp_x, tmp_y, tmp_z = x, y, z
+
+            # areas outside the coverage of the vert shift are inf
+            valid_index = ~np.isinf(tmp_z)
+            ans_x[valid_index] = tmp_x[valid_index]
+            ans_y[valid_index] = tmp_y[valid_index]
+            ans_z[valid_index] = tmp_z[valid_index]
+            if include_vdatum_uncertainty:
+                ans_unc[valid_index] = self._get_output_uncertainty(region)
+
+            self.log_info(f'transformed {len(np.where(valid_index)[0])} of {len(ans_z)} points from {self.in_crs.datum_name} to {self.out_crs.datum_name} in region {region}')
+            return ans_x, ans_y, np.round(ans_z, 3), ans_unc, pipeline
+        else:
+            self.log_error(f'Region {region} not found in VDatum.', ValueError)
+
 
 class VdatumData:
     """
@@ -598,7 +657,7 @@ class VdatumData:
             datadir.append_data_dir(vdatum_path)
     
         # also want to populate grids and polygons with what we find
-        self.grid_files = get_gtx_grid_list(vdatum_path)
+        self.grid_files, self.regions = get_gtx_grid_list(vdatum_path)
         self.polygon_files = get_vdatum_region_polygons(vdatum_path)
         self.uncertainties = get_vdatum_uncertainties(vdatum_path)
 
@@ -626,13 +685,16 @@ def get_gtx_grid_list(vdatum_directory: str):
         errmsg = f'No GTX files found in the provided VDatum directory: {vdatum_directory}'
         print(errmsg)
     grids = {}
+    regions = []
     for gtx in gtx_list:
         gtx_path, gtx_file = os.path.split(gtx)
         gtx_path, gtx_folder = os.path.split(gtx_path)
         gtx_name = '/'.join([gtx_folder, gtx_file])
         gtx_subpath = os.path.join(gtx_folder, gtx_file)
         grids[gtx_name] = gtx_subpath
-    return grids
+        regions.append(gtx_folder)
+    regions = set(regions)
+    return grids, regions
 
 
 def get_vdatum_region_polygons(vdatum_directory: str):
