@@ -185,7 +185,7 @@ class VyperRaster(VyperCore):
         super().set_output_datum(output_datum)
         self.out_crs.horiz_wkt = self.input_wkt
 
-    def get_datum_sep(self, sampling_distance: float):
+    def get_datum_sep(self, sampling_distance: float, include_region_index: bool = False):
         """
         Use the provided raster and pipeline to get the separation over the raster area.
 
@@ -205,47 +205,33 @@ class VyperRaster(VyperCore):
             self.log_error('Output datum must be set with the set_output_datum method before operation', ValueError)
 
         xx_sampled, yy_sampled, x_range, y_range = sample_array(self.min_x, self.max_x, self.min_y, self.max_y, sampling_distance)
-        self.pipelines = []
-        self.regional_seps = []
-        self.regional_uncertainties = []
-        valid_counts = []
-        valid_idx = []
-        for region in self.regions:
-            # get sep value across all regions for all grid cells at sampling distance
-            geo_xx, geo_yy, sep, sep_unc, pipeline = self.transform_dataset_for_region(region, 
-                                                                                       xx_sampled.ravel(), 
-                                                                                       yy_sampled.ravel(),
-                                                                                       include_vdatum_uncertainty=True)
-            self.pipelines.append(pipeline)
+        # get sep value across all regions for all grid cells at sampling distance
+        geo_xx, geo_yy, sep, sep_unc, sep_region_index = self.transform_dataset(xx_sampled.ravel(), yy_sampled.ravel(),
+                                                                                include_vdatum_uncertainty=True,
+                                                                                include_region_index=include_region_index)
+        # ignore the geographic return from transform, keep on with the raster coordinates
+        valid_count = np.count_nonzero(sep)
+        invalid_count = sep.size - valid_count
+        self.log_info(f'Found {valid_count} valid cells at {sampling_distance} m spacing, unable to determine sep value for '
+                      f'{invalid_count} cells')
 
-            # get grids of equal size to the raster layers we are transforming
-            if self.resolution_x != self.resolution_y:
-                self.log_error('get_datum_sep: This currently only works when resx and resy are the same', NotImplementedError)
-            raster_sep_x, raster_sep_y, _, _ = sample_array(self.min_x, self.max_x, self.min_y, self.max_y, self.resolution_x,
-                                                            center=False)
-            # bin the raster cell locations to get which sep value applies
-            x_bins = np.digitize(raster_sep_x.ravel(), x_range[:-1])
-            y_bins = np.digitize(raster_sep_y.ravel(), y_range[:-1])
-    
-            sep = sep.reshape(xx_sampled.shape)
-            regional_sep = np.flipud(sep[y_bins, x_bins].reshape(self.height, self.width).astype(np.float32))
+        # get grids of equal size to the raster layers we are transforming
+        if self.resolution_x != self.resolution_y:
+            self.log_error('get_datum_sep: This currently only works when resx and resy are the same', NotImplementedError)
+        raster_sep_x, raster_sep_y, _, _ = sample_array(self.min_x, self.max_x, self.min_y, self.max_y, self.resolution_x,
+                                                        center=False)
+        # bin the raster cell locations to get which sep value applies
+        x_bins = np.digitize(raster_sep_x.ravel(), x_range[:-1])
+        y_bins = np.digitize(raster_sep_y.ravel(), y_range[:-1])
+
+        sep = sep.reshape(xx_sampled.shape)
+        self.raster_vdatum_sep = sep[y_bins, x_bins].reshape(self.height, self.width).astype(np.float32)
+        if sep_unc is not None:
             sep_unc = sep_unc.reshape(xx_sampled.shape)
-            regional_uncertainty = np.flipud(sep_unc[y_bins, x_bins].reshape(self.height, self.width).astype(np.float32))
-            # should we find the missing points in the grid and try them again to limit small gaps?
-            self.regional_seps.append(regional_sep)
-            self.regional_uncertainties.append(regional_uncertainty)
-            valid = np.where(~np.isnan(regional_sep))
-            valid_idx.append(valid)
-            valid_counts.append(len(valid[0]))
-        # combine the regional seps
-        self.raster_vdatum_sep = np.full((self.height, self.width), np.nan)
-        self.raster_vdatum_uncertainty = np.full((self.height, self.width), np.nan)
-        self.raster_vdatum_region_index = np.full((self.height, self.width), np.nan)
-        stack_order = np.argsort(valid_counts)
-        for idx in stack_order:
-            self.raster_vdatum_sep[valid_idx[idx]] = self.regional_seps[idx][valid_idx[idx]]
-            self.raster_vdatum_uncertainty[valid_idx[idx]] = self.regional_uncertainties[idx][valid_idx[idx]]
-            self.raster_vdatum_region_index[valid_idx[idx]] = idx
+            self.raster_vdatum_uncertainty = sep_unc[y_bins, x_bins].reshape(self.height, self.width).astype(np.float32)
+        if sep_region_index is not None:
+            sep_region_index = sep_region_index.reshape(xx_sampled.shape)
+            self.raster_vdatum_region_index = sep_region_index[y_bins, x_bins].reshape(self.height, self.width)
 
     def apply_sep(self, allow_points_outside_coverage: bool = False):
         """
@@ -331,8 +317,8 @@ class VyperRaster(VyperCore):
         return layers, layernames, layernodata
 
     def transform_raster(self, output_datum: str, sampling_distance: float, input_datum: int = None,
-                         allow_points_outside_coverage: bool = False, force_input_vertical_datum: str = None, 
-                         new_2d_crs: int = None, output_file: str = None):
+                         include_region_index: bool = False, allow_points_outside_coverage: bool = False,
+                         force_input_vertical_datum: str = None, new_2d_crs: int = None, output_file: str = None):
         """
         Main method of this class, contains all the other methods and allows you to transform the source raster to a
         different vertical datum using VDatum.
@@ -390,7 +376,7 @@ class VyperRaster(VyperCore):
 
         start_cnt = perf_counter()
         self.log_info(f'Begin work on {os.path.basename(self.input_file)}')
-        self.get_datum_sep(sampling_distance)
+        self.get_datum_sep(sampling_distance, include_region_index=include_region_index)
         layers, layernames, layernodata = self.apply_sep(allow_points_outside_coverage=allow_points_outside_coverage)
         if output_file:
             if layernodata[2]:  # contributor
