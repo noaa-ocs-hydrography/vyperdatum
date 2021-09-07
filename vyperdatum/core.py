@@ -426,8 +426,8 @@ class VyperCore:
             else:
                 ans_region = None
 
-            self.pipelines = []
             for cnt, region in enumerate(self.regions):
+                self.pipelines = []
                 # get the pipeline
                 pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.is_alaska())
                 if pipeline:
