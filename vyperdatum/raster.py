@@ -6,6 +6,7 @@ from pyproj import Transformer, CRS
 from pyproj.exceptions import CRSError
 
 from vyperdatum.core import VyperCore
+from vyperdatum.vypercrs import get_transformation_pipeline
 
 
 class VyperRaster(VyperCore):
@@ -211,32 +212,48 @@ class VyperRaster(VyperCore):
         valid_counts = []
         valid_idx = []
         for region in self.regions:
-            # get sep value across all regions for all grid cells at sampling distance
-            geo_xx, geo_yy, sep, sep_unc, pipeline = self.transform_dataset_for_region(region, 
-                                                                                       xx_sampled.ravel(), 
-                                                                                       yy_sampled.ravel(),
-                                                                                       include_vdatum_uncertainty=True)
+            if region not in self.vdatum.regions:
+                self.log_error('Unable to find elevation layer', ValueError)
+            # get the pipeline
+            regional_sep = None
+            pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.is_alaska())
             self.pipelines.append(pipeline)
-
-            # get grids of equal size to the raster layers we are transforming
-            if self.resolution_x != self.resolution_y:
-                self.log_error('get_datum_sep: This currently only works when resx and resy are the same', NotImplementedError)
-            raster_sep_x, raster_sep_y, _, _ = sample_array(self.min_x, self.max_x, self.min_y, self.max_y, self.resolution_x,
-                                                            center=False)
-            # bin the raster cell locations to get which sep value applies
-            x_bins = np.digitize(raster_sep_x.ravel(), x_range[:-1])
-            y_bins = np.digitize(raster_sep_y.ravel(), y_range[:-1])
-    
-            sep = sep.reshape(xx_sampled.shape)
-            regional_sep = np.flipud(sep[y_bins, x_bins].reshape(self.height, self.width).astype(np.float32))
-            sep_unc = sep_unc.reshape(xx_sampled.shape)
-            regional_uncertainty = np.flipud(sep_unc[y_bins, x_bins].reshape(self.height, self.width).astype(np.float32))
-            # should we find the missing points in the grid and try them again to limit small gaps?
+            # get the files for the pipeline
+            for cmd in pipeline.split(' +step '):
+                if cmd.find('vgridshift') >= 0:
+                    inv = False
+                    cmd_parts = cmd.split()
+                    for part in cmd_parts:
+                        if part == '+inv':
+                            inv = True
+                        elif part.startswith('grids='):
+                            junk, grid_file = part.split('=')
+                            grid_path = os.path.join(self.vdatum.vdatum_path, grid_file)
+                            tmp, ext = os.path.splitext(grid_file)
+                            region_name, grid_name = os.path.split(tmp)
+                    # transform, crop and resample the source grid
+                    ds = gdal.Warp('', grid_path, format = 'MEM', dstSRS = f'EPSG:{self.base_horiz_crs}', 
+                                   xRes = self.resolution_x, yRes = self.resolution_y, 
+                                   outputBounds = [self.min_x, self.min_y, self.max_x, self.max_y])
+                    band = ds.GetRasterBand(1)
+                    array = band.ReadAsArray()
+                    nodata = band.GetNoDataValue()
+                    array[np.where(array == nodata)] = np.nan
+                    if not inv:
+                        array *= -1
+                    ds = None
+                    if regional_sep is None:
+                        regional_sep = array.copy()
+                    else:
+                        regional_sep += array
             self.regional_seps.append(regional_sep)
-            self.regional_uncertainties.append(regional_uncertainty)
             valid = np.where(~np.isnan(regional_sep))
             valid_idx.append(valid)
             valid_counts.append(len(valid[0]))
+            datum_unc = self._get_output_uncertainty(region)
+            regional_uncertainty = np.full(regional_sep.shape, np.nan)
+            regional_uncertainty[valid] = datum_unc
+            self.regional_uncertainties.append(regional_uncertainty)
         # combine the regional seps
         self.raster_vdatum_sep = np.full((self.height, self.width), np.nan)
         self.raster_vdatum_uncertainty = np.full((self.height, self.width), np.nan)
