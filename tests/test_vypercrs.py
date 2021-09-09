@@ -120,7 +120,123 @@ def test_transformation_unsupported_name():
         assert False
     except NotImplementedError:  # name specified in cstwo was not in the datum definition dictionary
         assert True
+        
+def test_vyperpipeline_1():
+    # test adding a vertical crs from a vyperdatum datum definition
+    cs = VyperPipelineCRS()
+    cs.set_crs("NOAA Chart Datum")
+    assert cs.horizontal == None
+    assert cs.is_valid == False
+    assert cs.to_wkt() == None
+    assert cs.vertical.to_wkt() == 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1]],REMARK["regions=[],pipeline="]]'
+    
+def test_vyperpipeline_2():
+    # test adding a vertical crs from a vyperdatum datum definition with two regions
+    cs = VyperPipelineCRS()
+    cs.set_crs("NOAA Chart Datum", ['TXlagmat01_8301', 'TXlaggal01_8301'])
+    assert cs.horizontal == None
+    assert cs.is_valid == False
+    assert cs.to_wkt() == None
+    assert cs.vertical.to_wkt() == 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1]],REMARK["regions=[,TXlagmat01_8301,TXlaggal01_8301],pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
+    
+def test_vyperpipeline_3():
+    # test adding a vertical crs from a vyperdatum datum definition and then a region and then another
+    cs = VyperPipelineCRS()
+    cs.set_crs("NOAA Chart Datum")
+    cs.update_regions(['TXlagmat01_8301'])
+    assert cs.horizontal == None
+    assert cs.is_valid == False
+    assert cs.to_wkt() == None
+    assert cs.vertical.to_wkt() == 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1]],REMARK["regions=[,TXlagmat01_8301],pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
+    cs.update_regions(['TXlaggal01_8301'])
+    assert cs.vertical.to_wkt() == 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1]],REMARK["regions=[,TXlagmat01_8301,TXlaggal01_8301],pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
+    
+def test_vyperpipeline_4():
+    # test adding a vertical crs from wkt definition and then a region
+    cs = VyperPipelineCRS()
+    vert_wkt = 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1]]]'
+    cs.set_crs(vert_wkt)
+    cs.update_regions(['TXlagmat01_8301'])
+    assert cs.horizontal == None
+    assert cs.is_valid == False
+    assert cs.to_wkt() == None
+    assert cs.vertical.to_wkt() == 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1]],REMARK["regions=[TXlagmat01_8301],pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
+    
+def test_vyperpipeline_5():
+    # test adding a vertical crs and then a region and then a horizontal crs
+    cs = VyperPipelineCRS()
+    vert_wkt = 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1]]]'
+    cs.set_crs(vert_wkt)
+    cs.update_regions(['TXlagmat01_8301'])
+    cs.set_crs(26914)
+    assert cs.horizontal.to_wkt() == 'PROJCRS["NAD83 / UTM zone 14N",BASEGEOGCRS["NAD83",DATUM["North American Datum 1983",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4269]],CONVERSION["UTM zone 14N",METHOD["Transverse Mercator",ID["EPSG",9807]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",-99,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["Scale factor at natural origin",0.9996,SCALEUNIT["unity",1],ID["EPSG",8805]],PARAMETER["False easting",500000,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],AXIS["(E)",east,ORDER[1],LENGTHUNIT["metre",1]],AXIS["(N)",north,ORDER[2],LENGTHUNIT["metre",1]],USAGE[SCOPE["Engineering survey, topographic mapping."],AREA["North America - between 102°W and 96°W - onshore and offshore. Canada - Manitoba; Nunavut; Saskatchewan. United States (USA) - Iowa; Kansas; Minnesota; Nebraska; North Dakota; Oklahoma; South Dakota; Texas."],BBOX[25.83,-102,84,-96]],ID["EPSG",26914]]'
+    assert cs.is_valid == True
+    assert cs.to_wkt() == 'COMPOUNDCRS["NAD83 / UTM zone 14N + NOAA Chart Datum",PROJCRS["NAD83 / UTM zone 14N",BASEGEOGCRS["NAD83",DATUM["North American Datum 1983",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4269]],CONVERSION["UTM zone 14N",METHOD["Transverse Mercator",ID["EPSG",9807]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",-99,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["Scale factor at natural origin",0.9996,SCALEUNIT["unity",1],ID["EPSG",8805]],PARAMETER["False easting",500000,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],AXIS["(E)",east,ORDER[1],LENGTHUNIT["metre",1]],AXIS["(N)",north,ORDER[2],LENGTHUNIT["metre",1]],USAGE[SCOPE["Engineering survey, topographic mapping."],AREA["North America - between 102°W and 96°W - onshore and offshore. Canada - Manitoba; Nunavut; Saskatchewan. United States (USA) - Iowa; Kansas; Minnesota; Nebraska; North Dakota; Oklahoma; South Dakota; Texas."],BBOX[25.83,-102,84,-96]],ID["EPSG",26914]],VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1,ID["EPSG",9001]]],REMARK["regions=[TXlagmat01_8301],pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]]'
 
+def test_vyperpipeline_6():
+    # test adding a horizontal and then a vertical crs
+    cs = VyperPipelineCRS()
+    vert_wkt = 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1]]]'
+    cs.set_crs(26914)
+    cs.set_crs(vert_wkt)
+    assert cs.horizontal.to_wkt() == 'PROJCRS["NAD83 / UTM zone 14N",BASEGEOGCRS["NAD83",DATUM["North American Datum 1983",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4269]],CONVERSION["UTM zone 14N",METHOD["Transverse Mercator",ID["EPSG",9807]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",-99,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["Scale factor at natural origin",0.9996,SCALEUNIT["unity",1],ID["EPSG",8805]],PARAMETER["False easting",500000,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],AXIS["(E)",east,ORDER[1],LENGTHUNIT["metre",1]],AXIS["(N)",north,ORDER[2],LENGTHUNIT["metre",1]],USAGE[SCOPE["Engineering survey, topographic mapping."],AREA["North America - between 102°W and 96°W - onshore and offshore. Canada - Manitoba; Nunavut; Saskatchewan. United States (USA) - Iowa; Kansas; Minnesota; Nebraska; North Dakota; Oklahoma; South Dakota; Texas."],BBOX[25.83,-102,84,-96]],ID["EPSG",26914]]'
+    assert cs.is_valid == False
+    assert cs.to_wkt() == None
+    
+def test_vyperpipeline_7():
+    # test adding a horizontal and vertical crs with region
+    cs = VyperPipelineCRS()
+    vert_wkt = 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1]]]'
+    cs.set_crs((26914, vert_wkt), ['TXlagmat01_8301', 'TXlaggal01_8301'])
+    assert cs.horizontal.to_wkt() == 'PROJCRS["NAD83 / UTM zone 14N",BASEGEOGCRS["NAD83",DATUM["North American Datum 1983",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4269]],CONVERSION["UTM zone 14N",METHOD["Transverse Mercator",ID["EPSG",9807]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",-99,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["Scale factor at natural origin",0.9996,SCALEUNIT["unity",1],ID["EPSG",8805]],PARAMETER["False easting",500000,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],AXIS["(E)",east,ORDER[1],LENGTHUNIT["metre",1]],AXIS["(N)",north,ORDER[2],LENGTHUNIT["metre",1]],USAGE[SCOPE["Engineering survey, topographic mapping."],AREA["North America - between 102°W and 96°W - onshore and offshore. Canada - Manitoba; Nunavut; Saskatchewan. United States (USA) - Iowa; Kansas; Minnesota; Nebraska; North Dakota; Oklahoma; South Dakota; Texas."],BBOX[25.83,-102,84,-96]],ID["EPSG",26914]]'
+    assert cs.is_valid == True
+    
+def test_vyperpipeline_8():
+    # test adding a horizontal and vertical crs with region in the vertical wkt
+    cs = VyperPipelineCRS()
+    vert_wkt = 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1]],REMARK["regions=[TXlagmat01_8301,TXlaggal01_8301],pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
+    cs.set_crs((26914, vert_wkt))
+    assert cs.is_valid == True
+    assert cs.regions == ['TXlagmat01_8301', 'TXlaggal01_8301']
+    
+def test_vyperpipeline_9():
+    # test adding a horizontal and vertical crs with region in the vertical wkt, and then updating the horizontal crs simulating an override condition
+    cs = VyperPipelineCRS()
+    vert_wkt = 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1]],REMARK["regions=[TXlagmat01_8301,TXlaggal01_8301],pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
+    cs.set_crs((26914, vert_wkt))
+    cs.set_crs(26915)
+    assert cs.is_valid == True
+    assert cs.to_wkt() == 'COMPOUNDCRS["NAD83 / UTM zone 15N + NOAA Chart Datum",PROJCRS["NAD83 / UTM zone 15N",BASEGEOGCRS["NAD83",DATUM["North American Datum 1983",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4269]],CONVERSION["UTM zone 15N",METHOD["Transverse Mercator",ID["EPSG",9807]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",-93,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["Scale factor at natural origin",0.9996,SCALEUNIT["unity",1],ID["EPSG",8805]],PARAMETER["False easting",500000,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],AXIS["(E)",east,ORDER[1],LENGTHUNIT["metre",1]],AXIS["(N)",north,ORDER[2],LENGTHUNIT["metre",1]],USAGE[SCOPE["Engineering survey, topographic mapping."],AREA["North America - between 96°W and 90°W - onshore and offshore. Canada - Manitoba; Nunavut; Ontario. United States (USA) - Arkansas; Illinois; Iowa; Kansas; Louisiana; Michigan; Minnesota; Mississippi; Missouri; Nebraska; Oklahoma; Tennessee; Texas; Wisconsin."],BBOX[25.61,-96,84,-90]],ID["EPSG",26915]],VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1,ID["EPSG",9001]]],REMARK["regions=[TXlagmat01_8301,TXlaggal01_8301],pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]]'
+    
+def test_vyperpipeline_10():
+    # test adding a compound crs without region in the vertical wkt
+    cs = VyperPipelineCRS()
+    compound_wkt = 'COMPOUNDCRS["NAD83 / UTM zone 15N + NOAA Chart Datum",PROJCRS["NAD83 / UTM zone 15N",BASEGEOGCRS["NAD83",DATUM["North American Datum 1983",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4269]],CONVERSION["UTM zone 15N",METHOD["Transverse Mercator",ID["EPSG",9807]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",-93,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["Scale factor at natural origin",0.9996,SCALEUNIT["unity",1],ID["EPSG",8805]],PARAMETER["False easting",500000,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],AXIS["(E)",east,ORDER[1],LENGTHUNIT["metre",1]],AXIS["(N)",north,ORDER[2],LENGTHUNIT["metre",1]],USAGE[SCOPE["Engineering survey, topographic mapping."],AREA["North America - between 96°W and 90°W - onshore and offshore. Canada - Manitoba; Nunavut; Ontario. United States (USA) - Arkansas; Illinois; Iowa; Kansas; Louisiana; Michigan; Minnesota; Mississippi; Missouri; Nebraska; Oklahoma; Tennessee; Texas; Wisconsin."],BBOX[25.61,-96,84,-90]],ID["EPSG",26915]],VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1,ID["EPSG",9001]]]]]'
+    cs.set_crs(compound_wkt)
+    assert cs.horizontal.to_epsg() == 26915
+    assert cs.vertical == None
+    assert cs.is_valid == False
+    
+def test_vyperpipeline_11():
+    # test adding a compound crs with the region in the vertical wkt
+    cs = VyperPipelineCRS()
+    compound_wkt = 'COMPOUNDCRS["NAD83 / UTM zone 15N + NOAA Chart Datum",PROJCRS["NAD83 / UTM zone 15N",BASEGEOGCRS["NAD83",DATUM["North American Datum 1983",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4269]],CONVERSION["UTM zone 15N",METHOD["Transverse Mercator",ID["EPSG",9807]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",-93,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["Scale factor at natural origin",0.9996,SCALEUNIT["unity",1],ID["EPSG",8805]],PARAMETER["False easting",500000,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],AXIS["(E)",east,ORDER[1],LENGTHUNIT["metre",1]],AXIS["(N)",north,ORDER[2],LENGTHUNIT["metre",1]],USAGE[SCOPE["Engineering survey, topographic mapping."],AREA["North America - between 96°W and 90°W - onshore and offshore. Canada - Manitoba; Nunavut; Ontario. United States (USA) - Arkansas; Illinois; Iowa; Kansas; Louisiana; Michigan; Minnesota; Mississippi; Missouri; Nebraska; Oklahoma; Tennessee; Texas; Wisconsin."],BBOX[25.61,-96,84,-90]],ID["EPSG",26915]],VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1,ID["EPSG",9001]]],REMARK["regions=[TXlagmat01_8301,TXlaggal01_8301],pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]]'
+    cs.set_crs(compound_wkt)
+    assert cs.horizontal.to_epsg() == 26915
+    assert cs.vertical.to_wkt() == 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1,ID["EPSG",9001]]],REMARK["regions=[TXlagmat01_8301,TXlaggal01_8301],pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
+    assert cs.is_valid == True
+    
+def test_vyperpipeline_11():
+    # test adding a compound crs with no region and then the region
+    cs = VyperPipelineCRS()    
+    compound_wkt = 'COMPD_CS["NAD83 / UTM zone 18N + MLLW depth",PROJCS["NAD83 / UTM zone 18N",GEOGCS["NAD83",DATUM["North_American_Datum_1983",SPHEROID["GRS 1980",6378137,298.257222101,AUTHORITY["EPSG","7019"]],AUTHORITY["EPSG","6269"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4269"]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],PARAMETER["central_meridian",-75],PARAMETER["scale_factor",0.9996],PARAMETER["false_easting",500000],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH],AUTHORITY["EPSG","26918"]],VERT_CS["MLLW depth",VERT_DATUM["Mean Lower Low Water",2005,AUTHORITY["EPSG","1089"]],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Depth",DOWN],AUTHORITY["EPSG","5866"]]]'
+    cs.set_crs(compound_wkt)
+    assert cs.horizontal.to_epsg() == 26918
+    assert cs.is_valid == False
+    assert cs.vertical == None
+    cs.update_regions(['MENHMAgome23_8301'])
+    assert cs.is_valid == True
+    assert cs.vertical.to_wkt() == 'VERTCRS["MLLW depth",VDATUM["MLLW depth"],CS[vertical,1],AXIS["depth (D)",up,LENGTHUNIT["metre",1]],REMARK["regions=[MENHMAgome23_8301],pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
 
 if __name__ == '__main__':
     test_derived_parameter_file()
