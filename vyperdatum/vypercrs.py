@@ -508,7 +508,10 @@ class VerticalPipelineCRS(VerticalCRS):
 
     def to_wkt(self):
         wktstr = f'VERTCRS["{self.datum_name}",{self._vertical_datum.to_wkt()},{self._coordinate_system.to_wkt()},'
-        wktstr += f'{self.build_remarks()}]'
+        if len(self.regions) > 0 and len(self.pipeline_string) > 0:
+            wktstr += f'{self.build_remarks()}]'
+        else:
+            wktstr += ']'
         return wktstr
 
     def from_wkt(self, wkt_string: str):
@@ -522,7 +525,10 @@ class VerticalPipelineCRS(VerticalCRS):
         wktstr = f'VERTCRS["{self.datum_name}",\n'
         wktstr += f'  {self._vertical_datum.to_pretty_wkt()},\n'
         wktstr += f'  {self._coordinate_system.to_pretty_wkt()}]\n'
-        wktstr += f'  {self.build_remarks()}]'
+        if len(self.regions) > 0 and len(self.pipeline_string) > 0:
+            wktstr += f'  {self.build_remarks()}]'
+        else:
+            wktstr += ']'
         return wktstr
 
     def to_compound_wkt(self):
@@ -547,17 +553,54 @@ class VerticalPipelineCRS(VerticalCRS):
         return CRS.from_wkt(self.to_compound_wkt())
 
 class VyperPipelineCRS:
-    def __init__(self):
+    """
+    A container for developing and validating compound crs objects built around pyproj crs objects
+    and the vypercrs.VerticalPipelineCRS object.
+    """
+    
+    def __init__(self, new_crs: Union[str, int, tuple] = None, regions:[str] = None):
         self._is_valid = False
         self._ccsr = None
         self._vert = None
         self._hori = None
         self._regions = None
+        if new_crs != None:
+            self.set_crs(new_crs, regions)
         
     def set_crs(self, new_crs: Union[str, int, tuple], regions:[str] = None):
+        """
+        Set the object vertical and / or horizontal crs using either an epsg code or wkt.
+        Regions are also optionally set with a list of VDatum region strings.
+
+        Parameters
+        ----------
+        new_crs : Union[str, int, tuple]
+            A wkt string or a vyperdatum vertical datum definition string or an epsg code
+            may be provided either on its own or as a tuple pair.  While the order (horizontal or vertical)
+            does not matter, if they contain information for the same frame (horizontal or vertical) the
+            second will overwrite the first.
+            
+            Once the provided object datums are set, the object compound attribute is set if the horizontal,
+            verical, and region information is available.
+            
+        regions : [str], optional
+            A list of VDatum region strings.  These values will overwrite the values contained in the vertical
+            WKT if they exist. The default is None.
+
+        Raises
+        ------
+        ValueError
+            If a tuple of length greater than two is provided or if the provided value(s) are not a string
+            or an integer.
+
+        Returns
+        -------
+        None.
+
+        """
         # check the input type
         if type(new_crs) == tuple:
-            if len(new_crs) != 2:
+            if len(new_crs) > 2:
                 len_crs = len(new_crs)
                 raise ValueError(f'The provided crs {new_crs} is {len_crs} in length but should have a length of two.')
         else:
@@ -582,32 +625,84 @@ class VyperPipelineCRS:
         self._build_compound()        
             
     def update_regions(self, regions:[str]):
-        self.regions = regions
+        """
+        Update the regions object attribute.
+
+        Parameters
+        ----------
+        regions : [str]
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+        self._regions = regions
         if self._vert:
             self._vert = build_valid_vert_crs(self._vert, regions)
         self._build_compound()
             
-    def _set_single(self, crs):
+    def _set_single(self, crs: CRS):
+        """
+        Assign the provided pyproj crs object to the object attribute representing either the
+        vertical crs or the horizontal crs.  If the object contains a new vertical crs and
+        contains the remarks for the regions, the regions are also extracted and assigned to
+        the associated object attribute.
+
+        Parameters
+        ----------
+        crs : pyproj.crs.CRS
+            The new crs.
+
+        Returns
+        -------
+        None.
+
+        """
+        new_vert = False
         if crs.is_compound:
             self.ccrs = crs
             self._hori = crs.sub_crs_list[0]
             self._vert = crs.sub_crs_list[1]
+            new_vert = True
         elif crs.is_vertical:
             self._vert = crs
-            if self._valid_vert():
-                tmp_vert = VerticalPipelineCRS()
-                tmp_vert.from_wkt(self._vert.to_wkt())
-                self.regions = tmp_vert.regions
+            new_vert =True
         else:
             self._hori = crs
+        if new_vert and self._valid_vert():
+            tmp_vert = VerticalPipelineCRS()
+            tmp_vert.from_wkt(self._vert.to_wkt())
+            self.update_regions(tmp_vert.regions)
          
     def _build_compound(self):
+        """
+        Create a compound crs object attribute and mark the object as valid if there is a horizontal
+        crs, a vertical crs, and if the vertical crs includes the pipeline and regions in the remarks.
+
+        Returns
+        -------
+        None.
+
+        """
         if self._hori and self._vert and self._valid_vert():
             compound_name = f'{self._hori.name} + {self._vert.name}'
             self.ccrs = CompoundCRS(compound_name, [self._hori, self._vert])
             self._is_valid = True
             
-    def _valid_vert(self):
+    def _valid_vert(self) -> bool:
+        """
+        See if there is a vertical crs in the object and if it has regions and
+        and a pipeline in the remarks.
+
+        Returns
+        -------
+        bool
+            True if there is a vertical crs object and the remarks include
+            the pipeline and regions.
+
+        """
         valid = False
         if self._vert and self._vert.remarks:
             if 'regions' in self._vert.remarks and 'pipeline' in self._vert.remarks:
@@ -629,13 +724,35 @@ class VyperPipelineCRS:
     def horizontal(self):
         return self._hori
     
+    @property
+    def regions(self):
+        return self._regions
+    
     def to_wkt(self):
         if self._is_valid:
             return self.ccrs.to_wkt()
         else:
             return None
             
-def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str]):
+def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str]) -> pyproj_VerticalCRS:
+    """
+    Add the regions and pipeline to the remarks section of the wkt for the
+    provided pyproj VerticalCRS object.
+
+    Parameters
+    ----------
+    crs : pyproj.crs.VerticalCRS
+        The vertical crs object to add the pipeline and region into.
+    regions : [str]
+        The regions to add into the crs remarks.
+
+    Returns
+    -------
+    pyproj.crs.VerticalCRS
+        The vertical crs object with the remarks updated to add the region and
+        pipeline.
+
+    """
     is_ak = is_alaska(regions)
     datum = guess_vertical_datum_from_string(crs.name)
     new_crs = VerticalPipelineCRS()
@@ -647,7 +764,7 @@ def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str]):
     valid_vert_crs = CRS.from_wkt(new_crs.to_wkt())
     return valid_vert_crs
 
-def is_alaska(regions:[str]):
+def is_alaska(regions:[str]) -> bool:
     """
     A somewhat weak implementation of a method to determine if these regions are in alaska.  Currently, alaskan
     tidal datums are based on xgeoid18, so we need to identify those regions to ensure we use the correct geoid
@@ -679,7 +796,30 @@ def is_alaska(regions:[str]):
         is_ak = False
     return is_ak
 
-def guess_vertical_datum_from_string(vertical_datum_name: str):
+def guess_vertical_datum_from_string(vertical_datum_name: str) -> str:
+    """
+    Guess the vyperdatum string name by inspecting the string provided and
+    looking for matches to the datum names.
+
+    Parameters
+    ----------
+    vertical_datum_name : str
+        A string from the datum WKT.
+
+    Raises
+    ------
+    ValueError
+        If more than one match to the datum definition is found to match the
+        string provided.
+
+    Returns
+    -------
+    str
+        The matching vyperdatum string name if there is one, otherwise returns
+        None.
+        
+
+    """
     guess_list = []
     for datum in datum_definition:
         if datum in vertical_datum_name.lower():
