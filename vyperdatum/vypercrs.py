@@ -564,6 +564,7 @@ class VyperPipelineCRS:
         self._vert = None
         self._hori = None
         self._regions = None
+        self._vyperdatum_str = None
         if new_crs != None:
             self.set_crs(new_crs, regions)
         
@@ -610,6 +611,7 @@ class VyperPipelineCRS:
             if type(entry) == str:
                 crs_str = entry
                 if entry.lower() in datum_definition:
+                    self._vyperdatum_str = entry
                     tmp_crs = VerticalPipelineCRS(datum_name = entry)
                     crs_str = tmp_crs.to_wkt()
                 crs = CRS.from_wkt(crs_str)
@@ -640,7 +642,7 @@ class VyperPipelineCRS:
         """
         self._regions = regions
         if self._vert:
-            self._vert = build_valid_vert_crs(self._vert, regions)
+            self._vert, self._vyperdatum_str = build_valid_vert_crs(self._vert, regions)
         self._build_compound()
             
     def _set_single(self, crs: CRS):
@@ -675,6 +677,7 @@ class VyperPipelineCRS:
             tmp_vert = VerticalPipelineCRS()
             tmp_vert.from_wkt(self._vert.to_wkt())
             self.update_regions(tmp_vert.regions)
+            self._vyperdatum_str = guess_vertical_datum_from_string(self._vert.name)
          
     def _build_compound(self):
         """
@@ -728,13 +731,17 @@ class VyperPipelineCRS:
     def regions(self):
         return self._regions
     
+    @property
+    def vyperdatum_str(self):
+        return self._vyperdatum_str
+    
     def to_wkt(self):
         if self._is_valid:
             return self.ccrs.to_wkt()
         else:
             return None
             
-def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str]) -> pyproj_VerticalCRS:
+def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str]) -> (pyproj_VerticalCRS, str):
     """
     Add the regions and pipeline to the remarks section of the wkt for the
     provided pyproj VerticalCRS object.
@@ -748,21 +755,24 @@ def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str]) -> pyproj_Vert
 
     Returns
     -------
-    pyproj.crs.VerticalCRS
-        The vertical crs object with the remarks updated to add the region and
-        pipeline.
+    result (pyproj.crs.VerticalCRS, str)
+        First value is the vertical crs object with the remarks updated to add the region and
+        pipeline.  The second value is the vyperdatum.pipeline datum identifier.
 
     """
     is_ak = is_alaska(regions)
     datum = guess_vertical_datum_from_string(crs.name)
     new_crs = VerticalPipelineCRS()
     new_crs.from_wkt(crs.to_wkt())
-    for region in regions:
-        new_pipeline = get_regional_pipeline('nad83', datum, region, is_alaska=is_ak)
-        if new_pipeline:
-            new_crs.add_pipeline(new_pipeline, region)
-    valid_vert_crs = CRS.from_wkt(new_crs.to_wkt())
-    return valid_vert_crs
+    if datum:
+        for region in regions:
+            new_pipeline = get_regional_pipeline('nad83', datum, region, is_alaska=is_ak)
+            if new_pipeline:
+                new_crs.add_pipeline(new_pipeline, region)
+        valid_vert_crs = CRS.from_wkt(new_crs.to_wkt())
+    else:
+        valid_vert_crs = None
+    return valid_vert_crs, datum
 
 def is_alaska(regions:[str]) -> bool:
     """

@@ -208,6 +208,7 @@ def test_vyperpipeline_with_horizcrs_and_vertcrs_and_region_in_wkt_change_horizc
     cs.set_crs(26915)
     assert cs.is_valid == True
     assert cs.to_wkt() == 'COMPOUNDCRS["NAD83 / UTM zone 15N + NOAA Chart Datum",PROJCRS["NAD83 / UTM zone 15N",BASEGEOGCRS["NAD83",DATUM["North American Datum 1983",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4269]],CONVERSION["UTM zone 15N",METHOD["Transverse Mercator",ID["EPSG",9807]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",-93,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["Scale factor at natural origin",0.9996,SCALEUNIT["unity",1],ID["EPSG",8805]],PARAMETER["False easting",500000,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],AXIS["(E)",east,ORDER[1],LENGTHUNIT["metre",1]],AXIS["(N)",north,ORDER[2],LENGTHUNIT["metre",1]],USAGE[SCOPE["Engineering survey, topographic mapping."],AREA["North America - between 96°W and 90°W - onshore and offshore. Canada - Manitoba; Nunavut; Ontario. United States (USA) - Arkansas; Illinois; Iowa; Kansas; Louisiana; Michigan; Minnesota; Mississippi; Missouri; Nebraska; Oklahoma; Tennessee; Texas; Wisconsin."],BBOX[25.61,-96,84,-90]],ID["EPSG",26915]],VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1,ID["EPSG",9001]]],REMARK["regions=[TXlagmat01_8301,TXlaggal01_8301,TXlagmat01_8301,TXlaggal01_8301],pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]]'
+    assert cs.vyperdatum_str == 'noaa chart datum'
     
 def test_vyperpipeline_with_compound_wkt_no_region():
     # test adding a compound crs without region in the vertical wkt
@@ -217,6 +218,7 @@ def test_vyperpipeline_with_compound_wkt_no_region():
     assert cs.horizontal.to_epsg() == 26915
     assert cs.vertical == None
     assert cs.is_valid == False
+    assert cs.vyperdatum_str == None
     
 def test_vyperpipeline_with_compound_wkt_with_region():
     # test adding a compound crs with the region in the vertical wkt
@@ -226,6 +228,7 @@ def test_vyperpipeline_with_compound_wkt_with_region():
     assert cs.horizontal.to_epsg() == 26915
     assert cs.vertical.to_wkt() == 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1]],REMARK["regions=[TXlagmat01_8301,TXlaggal01_8301,TXlagmat01_8301,TXlaggal01_8301],pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
     assert cs.is_valid == True
+    assert cs.vyperdatum_str == 'noaa chart datum'
     
 def test_vyperpipeline_with_compound_wkt_add_region():
     # test adding a compound crs with no region and then the region
@@ -238,6 +241,7 @@ def test_vyperpipeline_with_compound_wkt_add_region():
     cs.update_regions(['MENHMAgome23_8301'])
     assert cs.is_valid == True
     assert cs.vertical.to_wkt() == 'VERTCRS["MLLW depth",VDATUM["MLLW depth"],CS[vertical,1],AXIS["depth (D)",up,LENGTHUNIT["metre",1]],REMARK["regions=[MENHMAgome23_8301],pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
+    assert cs.vyperdatum_str == 'mllw'
 
 def test_vyperpipeline_set_compound_wkt_on_instantiation():
     # test adding a compound crs wkt on instantiation of the object
@@ -246,6 +250,7 @@ def test_vyperpipeline_set_compound_wkt_on_instantiation():
     assert cs.horizontal.to_epsg() == 26918
     assert cs.is_valid == True
     assert cs.vertical.to_wkt() == 'VERTCRS["MLLW depth",VDATUM["MLLW depth"],CS[vertical,1],AXIS["depth (D)",up,LENGTHUNIT["metre",1]],REMARK["regions=[MENHMAgome23_8301,MENHMAgome23_8301],pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
+    assert cs.vyperdatum_str == 'mllw'
     
 if __name__ == '__main__':
     test_derived_parameter_file()
