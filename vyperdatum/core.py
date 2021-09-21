@@ -159,8 +159,8 @@ class VyperCore:
         
     def _set_region_by_extents(self):
         self.set_region_by_bounds(self.geographic_min_x,
-                                  self.geographic_max_x,
                                   self.geographic_min_y,
+                                  self.geographic_max_x,
                                   self.geographic_max_y)
         
     def _set_extents(self, extents: tuple):
@@ -210,7 +210,7 @@ class VyperCore:
         y
             latitude/northing of the input data
         z
-            depth value of the input data
+            height value of the input data
 
         Returns
         -------
@@ -219,7 +219,7 @@ class VyperCore:
         y
             latitude/northing of the input data, transformed to NAD83(2011)
         z
-            depth value of the input data, transformed to NAD83(2011)
+            height value of the input data, transformed to NAD83(2011)
         """
 
         in_crs = self.in_crs.horizontal.to_epsg()
@@ -281,7 +281,7 @@ class VyperCore:
         pipeline
             string containing the pipeline information
         z
-            optional, depth value of the input data, if not provided will use all zeros
+            optional, height value of the input data, if not provided will use all zeros
 
         Returns
         -------
@@ -349,7 +349,7 @@ class VyperCore:
         y
             latitude of the input data
         z
-            optional, depth value of the input data, if not provided will use all zeros include_vdatum_uncertainty
+            optional, height or depth value of the input data, if not provided will use all zeros include_vdatum_uncertainty
         include_vdatum_uncertainty
             if True, will return the combined separation uncertainty for each point
         include_region_index
@@ -364,13 +364,23 @@ class VyperCore:
                       combined uncertainty for each vdatum layer if include_vdatum_uncertainty, otherwise None,
                       region index for each vdatum layer if include_region_index, otherwise None
         """
-
+        if not self.min_x:
+            extents = (min(x), min(y), max(x), max(y))
+            self._set_extents(extents)
+        if len(self._regions) == 0:
+            self._set_region_by_extents()
         if len(self._regions) > 0:
             if not self.in_crs.is_valid:
                 self.log_error('Input datum insufficently specified', ValueError)
             if not self.out_crs.is_valid:
                 self.log_error('Output datum insufficently specified', ValueError)
             in_horiz_epsg = self.in_crs.horizontal.to_epsg()
+            if z is not None and not self.in_crs.is_height:
+                z *= -1
+            if self.out_crs.is_height:
+                flip = 1
+            else:
+                flip = -1
             if in_horiz_epsg != NAD83_EPSG:
                 x, y, z = self._transform_to_nad83(x, y, z)
             ans_x = np.full_like(x, np.nan)
@@ -401,7 +411,7 @@ class VyperCore:
                 valid_index = ~np.isinf(tmp_z)
                 ans_x[valid_index] = tmp_x[valid_index]
                 ans_y[valid_index] = tmp_y[valid_index]
-                ans_z[valid_index] = tmp_z[valid_index]
+                ans_z[valid_index] = flip * tmp_z[valid_index]
                 if include_vdatum_uncertainty:
                     ans_unc[valid_index] = self._get_output_uncertainty(region)
                 if include_region_index:

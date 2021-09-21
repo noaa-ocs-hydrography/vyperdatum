@@ -50,12 +50,7 @@ class VyperPoints(VyperCore):
             if True, will return the integer index of the region used for each point
         
         """
-        if not self.min_x:  # if extents not set previously, set them now
-            extents = (min(x), min(y), max(x), max(y))
-        else:
-            extents = None
-            
-        self.set_input_datum(input_datum, extents = extents)
+        self.set_input_datum(input_datum)
         self.set_output_datum(output_datum)
                 
         self.x, self.y, self.z, self.unc, self.region_index = self.transform_dataset(x, y, z,
