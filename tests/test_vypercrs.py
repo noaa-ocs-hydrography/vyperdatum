@@ -275,25 +275,27 @@ def test_vyperpipeline_with_compound_wkt_add_region():
     assert cs.vertical == None
     cs.update_regions(['MENHMAgome23_8301'])
     assert cs.is_valid == True
-    expected_wkt = 'VERTCRS["MLLW depth",VDATUM["MLLW depth"],CS[vertical,1],AXIS["depth (D)",up,LENGTHUNIT["metre",1]],'
+    expected_wkt = 'VERTCRS["MLLW depth",VDATUM["MLLW depth"],CS[vertical,1],AXIS["depth (D)",down,LENGTHUNIT["metre",1]],'
     base_wkt, version, base_datum, region_data, pipeline_data = split_wkt_remarks(cs.vertical.to_wkt())
     assert expected_wkt == base_wkt
     assert region_data.find('MENHMAgome') != -1
     assert pipeline_data == '+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx'
     assert cs.vyperdatum_str == 'mllw'
+    assert cs.is_height == False
 
 def test_vyperpipeline_set_compound_wkt_on_instantiation():
     # test adding a compound crs wkt on instantiation of the object
-    compound_wkt = 'COMPOUNDCRS["NAD83 / UTM zone 18N + MLLW depth",PROJCRS["NAD83 / UTM zone 18N",BASEGEOGCRS["NAD83",DATUM["North American Datum 1983",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4269]],CONVERSION["UTM zone 18N",METHOD["Transverse Mercator",ID["EPSG",9807]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",-75,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["Scale factor at natural origin",0.9996,SCALEUNIT["unity",1],ID["EPSG",8805]],PARAMETER["False easting",500000,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],AXIS["easting",east,ORDER[1],LENGTHUNIT["metre",1]],AXIS["northing",north,ORDER[2],LENGTHUNIT["metre",1]],ID["EPSG",26918]],VERTCRS["MLLW depth",VDATUM["MLLW depth"],CS[vertical,1],AXIS["depth (D)",up,LENGTHUNIT["metre",1,ID["EPSG",9001]]],REMARK["regions=[MENHMAgome23_8301],pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]]'
+    compound_wkt = 'COMPOUNDCRS["NAD83 / UTM zone 18N + MLLW depth",PROJCRS["NAD83 / UTM zone 18N",BASEGEOGCRS["NAD83",DATUM["North American Datum 1983",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4269]],CONVERSION["UTM zone 18N",METHOD["Transverse Mercator",ID["EPSG",9807]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",-75,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["Scale factor at natural origin",0.9996,SCALEUNIT["unity",1],ID["EPSG",8805]],PARAMETER["False easting",500000,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],AXIS["easting",east,ORDER[1],LENGTHUNIT["metre",1]],AXIS["northing",north,ORDER[2],LENGTHUNIT["metre",1]],ID["EPSG",26918]],VERTCRS["MLLW depth",VDATUM["MLLW depth"],CS[vertical,1],AXIS["depth (D)",down,LENGTHUNIT["metre",1,ID["EPSG",9001]]],REMARK["regions=[MENHMAgome23_8301],pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]]'
     cs = VyperPipelineCRS(compound_wkt)    
     assert cs.horizontal.to_epsg() == 26918
     assert cs.is_valid == True
-    expected_wkt = 'VERTCRS["MLLW depth",VDATUM["MLLW depth"],CS[vertical,1],AXIS["depth (D)",up,LENGTHUNIT["metre",1]],'
+    expected_wkt = 'VERTCRS["MLLW depth",VDATUM["MLLW depth"],CS[vertical,1],AXIS["depth (D)",down,LENGTHUNIT["metre",1]],'
     base_wkt, version, base_datum, region_data, pipeline_data = split_wkt_remarks(cs.vertical.to_wkt())
     assert expected_wkt == base_wkt
     assert region_data.find('MENHMAgome') != -1
     assert pipeline_data == '+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx'
     assert cs.vyperdatum_str == 'mllw'
+    assert cs.is_height == False
     
 def test_3d_to_compound():
     cs = VyperPipelineCRS(6319, ['MENHMAgome23_8301'])
@@ -304,6 +306,7 @@ def test_3d_to_compound():
     assert region_data.find('MENHMAgome') != -1
     assert pipeline_data == '[]'
     assert cs.vyperdatum_str == 'nad83'
+    assert cs.is_height == True
     
 def split_wkt_remarks(wkt):
     wkt_split = wkt.split('REMARK')

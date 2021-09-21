@@ -42,7 +42,7 @@ class CoordinateSystem:
             if ax.lower() in ['h', 'height', 'gravity-related height (h)', 'gravity-related height']:
                 axis_string += 'AXIS["gravity-related height (H)",up]'
             elif ax.lower() in ['d', 'depth', 'depth (d)']:
-                axis_string += 'AXIS["depth (D)",up]'
+                axis_string += 'AXIS["depth (D)",down]'
         return axis_string
 
     @property
