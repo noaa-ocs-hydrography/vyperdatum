@@ -172,27 +172,48 @@ def test_raster_transform_raster():
     assert cont_layer[400][400] == 396.0
 
 
-# def test_raster_height_vs_sounding():
-#     # need to update the vyperpipeline crs object to properly honor the direction in epsg 5866 before this test will work
-#     vr = VyperRaster(test_file)
-#     layers, layernames, layernodata = vr.transform_raster('mllw','nad83', allow_points_outside_coverage=True)
-#     test_x_coord = vr.min_x + 100 * vr.resolution_x
-#     test_y_coord = vr.min_y + 100 * vr.resolution_y
-#     assert test_x_coord == 339662.0
-#     assert test_y_coord == 4685186.0
-#     assert vr.layers[vr._get_elevation_layer_index()][100][100] == approx(-10.61, abs=0.001)
-#     assert vr.raster_vdatum_sep[100][100] == approx(-29.163, abs=0.001)
+def test_raster_height_vs_sounding_input():
+    vr = VyperRaster(test_file)
+    layers, layernames, layernodata = vr.transform_raster('nad83', 'mllw', allow_points_outside_coverage=True)
+    test_x_coord = vr.min_x + 100 * vr.resolution_x
+    test_y_coord = vr.min_y + 100 * vr.resolution_y
+    assert test_x_coord == 339662.0
+    assert test_y_coord == 4685186.0
+    assert vr.layers[vr._get_elevation_layer_index()][100][100] == approx(-10.61, abs=0.001)
+    assert vr.raster_vdatum_sep[100][100] == approx(-29.163, abs=0.001)
 
-#     # final elevation = -10.61 + -29.163 = -39.773
-#     elev_layer = layers[0]
-#     assert elev_layer[100][100] == approx(-39.773, abs=0.001)
+    # final elevation = -10.61 + -29.163 = -39.773
+    elev_layer = layers[0]
+    assert elev_layer[100][100] == approx(-39.773, abs=0.001)
 
-#     vr = VyperRaster(test_file)
-#     layers, layernames, layernodata = vr.transform_raster(5866, 'nad83', allow_points_outside_coverage=True)
+    vr = VyperRaster(test_file)
+    layers, layernames, layernodata = vr.transform_raster('nad83', 5866, allow_points_outside_coverage=True)
 
-#     # final sounding = -10.61 - 29.391 = -40.001
-#     elev_layer = layers[0]
-#     assert elev_layer[100][100] == approx(-40.001, abs=0.001)
+    # final sounding = -1 * (-10.61 + 29.391) = -18.553
+    elev_layer = layers[0]
+    assert elev_layer[100][100] == approx(-18.553, abs=0.001)
+    
+    
+def test_raster_height_vs_sounding_output():
+    vr = VyperRaster(test_file)
+    layers, layernames, layernodata = vr.transform_raster('mllw','nad83', allow_points_outside_coverage=True)
+    test_x_coord = vr.min_x + 100 * vr.resolution_x
+    test_y_coord = vr.min_y + 100 * vr.resolution_y
+    assert test_x_coord == 339662.0
+    assert test_y_coord == 4685186.0
+    assert vr.layers[vr._get_elevation_layer_index()][100][100] == approx(-10.61, abs=0.001)
+    assert vr.raster_vdatum_sep[100][100] == approx(29.163, abs=0.001)
+
+    # final elevation = -10.61 + 29.163 = 18.553
+    elev_layer = layers[0]
+    assert elev_layer[100][100] == approx(18.553, abs=0.001)
+
+    vr = VyperRaster(test_file)
+    layers, layernames, layernodata = vr.transform_raster(5866, 'nad83', allow_points_outside_coverage=True)
+
+    # final sounding = -1 * (-10.61 + 29.391) = -18.553
+    elev_layer = layers[0]
+    assert elev_layer[100][100] == approx(-18.553, abs=0.001)
 
 
 def test_raster_forced_input_vertical_datum():
