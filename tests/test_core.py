@@ -85,7 +85,6 @@ def test_transform_dataset():
     # vdatum online answer, 9/1/2021, epoch 2021.0, (-75.79180, 36.01570, 10.5) ->  z=49.504
     vc = VyperCore()
     vc.set_input_datum(6318)
-    vc.set_region_by_bounds(-75.79179, 35.80674, -75.3853, 36.01585)
     vc.set_input_datum('nad83')
     vc.set_output_datum((6318,'mllw'))
     x = np.array([-75.79180, -75.79190, -75.79200])
@@ -96,6 +95,37 @@ def test_transform_dataset():
     assert (x == newx).all()
     assert (y == newy).all()
     assert (newz == np.array([49.518, 50.018, 50.518])).all()
+    
+def test_transform_sounding_dataset():
+    # vdatum online answer, 9/1/2021, epoch 2021.0, (-75.79180, 36.01570, 10.5) ->  z=49.504
+    vc = VyperCore()
+    vc.set_input_datum(6318)
+    vc.set_input_datum(5866)
+    vc.set_output_datum((6318,'mllw'))
+    x = np.array([-75.79180, -75.79190, -75.79200])
+    y = np.array([36.01570, 36.01560, 36.01550])
+    z = np.array([10.5, 11.0, 11.5])
+    newx, newy, newz, _, _ = vc.transform_dataset(x, y, z, include_vdatum_uncertainty=False)
+
+    assert (x == newx).all()
+    assert (y == newy).all()
+    assert (newz == np.array([-10.5, -11. , -11.5])).all()
+
+
+def test_transform_to_sounding_dataset():
+    # vdatum online answer, 9/1/2021, epoch 2021.0, (-75.79180, 36.01570, 10.5) ->  z=49.504
+    vc = VyperCore()
+    vc.set_input_datum(6318)
+    vc.set_input_datum('nad83')
+    vc.set_output_datum((6318,5866))
+    x = np.array([-75.79180, -75.79190, -75.79200])
+    y = np.array([36.01570, 36.01560, 36.01550])
+    z = np.array([10.5, 11.0, 11.5])
+    newx, newy, newz, _, _ = vc.transform_dataset(x, y, z, include_vdatum_uncertainty=False)
+
+    assert (x == newx).all()
+    assert (y == newy).all()
+    assert (newz == np.array([-49.518, -50.018, -50.518])).all()
 
 
 def test_transform_dataset_alaska():
@@ -111,7 +141,6 @@ def test_transform_dataset_alaska():
 
     vc = VyperCore()
     vc.set_input_datum(6318)
-    vc.set_region_by_bounds(-136.56527, 56.21873, -135.07113, 56.77662)
     vc.set_input_datum('nad83')
     vc.set_output_datum('mllw')
     x = np.array([-136.0, -136.1, -136.2])
@@ -127,7 +156,6 @@ def test_transform_dataset_alaska():
 def test_transform_dataset_inv():
     vc = VyperCore()
     vc.set_input_datum(6318)
-    vc.set_region_by_bounds(-75.79179, 35.80674, -75.3853, 36.01585)
     vc.set_input_datum('mllw')
     vc.set_output_datum('nad83')
     x = np.array([-75.79180, -75.79190, -75.79200])
@@ -138,7 +166,6 @@ def test_transform_dataset_inv():
     assert (x == newx).all()
     assert (y == newy).all()
     assert (newz == np.array([10.5, 11.0, 11.5])).all()
-
 
 
 def test_transform_dataset_unc():
