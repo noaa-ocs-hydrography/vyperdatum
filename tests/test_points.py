@@ -17,7 +17,7 @@ def test_transform_dataset():
     x = np.array([-76.19698, -76.194, -76.198])
     y = np.array([37.1299, 37.1399, 37.1499])
     z = np.array([10.5, 11.0, 11.5])
-    vp.transform_points((6319), 'mllw', x, y, z=z, include_vdatum_uncertainty=False)
+    vp.transform_points((6319,), 'mllw', x, y, z=z, include_vdatum_uncertainty=False)
 
     assert (x == vp.x).all()
     assert (y == vp.y).all()
@@ -29,7 +29,7 @@ def test_transform_dataset_mhw():
     x = np.array([-76.19698, -76.194, -76.198])
     y = np.array([37.1299, 37.1399, 37.1499])
     z = np.array([10.5, 11.0, 11.5])
-    vp.transform_points((6318,'noaa chart height'), 'noaa chart datum', x, y, z=z, include_vdatum_uncertainty=False)
+    vp.transform_points((6318, 'noaa chart height'), 'noaa chart datum', x, y, z=z, include_vdatum_uncertainty=False)
 
     assert (x == vp.x).all()
     assert (y == vp.y).all()
@@ -41,7 +41,7 @@ def test_transform_dataset_geoid():
     x = np.array([-76.19698, -76.194, -76.198])
     y = np.array([37.1299, 37.1399, 37.1499])
     z = np.array([10.5, 11.0, 11.5])
-    vp.transform_points((6318,'navd88'), 'noaa chart datum', x, y, z=z, include_vdatum_uncertainty=False)
+    vp.transform_points((6318, 'navd88'), 'noaa chart datum', x, y, z=z, include_vdatum_uncertainty=False)
 
     assert (x == vp.x).all()
     assert (y == vp.y).all()
@@ -53,7 +53,7 @@ def test_transform_dataset_inv_geoid():
     x = np.array([-76.19698, -76.194, -76.198])
     y = np.array([37.1299, 37.1399, 37.1499])
     z = np.array([10.995, 11.493, 11.989])
-    vp.transform_points((6318,'noaa chart datum'), 'navd88', x, y, z=z, include_vdatum_uncertainty=False)
+    vp.transform_points((6318, 'noaa chart datum'), 'navd88', x, y, z=z, include_vdatum_uncertainty=False)
 
     assert (x == vp.x).all()
     assert (y == vp.y).all()
@@ -65,7 +65,7 @@ def test_transform_dataset_2d_noop():
     x = np.array([898745.505, 898736.854, 898728.203])
     y = np.array([256015.372, 256003.991, 255992.610])
     z = np.array([10.5, 11.0, 11.5])
-    vp.transform_points((3631,'mllw'), 'mllw', x, y, z=z, include_vdatum_uncertainty=False)
+    vp.transform_points((3631, 'mllw'), 'mllw', x, y, z=z, include_vdatum_uncertainty=False)
 
     assert vp.x == approx(np.array([-75.7918, -75.7919, -75.792]), abs=0.0001)
     assert vp.y == approx(np.array([36.0157, 36.0156, 36.0155]), abs=0.0001)
@@ -77,7 +77,7 @@ def test_transform_dataset_2d_plus_mllw_to_navd88():
     x = np.array([661951, 661952, 661953])
     y = np.array([4497577, 4497578, 4497576])
     z = np.array([0, 0, 0])
-    vp.transform_points((26918,'mllw'), 'navd88', x, y, z=z)
+    vp.transform_points((26918, 'mllw'), 'navd88', x, y, z=z)
 
     assert vp.x == approx(np.array([-73.0855, -73.0855, -73.0855]), abs=0.0001)
     assert vp.y == approx(np.array([40.6131, 40.6131, 40.6131]), abs=0.0001)

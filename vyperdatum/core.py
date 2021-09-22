@@ -10,6 +10,7 @@ from vyperdatum.vypercrs import VyperPipelineCRS, get_transformation_pipeline, i
 
 NAD83_EPSG = 6318
 
+
 class VyperCore:
     """
     The core object for conducting transformations.  Contains all the information built automatically from the vdatum
@@ -54,6 +55,7 @@ class VyperCore:
 
         self.logger = return_logger(logfile)
         self._regions = []
+        self.pipelines = []
         
     @property
     def is_alaska(self):
@@ -421,6 +423,7 @@ class VyperCore:
         else:
             self.log_error('No regions specified, unable to transform points', ValueError)
 
+
 class VdatumData:
     """
     Gets and maintains VDatum information for use with Vyperdatum.
@@ -434,6 +437,7 @@ class VdatumData:
     def __init__(self, vdatum_directory: str = None, parent=None):
         self.parent = parent
 
+        self.regions = []
         self.grid_files = {}  # dict of file names to file paths for the gtx files
         self.polygon_files = {}  # dict of file names to file paths for the kml files
         self.uncertainties = {}  # dict of file names to uncertainties for each grid
@@ -499,8 +503,7 @@ class VdatumData:
             
     def _read_from_config_file(self):
         """
-        Read from the generated configparser file path, set the object vdatum 
-        settings.
+        Read from the generated configparser file path, set the object vdatum settings.
     
         Returns
         -------
@@ -534,8 +537,6 @@ class VdatumData:
     
         Returns
         -------
-        configparser.ConfigParser
-            configparser object used to read the file
         dict
             settings within the file
         """
@@ -588,6 +589,8 @@ def get_gtx_grid_list(vdatum_directory: str):
     -------
     dict
         dictionary of {grid name: grid path, ...}
+    list
+        list of vdatum regions
     """
 
     search_path = os.path.join(vdatum_directory, '*/*.gtx')
@@ -604,7 +607,7 @@ def get_gtx_grid_list(vdatum_directory: str):
         gtx_subpath = os.path.join(gtx_folder, gtx_file)
         grids[gtx_name] = gtx_subpath
         regions.append(gtx_folder)
-    regions = set(regions)
+    regions = list(set(regions))
     return grids, regions
 
 

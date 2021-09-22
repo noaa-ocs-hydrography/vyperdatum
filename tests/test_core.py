@@ -23,6 +23,7 @@ def test_regions():
     assert vc.regions[0].find('NCcoast') != -1
     assert vc.regions[1].find('NCinner') != -1
 
+
 def test_3d_to_compound():
     vc = VyperCore()
     vc.set_input_datum((6319, 'mllw'))
@@ -30,6 +31,7 @@ def test_3d_to_compound():
     assert len(vc.regions) == 2
     assert vc.regions[0].find('NCcoast') != -1
     assert vc.regions[1].find('NCinner') != -1
+
 
 def test_is_alaska():
     vc = VyperCore()
@@ -95,7 +97,8 @@ def test_transform_dataset():
     assert (x == newx).all()
     assert (y == newy).all()
     assert (newz == np.array([49.518, 50.018, 50.518])).all()
-    
+
+
 def test_transform_sounding_dataset():
     # vdatum online answer, 9/1/2021, epoch 2021.0, (-75.79180, 36.01570, 10.5) ->  z=49.504
     vc = VyperCore()

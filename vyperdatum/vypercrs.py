@@ -14,6 +14,7 @@ from pyproj.crs import CRS, CompoundCRS, VerticalCRS as pyproj_VerticalCRS
 from vyperdatum.pipeline import get_regional_pipeline, datum_definition
 from vyperdatum.__version__ import __version__
 
+
 class CoordinateSystem:
     """
     Contains the information needed to generate the CS string
@@ -383,6 +384,7 @@ class VerticalCRS:
         else:
             return '', [], None, None
 
+
 class VerticalDerivedCRS(VerticalCRS):
     """
     WARNING: this class generates wkt that is not supported in PROJ, see VerticalPipelineCRS instead
@@ -493,6 +495,8 @@ class VerticalPipelineCRS(VerticalCRS):
 
         self.regions = []
         self.pipeline_string = ''
+        self.version = ''
+        self.base_datum = ''
 
     def add_pipeline(self, pipeline: str, region: str):
         self.regions.append(region)
@@ -562,13 +566,14 @@ class VerticalPipelineCRS(VerticalCRS):
     def to_compound_crs(self):
         return CRS.from_wkt(self.to_compound_wkt())
 
+
 class VyperPipelineCRS:
     """
     A container for developing and validating compound crs objects built around pyproj crs objects
     and the vypercrs.VerticalPipelineCRS object.
     """
     
-    def __init__(self, new_crs: Union[str, int, tuple] = None, regions:[str] = None):
+    def __init__(self, new_crs: Union[str, int, tuple] = None, regions: [str] = None):
         self._is_valid = False
         self._ccsr = None
         self._vert = None
@@ -577,7 +582,7 @@ class VyperPipelineCRS:
         self._vyperdatum_str = None
         self._pipeline_str = None
         self._is_height = None
-        if new_crs != None:
+        if new_crs is not None:
             self.set_crs(new_crs, regions)
         
     def set_crs(self, new_crs: Union[str, int, tuple], regions:[str] = None):
@@ -623,7 +628,7 @@ class VyperPipelineCRS:
             if type(entry) == str:
                 crs_str = entry
                 if entry.lower() in datum_definition:
-                    tmp_crs = VerticalPipelineCRS(datum_name = entry)
+                    tmp_crs = VerticalPipelineCRS(datum_name=entry)
                     crs_str = tmp_crs.to_wkt()
                 crs = CRS.from_wkt(crs_str)
                 self._set_single(crs)
@@ -638,7 +643,7 @@ class VyperPipelineCRS:
             
         self._update_and_build_compound()        
             
-    def update_regions(self, regions:[str]):
+    def update_regions(self, regions: [str]):
         """
         Update the regions object attribute.
 
@@ -674,7 +679,7 @@ class VyperPipelineCRS:
 
         """
         new_vert = False
-        if crs.is_compound:
+        if crs_is_compound(crs):
             self.ccrs = crs
             self._hori = crs.sub_crs_list[0]
             self._vert = crs.sub_crs_list[1]
@@ -694,7 +699,7 @@ class VyperPipelineCRS:
                 raise NotImplementedError('A 3D coordinate system that is not NAD83 is not yet implemented.')
         elif crs.is_vertical:                
             self._vert = crs
-            new_vert =True
+            new_vert = True
         else:
             self._hori = crs
         if new_vert:
@@ -787,7 +792,8 @@ class VyperPipelineCRS:
             return self.ccrs.to_wkt()
         else:
             return None
-            
+
+
 def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str]) -> (pyproj_VerticalCRS, str, str):
     """
     Add the regions and pipeline to the remarks section of the wkt for the
@@ -827,7 +833,8 @@ def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str]) -> (pyproj_Ver
         valid_vert_crs = None
     return valid_vert_crs, datum, pipeline
 
-def is_alaska(regions:[str]) -> bool:
+
+def is_alaska(regions: [str]) -> bool:
     """
     A somewhat weak implementation of a method to determine if these regions are in alaska.  Currently, alaskan
     tidal datums are based on xgeoid18, so we need to identify those regions to ensure we use the correct geoid
@@ -858,6 +865,7 @@ def is_alaska(regions:[str]) -> bool:
     else:
         is_ak = False
     return is_ak
+
 
 def guess_vertical_datum_from_string(vertical_datum_name: str) -> str:
     """
@@ -890,9 +898,10 @@ def guess_vertical_datum_from_string(vertical_datum_name: str) -> str:
     if len(guess_list) == 1:
         return guess_list[0]
     elif len(guess_list) == 0:
-        return None
+        return ''
     else:
         raise ValueError(f'More than one datum guess found in {vertical_datum_name}')
+
 
 def get_transformation_pipeline(in_crs: Union[VyperPipelineCRS, VerticalPipelineCRS], out_crs: Union[VyperPipelineCRS, VerticalPipelineCRS], region: str, is_alaska: bool = False):
     """
@@ -942,6 +951,25 @@ def get_transformation_pipeline(in_crs: Union[VyperPipelineCRS, VerticalPipeline
         raise NotImplementedError(f'Unable to build pipeline, region not in output CRS: {region}')
 
     return get_regional_pipeline(in_def_str, out_def_str, region, is_alaska=is_alaska)
+
+
+def crs_is_compound(my_crs: CRS):
+    """
+
+    Parameters
+    ----------
+    my_crs
+
+    Returns
+    -------
+
+    """
+    if len(my_crs.sub_crs_list) == 2:
+        horizcrs = my_crs.sub_crs_list[0]
+        vertcrs = my_crs.sub_crs_list[1]
+        if not horizcrs.is_vertical and vertcrs.is_vertical:
+            return True
+    return False
 
 
 if __name__ == '__main__':
