@@ -314,7 +314,7 @@ class VyperRaster(VyperCore):
             self.log_info(f'applying nodatavalue to {missing_count} points that are outside of vdatum coverage')
             final_elevation_layer[missing_idx] = self.nodatavalue[elevation_layer_idx]
             final_uncertainty_layer[missing_idx] = self.nodatavalue[uncertainty_layer_idx]
-            if contributor_layer is not None:
+            if contributor_layer:
                 contributor_layer[missing_idx] = self.nodatavalue[contributor_layer_idx]
         else:
             self.log_info(f'Allowing {missing_count} points that are outside of vdatum coverage, using CATZOC D vertical uncertainty')
