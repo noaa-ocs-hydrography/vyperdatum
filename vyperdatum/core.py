@@ -1,4 +1,4 @@
-import os, sys, glob, configparser
+import os, sys, glob, configparser, hashlib
 import numpy as np
 from pyproj import Transformer, datadir, CRS
 from osgeo import gdal, ogr
@@ -7,6 +7,7 @@ import logging
 from datetime import datetime
 
 from vyperdatum.vypercrs import VyperPipelineCRS, get_transformation_pipeline, is_alaska
+from vyperdatum.vdatum_validation import vdatum_hashlookup
 
 NAD83_EPSG = 6318
 
@@ -442,6 +443,7 @@ class VdatumData:
         self.polygon_files = {}  # dict of file names to file paths for the kml files
         self.uncertainties = {}  # dict of file names to uncertainties for each grid
         self.vdatum_path = ''  # path to the parent vdatum folder
+        self.vdatum_version = ''
 
         self._config = {'vdatum_path': ''}  # dict of all the settings
         self.config_path_file = ''  # path to the config file that maintains the settings between runs
@@ -451,6 +453,7 @@ class VdatumData:
             self.set_vdatum_directory(vdatum_directory)
         else:
             self.set_vdatum_directory(self.vdatum_path)
+        self.get_vdatum_version()
 
     def set_config(self, ky: str, value: Any):
         """
@@ -477,8 +480,11 @@ class VdatumData:
                 config.write(configfile)
         except:
             # get a number of exceptions here when reading and writing to the config file in multiprocessing
-            if self.parent:
-                self.parent.log_warning('Unable to set {} in config file {}'.format(ky, self.config_path_file))
+            try:
+                if self.parent:
+                    self.parent.log_warning('Unable to set {} in config file {}'.format(ky, self.config_path_file))
+            except AttributeError:  # logger not initialized yet
+                print('WARNING: Unable to set {} in config file {}'.format(ky, self.config_path_file))
         if ky == 'vdatum_path':
             self.vdatum_path = value
 
@@ -498,8 +504,11 @@ class VdatumData:
             self.vdatum_path = self._config['vdatum_path']
         except:
             # get a number of exceptions here when reading and writing to the config file in multiprocessing
-            if self.parent:
-                self.parent.log_warning('Unable to read from existing config file {}'.format(self.config_path_file))
+            try:
+                if self.parent:
+                    self.parent.log_warning('Unable to read from existing config file {}'.format(self.config_path_file))
+            except AttributeError:  # logger not initialized yet
+                print('WARNING: Unable to read from existing config file {}'.format(self.config_path_file))
             
     def _read_from_config_file(self):
         """
@@ -522,8 +531,11 @@ class VdatumData:
                     settings[key] = config_file_section[key]
         except:
             # get a number of exceptions here when reading and writing to the config file in multiprocessing
-            if self.parent:
-                self.parent.log_warning('Unable to read from config file {}'.format(self.config_path_file))
+            try:
+                if self.parent:
+                    self.parent.log_warning('Unable to read from existing config file {}'.format(self.config_path_file))
+            except AttributeError:  # logger not initialized yet
+                print('WARNING: Unable to read from existing config file {}'.format(self.config_path_file))
         return settings
 
     def _create_new_config_file(self, default_settings: dict) -> dict:
@@ -550,8 +562,11 @@ class VdatumData:
                 config.write(configfile)
         except:
             # get a number of exceptions here when reading and writing to the config file in multiprocessing
-            if self.parent:
-                self.parent.log_warning('Unable to create new config file {}'.format(self.config_path_file))
+            try:
+                if self.parent:
+                    self.parent.log_warning('Unable to create new config file {}'.format(self.config_path_file))
+            except AttributeError:  # logger not initialized yet
+                print('WARNING: Unable to create new config file {}'.format(self.config_path_file))
         return default_settings
 
     def set_vdatum_directory(self, vdatum_path: str):
@@ -574,6 +589,32 @@ class VdatumData:
         self.uncertainties = get_vdatum_uncertainties(vdatum_path)
 
         self.vdatum_path = self._config['vdatum_path']
+
+    def get_vdatum_version(self):
+        """
+        Get the current vdatum version that vyperdatum generates on the fly.  If this has been run before, the version
+        will be encoded in a new vdatum_vyperversion.txt file that we can read instead so that we don't have to do the
+        lengthy check.
+        """
+        if not os.path.exists(self.vdatum_path):
+            raise ValueError(f'VDatum is not found at the provided path: {self.vdatum_path}')
+        vyperversion_file = os.path.join(self.vdatum_path, 'vdatum_vyperversion.txt')
+        if os.path.exists(vyperversion_file):
+            with open(vyperversion_file, 'r') as vfile:
+                vversion = vfile.read()
+        else:
+            try:
+                if self.parent:
+                    self.parent.log_info(f'Performing hash comparison to identify VDatum version, should only run once for a new VDatum directory...')
+            except AttributeError:  # logger not initialized yet
+                print(f'Performing hash comparison to identify VDatum version, should only run once for a new VDatum directory...')
+            vversion = return_vdatum_version(self.grid_files, self.vdatum_path, save_path=vyperversion_file)
+            try:
+                if self.parent:
+                    self.parent.log_info(f'Generated new version file: {vyperversion_file}')
+            except AttributeError:  # logger not initialized yet
+                print(f'Generated new version file: {vyperversion_file}')
+        self.vdatum_version = vversion
 
 
 def get_gtx_grid_list(vdatum_directory: str):
@@ -755,3 +796,79 @@ def return_logger(logfile: str = None):
     logging.getLogger().handlers = []
 
     return logger
+
+
+def hash_a_file(filepath: str):
+    """
+    Generate a new md5 hash for the provided file
+
+    Parameters
+    ----------
+    filepath
+        full absolute file path to the file to hash
+
+    Returns
+    -------
+    str
+        new md5 hex digest for the file
+    """
+
+    md5 = hashlib.md5()
+    with open(filepath, 'rb') as f:
+        data = f.read()
+        md5.update(data)
+    return md5.hexdigest()
+
+
+def hash_vdatum_grids(grid_files: dict, vdatum_path: str):
+    """
+    Generate a new md5 hash for each grid file in the provided dictionary
+
+    Parameters
+    ----------
+    grid_files
+        dictionary of {file name: file path} for the grids in this vdatum directory
+    vdatum_path
+        path to the vdatum folder
+
+    Returns
+    -------
+    dict
+        dictionary of {file path: file hash}
+    """
+
+    hashdict = {}
+    for grd in grid_files.keys():
+        hashdict[grd] = hash_a_file(os.path.join(vdatum_path, grd))
+    return hashdict
+
+
+def return_vdatum_version(grid_files: dict, vdatum_path: str, save_path: str = None):
+    """
+    Return the vdatum version either by brute force using our vdatum hash lookup check, or by reading the vdatum
+    version file that vyperdatum generates, if this check has been run once before.
+
+    Parameters
+    ----------
+    grid_files
+        dictionary of {file name: file path} for the grids in this vdatum directory
+    vdatum_path
+        path to the vdatum folder
+    save_path
+        if provided, saves the vdatum version to a new text file in the vdatum directory
+
+    Returns
+    -------
+
+    """
+    hashdict = hash_vdatum_grids(grid_files, vdatum_path)
+    myversion = ''
+    for vdversion, vdhashes in vdatum_hashlookup.items():
+        if hashdict == vdhashes:
+            myversion = vdversion
+    if myversion and save_path:
+        with open(save_path, 'w') as ofile:
+            ofile.write(myversion)
+    if not myversion:
+        raise EnvironmentError(f'Unable to find version for {vdatum_path} in the currently accepted versions: {list(vdatum_hashlookup.keys())}')
+    return myversion
