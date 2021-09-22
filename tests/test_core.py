@@ -17,6 +17,16 @@ def test_core_setup():
 
 def test_regions():
     vc = VyperCore()
+    vc.set_input_datum((6318, 'mllw'))
+    vc.set_region_by_bounds(-75.79179, 35.80674, -75.3853, 36.01585)
+    assert len(vc.regions) == 2
+    assert vc.regions[0].find('NCcoast') != -1
+    assert vc.regions[1].find('NCinner') != -1
+
+
+def test_3d_to_compound():
+    vc = VyperCore()
+    vc.set_input_datum((6319, 'mllw'))
     vc.set_region_by_bounds(-75.79179, 35.80674, -75.3853, 36.01585)
     assert len(vc.regions) == 2
     assert vc.regions[0].find('NCcoast') != -1
@@ -25,29 +35,33 @@ def test_regions():
 
 def test_is_alaska():
     vc = VyperCore()
+    vc.set_input_datum((6319, 'mllw'))
     vc.set_region_by_bounds(-75.79179, 35.80674, -75.3853, 36.01585)
-    assert not vc.is_alaska()
+    assert not vc.is_alaska
+    vc = VyperCore()
+    vc.set_input_datum((6319, 'mllw'))
     vc.set_region_by_bounds(-136.56527, 56.21873, -135.07113, 56.77662)
-    assert vc.is_alaska()
+    assert vc.is_alaska
 
 
 def test_out_of_bounds():
     vc = VyperCore()
+    vc.set_input_datum((6318, 'mllw'))
     vc.set_region_by_bounds(-155.29119, 57.12611, -154.56609, 57.67068)
-
     assert vc.regions == []
     try:
-        vc.is_alaska()
+        vc.is_alaska
     except ValueError:  # no regions, so this will fail with valueerror exception
         assert True
 
 
 def test_set_input_datum():
     vc = VyperCore()
+    vc.set_input_datum(6318)
     vc.set_region_by_bounds(-75.79179, 35.80674, -75.3853, 36.01585)
     vc.set_input_datum('mllw')
 
-    assert vc.in_crs.datum_name == 'mllw'
+    assert vc.in_crs.vyperdatum_str == 'mllw'
     assert vc.in_crs.pipeline_string == '+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
                                         '+step +inv +proj=vgridshift grids=REGION\\tss.gtx ' \
                                         '+step +proj=vgridshift grids=REGION\\mllw.gtx'
@@ -58,10 +72,11 @@ def test_set_input_datum():
 
 def test_set_output_datum():
     vc = VyperCore()
+    vc.set_input_datum(6318)
     vc.set_region_by_bounds(-75.79179, 35.80674, -75.3853, 36.01585)
     vc.set_output_datum('geoid12b')
 
-    assert vc.out_crs.datum_name == 'geoid12b'
+    assert vc.out_crs.vyperdatum_str == 'geoid12b'
     assert vc.out_crs.pipeline_string == '+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx'
     assert len(vc.regions) == 2
     assert vc.regions[0].find('NCcoast') != -1
@@ -71,9 +86,9 @@ def test_set_output_datum():
 def test_transform_dataset():
     # vdatum online answer, 9/1/2021, epoch 2021.0, (-75.79180, 36.01570, 10.5) ->  z=49.504
     vc = VyperCore()
-    vc.set_region_by_bounds(-75.79179, 35.80674, -75.3853, 36.01585)
+    vc.set_input_datum(6318)
     vc.set_input_datum('nad83')
-    vc.set_output_datum('mllw')
+    vc.set_output_datum((6318,'mllw'))
     x = np.array([-75.79180, -75.79190, -75.79200])
     y = np.array([36.01570, 36.01560, 36.01550])
     z = np.array([10.5, 11.0, 11.5])
@@ -83,12 +98,37 @@ def test_transform_dataset():
     assert (y == newy).all()
     assert (newz == np.array([49.518, 50.018, 50.518])).all()
 
-    assert vc.out_crs.to_wkt() == 'VERTCRS["mllw",VDATUM["mllw"],' \
-                                  'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \
-                                  f'REMARK["regions=[{",".join(vc.regions)}],'\
-                                  'pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx ' \
-                                  '+step +inv +proj=vgridshift grids=REGION\\tss.gtx ' \
-                                  '+step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
+
+def test_transform_sounding_dataset():
+    # vdatum online answer, 9/1/2021, epoch 2021.0, (-75.79180, 36.01570, 10.5) ->  z=49.504
+    vc = VyperCore()
+    vc.set_input_datum(6318)
+    vc.set_input_datum(5866)
+    vc.set_output_datum((6318,'mllw'))
+    x = np.array([-75.79180, -75.79190, -75.79200])
+    y = np.array([36.01570, 36.01560, 36.01550])
+    z = np.array([10.5, 11.0, 11.5])
+    newx, newy, newz, _, _ = vc.transform_dataset(x, y, z, include_vdatum_uncertainty=False)
+
+    assert (x == newx).all()
+    assert (y == newy).all()
+    assert (newz == np.array([-10.5, -11. , -11.5])).all()
+
+
+def test_transform_to_sounding_dataset():
+    # vdatum online answer, 9/1/2021, epoch 2021.0, (-75.79180, 36.01570, 10.5) ->  z=49.504
+    vc = VyperCore()
+    vc.set_input_datum(6318)
+    vc.set_input_datum('nad83')
+    vc.set_output_datum((6318,5866))
+    x = np.array([-75.79180, -75.79190, -75.79200])
+    y = np.array([36.01570, 36.01560, 36.01550])
+    z = np.array([10.5, 11.0, 11.5])
+    newx, newy, newz, _, _ = vc.transform_dataset(x, y, z, include_vdatum_uncertainty=False)
+
+    assert (x == newx).all()
+    assert (y == newy).all()
+    assert (newz == np.array([-49.518, -50.018, -50.518])).all()
 
 
 def test_transform_dataset_alaska():
@@ -103,7 +143,7 @@ def test_transform_dataset_alaska():
     # answer from adding the grids querying locations in QGIS = 10.5 + 3.125 (AK17B) - 0.257 (TSS) + 1.103 (MLLW) = 14.471  (AKWhale)
 
     vc = VyperCore()
-    vc.set_region_by_bounds(-136.56527, 56.21873, -135.07113, 56.77662)
+    vc.set_input_datum(6318)
     vc.set_input_datum('nad83')
     vc.set_output_datum('mllw')
     x = np.array([-136.0, -136.1, -136.2])
@@ -115,17 +155,10 @@ def test_transform_dataset_alaska():
     assert y == approx(newy, abs=0.01)
     assert newz == approx(np.array([14.932, 15.128, 15.232]), abs=0.001)
 
-    assert vc.out_crs.to_wkt() == 'VERTCRS["mllw",VDATUM["mllw"],' \
-                                  'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \
-                                  f'REMARK["regions=[{",".join(vc.regions)}],'\
-                                  'pipeline=+proj=pipeline ' \
-                                  '+step +proj=vgridshift grids=core\\xgeoid17b\\AK_17B.gtx +step +inv +proj=vgridshift ' \
-                                  'grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]'
-
 
 def test_transform_dataset_inv():
     vc = VyperCore()
-    vc.set_region_by_bounds(-75.79179, 35.80674, -75.3853, 36.01585)
+    vc.set_input_datum(6318)
     vc.set_input_datum('mllw')
     vc.set_output_datum('nad83')
     x = np.array([-75.79180, -75.79190, -75.79200])
@@ -137,13 +170,10 @@ def test_transform_dataset_inv():
     assert (y == newy).all()
     assert (newz == np.array([10.5, 11.0, 11.5])).all()
 
-    assert vc.out_crs.to_wkt() == 'VERTCRS["nad83",VDATUM["nad83"],' \
-                                  'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],' \
-                                  'REMARK["regions=[],pipeline="]]'
-
 
 def test_transform_dataset_unc():
     vc = VyperCore()
+    vc.set_input_datum(6318)
     vc.set_region_by_bounds(-75.79179, 35.80674, -75.3853, 36.01585)
     vc.set_input_datum('nad83')
     vc.set_output_datum('mllw')
@@ -160,13 +190,12 @@ def test_transform_dataset_unc():
 
 def test_transform_dataset_stateplane():
     # try out the built in transform from EPSG to nad83 to get the new horiz and vert
-    # if you provide an EPSG that is a 2d system, it assumes the z provided is at nad83
     vc = VyperCore()
     x = np.array([898745.505, 898736.854, 898728.203])
     y = np.array([256015.372, 256003.991, 255992.610])
     z = np.array([10.5, 11.0, 11.5])
 
-    vc.set_input_datum(3631, extents=(min(x), min(y), max(x), max(y)))  # testing with NorthCarolina nad83 ft us
+    vc.set_input_datum((3631,'nad83'), extents=(min(x), min(y), max(x), max(y)))  # testing with NorthCarolina nad83 ft us
     vc.set_output_datum('mllw')
 
     newx, newy, newz, newunc, _ = vc.transform_dataset(x, y, z)
@@ -179,8 +208,8 @@ def test_transform_dataset_stateplane():
 
 def test_transform_dataset_region_index():
     vc = VyperCore()
+    vc.set_input_datum((6318,'nad83'))
     vc.set_region_by_bounds(-75.79179, 35.80674, -75.3853, 36.01585)
-    vc.set_input_datum('nad83')
     vc.set_output_datum('mllw')
     x = np.array([-75.79180, -75.79190, -75.79200])
     y = np.array([36.01570, 36.01560, 36.01550])
@@ -200,9 +229,8 @@ def test_transform_dataset_region_index():
 def test_transform_dataset_with_log():
     logfile = os.path.join(data_folder, 'newlog.txt')
     vc = VyperCore(logfile=logfile)
-
+    vc.set_input_datum(6319)
     vc.set_region_by_bounds(-75.79179, 35.80674, -75.3853, 36.01585)
-    vc.set_input_datum('nad83')
     vc.set_output_datum('mllw')
     x = np.array([-75.79180, -75.79190, -75.79200])
     y = np.array([36.01570, 36.01560, 36.01550])
@@ -227,6 +255,7 @@ def test_vdatum_software_compare():
     vdatum_online_lmsl_mllw = 1.965
 
     vc = VyperCore()
+    vc.set_input_datum(6319)
     vc.set_region_by_bounds(-122.4781505, 47.7890222, -122.4780505, 47.7891222)
     x = np.array([point_x])
     y = np.array([point_y])

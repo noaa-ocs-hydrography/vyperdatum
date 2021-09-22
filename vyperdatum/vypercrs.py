@@ -8,10 +8,11 @@ horiz later.  How do we handle these custom vert transformations though?  We hav
 something we can directly use in pyproj.  We have to build our own pipeline from a source custom vert to a source custom
 vert.
 """
-
-from pyproj.crs import CRS
+from typing import Union
+from pyproj.crs import CRS, CompoundCRS, VerticalCRS as pyproj_VerticalCRS
 
 from vyperdatum.pipeline import get_regional_pipeline, datum_definition
+from vyperdatum.__version__ import __version__
 
 
 class CoordinateSystem:
@@ -42,7 +43,7 @@ class CoordinateSystem:
             if ax.lower() in ['h', 'height', 'gravity-related height (h)', 'gravity-related height']:
                 axis_string += 'AXIS["gravity-related height (H)",up]'
             elif ax.lower() in ['d', 'depth', 'depth (d)']:
-                axis_string += 'AXIS["depth (D)",up]'
+                axis_string += 'AXIS["depth (D)",down]'
         return axis_string
 
     @property
@@ -212,9 +213,9 @@ class BaseVerticalCRS:
     @property
     def id_string(self):
         if self.datum_descrption.lower().find('nad83') != -1:
-            return f'ID["EPSG",6319]'
+            return 'ID["EPSG",6319]'
         elif self.datum_descrption.lower().find('wgs') != -1:
-            return f'ID["EPSG",4979]'
+            return 'ID["EPSG",4979]'
         else:
             raise NotImplementedError(f'Only nad83 and wgs84 supported, unable to find either in {self.datum_descrption}')
 
@@ -247,75 +248,60 @@ class VerticalCRS:
         self._vertical_datum = VerticalDatum('')
         self._coordinate_system = CoordinateSystem('vertical', ('height',), 'm')
 
-        self._datum_name = ''
-        self._base_datum_name = ''
-        self._conversion_name = ''
-        self._conversion_method = ''
-        self._coordinate_type = 'vertical'
-        self._coordinate_axis = ('height',)
-        self._coordinate_units = 'm'
-
     @property
     def datum_name(self):
-        return self._datum_name
+        return self._vertical_datum.datum_string
 
     @datum_name.setter
     def datum_name(self, datum_name: str):
-        self._datum_name = datum_name
         self._vertical_datum.datum_string = datum_name
 
     @property
     def base_datum_name(self):
-        return self._base_datum_name
+        return self._base_crs.datum_descrption
 
     @base_datum_name.setter
     def base_datum_name(self, base_datum_name: str):
-        self._base_datum_name = base_datum_name
         self._base_crs.datum_descrption = base_datum_name
 
     @property
     def conversion_name(self):
-        return self._conversion_name
+        return self._deriving_conversion.conversion_string
 
     @conversion_name.setter
     def conversion_name(self, conversion_name: str):
-        self._conversion_name = conversion_name
         self._deriving_conversion.conversion_string = conversion_name
 
     @property
     def conversion_method(self):
-        return self._conversion_method
+        return self._deriving_conversion.method_description
 
     @conversion_method.setter
     def conversion_method(self, conversion_method: str):
-        self._conversion_method = conversion_method
         self._deriving_conversion.method_description = conversion_method
 
     @property
     def coordinate_type(self):
-        return self._coordinate_type
+        return self._coordinate_system.axis_type
 
     @coordinate_type.setter
     def coordinate_type(self, coordinate_type: str):
-        self._coordinate_type = coordinate_type
         self._coordinate_system.axis_type = coordinate_type
 
     @property
     def coordinate_axis(self):
-        return self._coordinate_axis
+        return self._coordinate_system.axis
 
     @coordinate_axis.setter
     def coordinate_axis(self, coordinate_axis: tuple):
-        self._coordinate_axis = coordinate_axis
         self._coordinate_system.axis = coordinate_axis
 
     @property
     def coordinate_units(self):
-        return self._coordinate_units
+        return self._coordinate_system.units
 
     @coordinate_units.setter
     def coordinate_units(self, coordinate_units: str):
-        self._coordinate_units = coordinate_units
         self._coordinate_system.units = coordinate_units
 
     def _wkt_search_string(self, wkt_string: str, startkey: str):
@@ -330,7 +316,10 @@ class VerticalCRS:
             else:
                 raise ValueError(f'from_wkt: Unable to find " in wkt string starting at index {start_index}')
         else:
-            raise ValueError(f'from_wkt: Unable to find {startkey} in wkt string')
+            if startkey == 'REMARK[':
+                ans = None
+            else:
+                raise ValueError(f'from_wkt: Unable to find {startkey} in wkt string')
         return ans
 
     def _wkt_search_data(self, wkt_string: str, startkey: str):
@@ -366,21 +355,34 @@ class VerticalCRS:
 
     def _wkt_pipeline_remarks(self, wkt_string):
         remarks = self._wkt_search_string(wkt_string, 'REMARK[')
-        region_start = remarks.find('regions=')
-        if region_start != -1:
-            strt = region_start + len('regions=') + 1
-            region_end = remarks.find('],', strt)
-            region_data = remarks[strt:region_end]
-            regions = [x.strip() for x in region_data.split(',')]
+        if remarks:
+            version = None
+            base_datum = None
+            region_start = remarks.find('regions=')
+            if region_start != -1:
+                strt = region_start + len('regions=') + 1
+                region_end = remarks.find('],', strt)
+                region_data = remarks[strt:region_end]
+                regions = [x.strip() for x in region_data.split(',')]
+            else:
+                raise ValueError(f'Unable to find regions keyword in remarks string {remarks}')
+            pipeline_start = remarks.find('pipeline=')
+            if pipeline_start != -1:
+                strt = pipeline_start + len('pipeline=')
+                pipeline = remarks[strt:]
+            else:
+                raise ValueError(f'Unable to find pipeline keyword in remarks string {remarks}')
+            version_start = remarks.find('vyperdatum=')
+            if version_start != -1:
+                strt = version_start + len('vyperdatum=')
+                version = remarks[strt:]
+            datum_start = remarks.find('base_datum=')
+            if datum_start != -1:
+                strt = datum_start + len('base_datum=')
+                base_datum = remarks[strt:]
+            return pipeline, regions, version, base_datum
         else:
-            raise ValueError(f'Unable to find regions keyword in remarks string {remarks}')
-        pipeline_start = remarks.find('pipeline=')
-        if pipeline_start != -1:
-            strt = pipeline_start + len('pipeline=')
-            pipeline = remarks[strt:]
-        else:
-            raise ValueError(f'Unable to find pipeline keyword in remarks string {remarks}')
-        return pipeline, regions
+            return '', [], None, None
 
 
 class VerticalDerivedCRS(VerticalCRS):
@@ -493,6 +495,8 @@ class VerticalPipelineCRS(VerticalCRS):
 
         self.regions = []
         self.pipeline_string = ''
+        self.version = ''
+        self.base_datum = ''
 
     def add_pipeline(self, pipeline: str, region: str):
         self.regions.append(region)
@@ -512,13 +516,16 @@ class VerticalPipelineCRS(VerticalCRS):
 
         if pretty:
             pretty_ident = len('REMARK') * ' '
-            return f'REMARK["regions={fmt_regions},\n{pretty_ident}pipeline={self.pipeline_string}"]'
+            return f'REMARK["vyperdatum={__version__},\n{pretty_ident}base_datum=nad83,\n{pretty_ident}regions={fmt_regions},\n{pretty_ident}pipeline={self.pipeline_string}"]'
         else:
-            return f'REMARK["regions={fmt_regions},pipeline={self.pipeline_string}"]'
+            return f'REMARK["vyperdatum={__version__},base_datum=nad83,regions={fmt_regions},pipeline={self.pipeline_string}"]'
 
     def to_wkt(self):
         wktstr = f'VERTCRS["{self.datum_name}",{self._vertical_datum.to_wkt()},{self._coordinate_system.to_wkt()},'
-        wktstr += f'{self.build_remarks()}]'
+        if len(self.regions) > 0 and len(self.pipeline_string) > 0:
+            wktstr += f'{self.build_remarks()}]'
+        else:
+            wktstr += ']'
         return wktstr
 
     def from_wkt(self, wkt_string: str):
@@ -526,13 +533,16 @@ class VerticalPipelineCRS(VerticalCRS):
         self.coordinate_type = self._wkt_search_data(wkt_string, 'CS[')
         self.coordinate_axis = (self._wkt_search_string(wkt_string, 'AXIS['),)
         self.coordinate_units = self._wkt_search_string(wkt_string, 'LENGTHUNIT[')
-        self.pipeline_string, self.regions = self._wkt_pipeline_remarks(wkt_string)
+        self.pipeline_string, self.regions, self.version, self.base_datum = self._wkt_pipeline_remarks(wkt_string)
 
     def to_pretty_wkt(self):
         wktstr = f'VERTCRS["{self.datum_name}",\n'
         wktstr += f'  {self._vertical_datum.to_pretty_wkt()},\n'
         wktstr += f'  {self._coordinate_system.to_pretty_wkt()}]\n'
-        wktstr += f'  {self.build_remarks()}]'
+        if len(self.regions) > 0 and len(self.pipeline_string) > 0:
+            wktstr += f'  {self.build_remarks()}]'
+        else:
+            wktstr += ']'
         return wktstr
 
     def to_compound_wkt(self):
@@ -557,7 +567,343 @@ class VerticalPipelineCRS(VerticalCRS):
         return CRS.from_wkt(self.to_compound_wkt())
 
 
-def get_transformation_pipeline(in_crs: VerticalPipelineCRS, out_crs: VerticalPipelineCRS, region: str, is_alaska: bool = False):
+class VyperPipelineCRS:
+    """
+    A container for developing and validating compound crs objects built around pyproj crs objects
+    and the vypercrs.VerticalPipelineCRS object.
+    """
+    
+    def __init__(self, new_crs: Union[str, int, tuple] = None, regions: [str] = None):
+        self._is_valid = False
+        self._ccsr = None
+        self._vert = None
+        self._hori = None
+        self._regions = None
+        self._vyperdatum_str = None
+        self._pipeline_str = None
+        self._is_height = None
+        if new_crs is not None:
+            self.set_crs(new_crs, regions)
+        
+    def set_crs(self, new_crs: Union[str, int, tuple], regions:[str] = None):
+        """
+        Set the object vertical and / or horizontal crs using either an epsg code or wkt.
+        Regions are also optionally set with a list of VDatum region strings.
+
+        Parameters
+        ----------
+        new_crs : Union[str, int, tuple]
+            A wkt string or a vyperdatum vertical datum definition string or an epsg code
+            may be provided either on its own or as a tuple pair.  While the order (horizontal or vertical)
+            does not matter, if they contain information for the same frame (horizontal or vertical) the
+            second will overwrite the first.
+            
+            Once the provided object datums are set, the object compound attribute is set if the horizontal,
+            verical, and region information is available.
+            
+        regions : [str], optional
+            A list of VDatum region strings.  These values will overwrite the values contained in the vertical
+            WKT if they exist. The default is None.
+
+        Raises
+        ------
+        ValueError
+            If a tuple of length greater than two is provided or if the provided value(s) are not a string
+            or an integer.
+
+        Returns
+        -------
+        None.
+
+        """
+        # check the input type
+        if type(new_crs) == tuple:
+            if len(new_crs) > 2:
+                len_crs = len(new_crs)
+                raise ValueError(f'The provided crs {new_crs} is {len_crs} in length but should have a length of two.')
+        else:
+            new_crs = (new_crs,)
+        # create pyproj crs based on the input type
+        for entry in new_crs:
+            if type(entry) == str:
+                crs_str = entry
+                if entry.lower() in datum_definition:
+                    tmp_crs = VerticalPipelineCRS(datum_name=entry)
+                    crs_str = tmp_crs.to_wkt()
+                crs = CRS.from_wkt(crs_str)
+                self._set_single(crs)
+            elif type(entry) == int:
+                crs = CRS.from_epsg(entry)
+                self._set_single(crs)
+            else:
+                raise ValueError(f'The crs description type {entry} is not recognized.')
+
+        if regions:
+            self._regions = regions
+            
+        self._update_and_build_compound()        
+            
+    def update_regions(self, regions: [str]):
+        """
+        Update the regions object attribute.
+
+        Parameters
+        ----------
+        regions : [str]
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+        self._regions = regions
+        
+        self._update_and_build_compound() 
+            
+    def _set_single(self, crs: CRS):
+        """
+        Assign the provided pyproj crs object to the object attribute representing either the
+        vertical crs or the horizontal crs.  If the object contains a new vertical crs and
+        contains the remarks for the regions, the regions are also extracted and assigned to
+        the associated object attribute.
+
+        Parameters
+        ----------
+        crs : pyproj.crs.CRS
+            The new crs.
+
+        Returns
+        -------
+        None.
+
+        """
+        new_vert = False
+        if crs_is_compound(crs):
+            self.ccrs = crs
+            self._hori = crs.sub_crs_list[0]
+            self._vert = crs.sub_crs_list[1]
+            new_vert = True
+        elif crs.is_geocentric:
+            raise ValueError('Geocentric cooridinate systems are not supported.')
+        elif len(crs.axis_info) > 2:
+            # assuming 3D crs if not compound but axis length is > 2. Break into compound crs.
+            if crs.to_epsg() == 6319:
+                self._hori = CRS.from_epsg(6318)
+                vert_name = guess_vertical_datum_from_string(crs.name)
+                if vert_name:
+                    tmp = VerticalPipelineCRS(datum_name = vert_name)
+                    self._vert = tmp.to_crs()
+                    new_vert = True
+            else:
+                raise NotImplementedError('A 3D coordinate system that is not NAD83 is not yet implemented.')
+        elif crs.is_vertical:                
+            self._vert = crs
+            new_vert = True
+        else:
+            self._hori = crs
+        if new_vert:
+            # get the regions from the wkt if available
+            tmp_vert = VerticalPipelineCRS()
+            tmp_vert.from_wkt(self._vert.to_wkt())
+            if len(tmp_vert.regions) > 0:
+                self._regions = tmp_vert.regions
+            # ideally we would pull the vyperdatum name string here too
+         
+    def _update_and_build_compound(self):
+        """
+        Create a compound crs object attribute and mark the object as valid if there is a horizontal
+        crs, a vertical crs, and if the vertical crs includes the pipeline and regions in the remarks.
+
+        Returns
+        -------
+        None.
+
+        """
+        if self._vert and self._regions:
+            self._vert, self._vyperdatum_str, self._pipeline_str = build_valid_vert_crs(self._vert, self._regions)
+        if self._hori and self._vert and self._valid_vert():
+            compound_name = f'{self._hori.name} + {self._vert.name}'
+            self.ccrs = CompoundCRS(compound_name, [self._hori, self._vert])
+            self._is_valid = True
+            vert_axis = self._vert.axis_info[0]
+            if vert_axis.direction == 'up':
+                self._is_height = True
+            elif vert_axis.direction == 'down':
+                self._is_height = False
+            else:
+                raise ValueError('no direction defined for the vertical crs.')
+                   
+    def _valid_vert(self) -> bool:
+        """
+        See if there is a vertical crs in the object and if it has regions and
+        and a pipeline in the remarks.
+
+        Returns
+        -------
+        bool
+            True if there is a vertical crs object and the remarks include
+            the pipeline and regions.
+
+        """
+        valid = False
+        if self._vert and self._vert.remarks:
+            have_region = 'regions' in self._vert.remarks
+            have_pipeline = 'pipeline' in self._vert.remarks
+            have_version = 'vyperdatum' in self._vert.remarks
+            have_datum = 'base_datum' in self._vert.remarks
+            if have_region and have_pipeline and have_version and have_datum:
+                valid = True
+        return valid
+    
+    @property
+    def is_valid(self):
+        return self._is_valid
+    
+    @property
+    def vertical(self):
+        if self._valid_vert():
+            return self._vert
+        else:
+            return None
+        
+    @property    
+    def horizontal(self):
+        return self._hori
+    
+    @property
+    def regions(self):
+        return self._regions
+    
+    @property
+    def vyperdatum_str(self):
+        return self._vyperdatum_str
+    
+    @property
+    def pipeline_string(self):
+        return self._pipeline_str
+    
+    @property
+    def is_height(self):
+        return self._is_height
+    
+    def to_wkt(self):
+        if self._is_valid:
+            return self.ccrs.to_wkt()
+        else:
+            return None
+
+
+def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str]) -> (pyproj_VerticalCRS, str, str):
+    """
+    Add the regions and pipeline to the remarks section of the wkt for the
+    provided pyproj VerticalCRS object.
+
+    Parameters
+    ----------
+    crs : pyproj.crs.VerticalCRS
+        The vertical crs object to add the pipeline and region into.
+    regions : [str]
+        The regions to add into the crs remarks.
+
+    Returns
+    -------
+    result (pyproj.crs.VerticalCRS, str)
+        First value is the vertical crs object with the remarks updated to add the region and
+        pipeline.  The second value is the vyperdatum.pipeline datum identifier. The third
+        value is the pipeline string.
+
+    """
+    is_ak = is_alaska(regions)
+    datum = guess_vertical_datum_from_string(crs.name)
+    pipeline = None
+    new_crs = VerticalPipelineCRS()
+    new_crs.from_wkt(crs.to_wkt())
+    if datum:
+        for region in regions:
+            if datum == 'nad83':
+                new_pipeline = '[]'
+            else:
+                new_pipeline = get_regional_pipeline('nad83', datum, region, is_alaska=is_ak)
+            if new_pipeline:
+                new_crs.add_pipeline(new_pipeline, region)
+        pipeline = new_crs.pipeline_string
+        valid_vert_crs = CRS.from_wkt(new_crs.to_wkt())
+    else:
+        valid_vert_crs = None
+    return valid_vert_crs, datum, pipeline
+
+
+def is_alaska(regions: [str]) -> bool:
+    """
+    A somewhat weak implementation of a method to determine if these regions are in alaska.  Currently, alaskan
+    tidal datums are based on xgeoid18, so we need to identify those regions to ensure we use the correct geoid
+    during transformation.
+
+    Could probably just use the geographic bounds, but this method works and is less expensive.
+
+    Parameters
+    ----------
+    regions
+        list of vdatum region strings
+
+    Returns
+    -------
+    bool
+        True if all regions are in alaska
+    """
+    if regions:
+        ak_region = [t.find('AK') != -1 for t in regions]
+        any_ak = any(ak_region)
+        all_ak = all(ak_region)
+        if any_ak and all_ak:
+            is_ak = True
+        elif any_ak:
+            raise NotImplementedError('Regions in and not in alaska specified, not currently supported')
+        else:
+            is_ak = False
+    else:
+        is_ak = False
+    return is_ak
+
+
+def guess_vertical_datum_from_string(vertical_datum_name: str) -> str:
+    """
+    Guess the vyperdatum string name by inspecting the string provided and
+    looking for matches to the datum names.
+
+    Parameters
+    ----------
+    vertical_datum_name : str
+        A string from the datum WKT.
+
+    Raises
+    ------
+    ValueError
+        If more than one match to the datum definition is found to match the
+        string provided.
+
+    Returns
+    -------
+    str
+        The matching vyperdatum string name if there is one, otherwise returns
+        None.
+        
+
+    """
+    guess_list = []
+    for datum in datum_definition:
+        if datum in vertical_datum_name.lower():
+            guess_list.append(datum)
+    if len(guess_list) == 1:
+        return guess_list[0]
+    elif len(guess_list) == 0:
+        return ''
+    else:
+        raise ValueError(f'More than one datum guess found in {vertical_datum_name}')
+
+
+def get_transformation_pipeline(in_crs: Union[VyperPipelineCRS, VerticalPipelineCRS], out_crs: Union[VyperPipelineCRS, VerticalPipelineCRS], region: str, is_alaska: bool = False):
     """
     Use the datum name in the input/output crs and the region specified to build the pipeline between the two
     provided CRS.  This means that the datum names of the two crs must be in the datum_definition dictionary.
@@ -581,18 +927,49 @@ def get_transformation_pipeline(in_crs: VerticalPipelineCRS, out_crs: VerticalPi
         PROJ pipeline string specifying the vertical transformation between source incrs and outcrs
     """
 
-    if in_crs.datum_name.lower() not in datum_definition.keys():
-        raise NotImplementedError(f'Unable to build pipeline, datum name not in the datum definition dict, {in_crs.datum_name} not in {list(datum_definition.keys())}')
+    if type(in_crs) == VyperPipelineCRS:
+        in_def_str = in_crs.vyperdatum_str            
+    elif type(in_crs) == VerticalPipelineCRS:
+        in_def_str = in_crs.datum_name.lower()
+    else:
+        raise ValueError(f'In vertical crs datum object type unknown: {type(in_crs)}')
+    if in_def_str not in datum_definition.keys():
+        raise NotImplementedError(f'Unable to build pipeline, datum name not in the datum definition dict, {in_def_str} not in {list(datum_definition.keys())}')
     # nad83 is a special case, there would be no transformation there as it is the pivot datum, all regions (assuming nad83 bounds) are valid
     if region not in in_crs.regions and in_crs.datum_name.lower() != 'nad83':
         raise NotImplementedError(f'Unable to build pipeline, region not in input CRS: {region}')
 
-    if out_crs.datum_name.lower() not in datum_definition.keys():
-        raise NotImplementedError(f'Unable to build pipeline, datum name not in the datum definition dict, {out_crs.datum_name} not in {list(datum_definition.keys())}')
+    if type(out_crs) == VyperPipelineCRS:
+        out_def_str = out_crs.vyperdatum_str
+    elif type(out_crs) == VerticalPipelineCRS:
+        out_def_str = out_crs.datum_name.lower()
+    else:
+        raise ValueError(f'Out vertical crs datum object type unknown: {type(out_crs)}')
+    if out_def_str not in datum_definition.keys():
+        raise NotImplementedError(f'Unable to build pipeline, datum name not in the datum definition dict, {out_def_str} not in {list(datum_definition.keys())}')
     if region not in out_crs.regions and out_crs.datum_name.lower() != 'nad83':
         raise NotImplementedError(f'Unable to build pipeline, region not in output CRS: {region}')
 
-    return get_regional_pipeline(in_crs.datum_name, out_crs.datum_name, region, is_alaska=is_alaska)
+    return get_regional_pipeline(in_def_str, out_def_str, region, is_alaska=is_alaska)
+
+
+def crs_is_compound(my_crs: CRS):
+    """
+
+    Parameters
+    ----------
+    my_crs
+
+    Returns
+    -------
+
+    """
+    if len(my_crs.sub_crs_list) == 2:
+        horizcrs = my_crs.sub_crs_list[0]
+        vertcrs = my_crs.sub_crs_list[1]
+        if not horizcrs.is_vertical and vertcrs.is_vertical:
+            return True
+    return False
 
 
 if __name__ == '__main__':
