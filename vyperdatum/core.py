@@ -569,7 +569,7 @@ class VdatumData:
             datadir.append_data_dir(vdatum_path)
     
         # also want to populate grids and polygons with what we find
-        self.grid_files = get_gtx_grid_list(vdatum_path)
+        self.grid_files, self.regions = get_gtx_grid_list(vdatum_path)
         self.polygon_files = get_vdatum_region_polygons(vdatum_path)
         self.uncertainties = get_vdatum_uncertainties(vdatum_path)
 
@@ -599,6 +599,7 @@ def get_gtx_grid_list(vdatum_directory: str):
         errmsg = f'No GTX files found in the provided VDatum directory: {vdatum_directory}'
         print(errmsg)
     grids = {}
+    regions = []
     for gtx in gtx_list:
         gtx_path, gtx_file = os.path.split(gtx)
         gtx_path, gtx_folder = os.path.split(gtx_path)
