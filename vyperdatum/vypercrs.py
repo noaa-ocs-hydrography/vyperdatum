@@ -688,15 +688,19 @@ class VyperPipelineCRS:
             raise ValueError('Geocentric cooridinate systems are not supported.')
         elif len(crs.axis_info) > 2:
             # assuming 3D crs if not compound but axis length is > 2. Break into compound crs.
-            if crs.to_epsg() == 6319:
+            if crs.to_epsg() == 6319:  # if 3d nad83, go to 2d nad83
                 self._hori = CRS.from_epsg(6318)
-                vert_name = guess_vertical_datum_from_string(crs.name)
-                if vert_name:
-                    tmp = VerticalPipelineCRS(datum_name = vert_name)
-                    self._vert = tmp.to_crs()
-                    new_vert = True
+            elif crs.to_epsg() == 7911:  # 3d wgs84/itrf2008, go to 2d
+                self._hori = CRS.from_epsg(8999)
+            elif crs.to_epsg() == 7912:  # 3d itrf2014, go to 2d
+                self._hori = CRS.from_epsg(9000)
             else:
                 raise NotImplementedError('A 3D coordinate system that is not NAD83 is not yet implemented.')
+            vert_name = guess_vertical_datum_from_string(crs.name)
+            if vert_name:
+                tmp = VerticalPipelineCRS(datum_name=vert_name)
+                self._vert = tmp.to_crs()
+                new_vert = True
         elif crs.is_vertical:                
             self._vert = crs
             new_vert = True
