@@ -1,4 +1,17 @@
-# All datum definitions are defined relative to the same 'pivot' ellipsoid.
+nad83_itrf2008_pipeline = '+proj=pipeline +step +proj=axisswap +order=2,1 ' \
+                          '+step +proj=unitconvert +xy_in=deg +xy_out=rad ' \
+                          '+step +proj=cart +ellps=GRS80 ' \
+                          '+step +inv +proj=helmert +x=0.99343 +y=-1.90331 +z=-0.52655 +rx=0.02591467 +ry=0.00942644999999999 +rz=0.01159935 +s=0.00171504 +dx=0.00079 +dy=-0.0006 +dz=-0.00134 +drx=6.667e-05 +dry=-0.00075744 +drz=-5.133e-05 +ds=-0.00010201 +t_epoch=1997 +convention=coordinate_frame ' \
+                          '+step +inv +proj=cart +ellps=GRS80  ' \
+                          '+step +proj=unitconvert +xy_in=rad +xy_out=deg  ' \
+                          '+step +proj=axisswap +order=2,1'
+nad83_itrf2014_pipeline = '+proj=pipeline +step +proj=axisswap +order=2,1 ' \
+                          '+step +proj=unitconvert +xy_in=deg +xy_out=rad ' \
+                          '+step +proj=cart +ellps=GRS80 ' \
+                          '+step +inv +proj=helmert +x=1.0053 +y=-1.9092 +z=-0.5416 +rx=0.0267814 +ry=-0.0004203 +rz=0.0109321 +s=0.00037 +dx=0.0008 +dy=-0.0006 +dz=-0.0014 +drx=6.67e-05 +dry=-0.0007574 +drz=-5.13e-05 +ds=-7e-05 +t_epoch=2010 +convention=coordinate_frame ' \
+                          '+step +inv +proj=cart +ellps=GRS80 ' \
+                          '+step +proj=unitconvert +xy_in=rad +xy_out=deg ' \
+                          '+step +proj=axisswap +order=2,1'
 
 datum_definition = {
     'nad83'    : [],
