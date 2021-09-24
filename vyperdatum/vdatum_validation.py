@@ -1,14 +1,8 @@
 import os
 import numpy as np
 
+from pyproj import CRS
 
-geoid_possibilities = ['geoid12b', 'xgeoid16b', 'xgeoid17b', 'xgeoid18b', 'xgeoid19b', 'xgeoid20b']
-geoid_frame = {'geoid12b': 'nad83',
-               'xgeoid16b': 'itrf08',
-               'xgeoid17b': 'itrf08',
-               'xgeoid18b': 'itrf08',
-               'xgeoid19b': 'itrf08',
-               'xgeoid20b': 'itrf08'}
 
 vdatum42_hashes = {'AKglacier00_8301/dtl.gtx': '7b5cbeae1c0f34612dcc7ff9432ac9b9',
                    'AKglacier00_8301/mhhw.gtx': '11bcc780ee778f2942e04408c4c673a0',
@@ -440,4 +434,3 @@ vdatum_answers = {'vdatum_4.2': {'north_carolina': {'x': np.array([-75.73890, -7
 # make sure that the lookups have the appropriate keys
 assert list(vdatum_hashlookup.keys()) == list(vdatum_answers.keys())
 assert list(vdatum_geoidlookup.keys()) == list(vdatum_answers.keys())
-assert geoid_possibilities == list(geoid_frame.keys())

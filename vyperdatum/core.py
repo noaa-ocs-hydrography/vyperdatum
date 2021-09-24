@@ -6,10 +6,9 @@ from typing import Any, Union
 import logging
 from datetime import datetime
 
-from vyperdatum.vypercrs import VyperPipelineCRS, get_transformation_pipeline, is_alaska
-from vyperdatum.vdatum_validation import vdatum_hashlookup, geoid_possibilities
-
-NAD83_EPSG = 6318
+from vyperdatum.vypercrs import VyperPipelineCRS, get_transformation_pipeline, is_alaska, geoid_frame, geoid_possibilities, \
+    frame_to_3dcrs
+from vyperdatum.vdatum_validation import vdatum_hashlookup, vdatum_geoidlookup
 
 
 class VyperCore:
@@ -56,6 +55,7 @@ class VyperCore:
 
         self.logger = return_logger(logfile)
         self._regions = []
+        self._geoid_frame = None
         self.pipelines = []
         
     @property
@@ -153,6 +153,10 @@ class VyperCore:
                         valid_vdatum_poly = feature.GetGeometryRef()
                         if data_geometry.Intersect(valid_vdatum_poly):
                             intersecting_regions.append(region)
+                            gframe = geoid_frame[vdatum_geoidlookup[self.vdatum.vdatum_version][region]]
+                            if self._geoid_frame and self._geoid_frame != gframe:
+                                raise NotImplementedError(f'Found two different geoid reference frames in the intersecting regions: {self._geoid_frame}, {gframe}')
+                            self._geoid_frame = gframe
                     feature = None
                 layer = None
             vector = None
@@ -182,12 +186,13 @@ class VyperCore:
 
         """
         self.min_x, self.min_y, self.max_x, self.max_y = extents
-        in_horiz_epsg = self.in_crs.horizontal.to_epsg()
-        if in_horiz_epsg != NAD83_EPSG:
+        gframe = self._geoid_frame
+        in_horiz_name = self.in_crs.horizontal.name
+        if in_horiz_name != gframe:
             x = [self.min_x, self.max_x]
             y = [self.min_y, self.max_y]
             z = [0, 0]
-            x_geo, y_geo, z_geo = self._transform_to_nad83(x, y, z)
+            x_geo, y_geo, z_geo = self._transform_to_geoid_frame(x, y, z)
             self.geographic_min_x, self.geographic_max_x = x_geo
             self.geographic_min_y, self.geographic_max_y = y_geo
         else:
@@ -196,15 +201,15 @@ class VyperCore:
             self.geographic_min_y = self.min_y
             self.geographic_max_y = self.max_y
 
-    def _transform_to_nad83(self, x: np.array, y: np.array, z: np.array = None):
+    def _transform_to_geoid_frame(self, x: np.array, y: np.array, z: np.array = None):
         """
-        NAD83 is our pivot datum in vyperdatum.  In order to do a vertical transform, we need to first get to NAD83
-        if we aren't there already.  We assume that if you are not at NAD83, you are providing an integer EPSG code,
-        which triggers this method.
+        In order to do a vertical transform, we need to first get to the geoid reference frame if we aren't there
+        already.  See set_region_by_bounds for where that geoid frame attribute gets set.  Basically we look at the
+        regions of interest to figure out the correct geoid frame.
 
         Here we use the Transformer object to do a 3d (if EPSG is 3d coordinate system) or 2d transformation to
-        6319, which is 3d NAD83 (2011).  If the transformation is 3d, you'll get a z value which is the sep between
-        source and 6319.  Otherwise z will be unchanged.
+        the geoid frame.  If the transformation is a valid 3d, you'll get a z value which is the sep between
+        source and geoid frame.  Otherwise z will be unchanged.
 
         Parameters
         ----------
@@ -226,7 +231,7 @@ class VyperCore:
         """
 
         in_crs = self.in_crs.horizontal.to_epsg()
-        out_crs = CRS.from_epsg(NAD83_EPSG)
+        out_crs = frame_to_3dcrs[self._geoid_frame]
         # Transformer.transform input order is based on the CRS, see CRS.geodetic_crs.axis_info
         # - lon, lat - this appears to be valid when using CRS from proj4 string
         # - lat, lon - this appears to be valid when using CRS from epsg
@@ -236,6 +241,7 @@ class VyperCore:
         if z is None:
             z = np.zeros_like(x)
         x, y, z = transformer.transform(x, y, z)
+
         return x, y, z
 
     def set_input_datum(self, input_datum: Union[str, int, tuple], extents: tuple = None):
@@ -377,15 +383,14 @@ class VyperCore:
                 self.log_error('Input datum insufficently specified', ValueError)
             if not self.out_crs.is_valid:
                 self.log_error('Output datum insufficently specified', ValueError)
-            in_horiz_epsg = self.in_crs.horizontal.to_epsg()
+
             if z is not None and not self.in_crs.is_height:
                 z *= -1
             if self.out_crs.is_height:
                 flip = 1
             else:
                 flip = -1
-            if in_horiz_epsg != NAD83_EPSG:
-                x, y, z = self._transform_to_nad83(x, y, z)
+
             ans_x = np.full_like(x, np.nan)
             ans_y = np.full_like(y, np.nan)
             if z is None:
@@ -403,6 +408,10 @@ class VyperCore:
             self.pipelines = []
             for cnt, region in enumerate(self._regions):
                 # get the pipeline
+                gframe = self._geoid_frame
+                in_horiz_name = self.in_crs.horizontal.name
+                if in_horiz_name != gframe:
+                    x, y, z = self._transform_to_geoid_frame(x, y, z)
                 pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.is_alaska)
                 if pipeline:
                     tmp_x, tmp_y, tmp_z = self._run_pipeline(x, y, pipeline, z=z)

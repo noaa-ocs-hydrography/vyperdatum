@@ -14,8 +14,13 @@ nad83_itrf2014_pipeline = '+proj=pipeline +step +proj=axisswap +order=2,1 ' \
                           '+step +proj=unitconvert +xy_in=rad +xy_out=deg ' \
                           '+step +proj=axisswap +order=2,1'
 
+reference_frames = ['nad83', 'itrf08']
+
+grid_geoid12b = 'core\\geoid12b\\g2012bu0.gtx'
+grid_geoid17b = 'core\\geoid12b\\g2012bu0.gtx'
+
 datum_definition = {
-    'nad83'    : [],
+    'ellipse'  : [],
     'geoid12b' : ['+proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx'],
     'xgeoid18b': ['+proj=vgridshift grids=core\\xgeoid18b\\AK_18B.gtx'],
     'navd88'   : ['+proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx'],

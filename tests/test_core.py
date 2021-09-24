@@ -13,6 +13,8 @@ def test_core_setup():
     assert os.path.exists(vc.vdatum.vdatum_path)
     assert vc.vdatum.grid_files
     assert vc.vdatum.polygon_files
+    assert vc.vdatum.vdatum_version
+    assert vc.vdatum.regions
 
 
 def test_regions():

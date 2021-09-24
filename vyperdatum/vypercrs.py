@@ -15,6 +15,30 @@ from vyperdatum.pipeline import get_regional_pipeline, datum_definition
 from vyperdatum.__version__ import __version__
 
 
+NAD83_2D = 6318
+NAD83_3D = 6319
+ITRF2008_2D = 8999
+ITRF2008_3D = 7911
+ITRF2014_2D = 9000
+ITRF2014_3D = 7912
+
+frame_lookup = {CRS.from_epsg(NAD83_2D).name: 'NAD83',
+                CRS.from_epsg(NAD83_3D).name: 'NAD83',
+                CRS.from_epsg(ITRF2008_2D).name: 'ITRF2008',
+                CRS.from_epsg(ITRF2008_3D).name: 'ITRF2008',
+                CRS.from_epsg(ITRF2014_2D).name: 'ITRF2014',
+                CRS.from_epsg(ITRF2014_3D).name: 'ITRF2014'}
+geoid_possibilities = ['geoid12b', 'xgeoid16b', 'xgeoid17b', 'xgeoid18b', 'xgeoid19b']
+geoid_frame = {'geoid12b': CRS.from_epsg(NAD83_2D).name,
+               'xgeoid16b': CRS.from_epsg(ITRF2008_2D).name,
+               'xgeoid17b': CRS.from_epsg(ITRF2008_2D).name,
+               'xgeoid18b': CRS.from_epsg(ITRF2008_2D).name,
+               'xgeoid19b': CRS.from_epsg(ITRF2008_2D).name}
+frame_to_3dcrs = {CRS.from_epsg(NAD83_2D).name: CRS.from_epsg(NAD83_3D),
+                  CRS.from_epsg(ITRF2008_2D).name: CRS.from_epsg(ITRF2008_3D),
+                  CRS.from_epsg(ITRF2014_2D).name: CRS.from_epsg(ITRF2014_3D)}
+
+
 class CoordinateSystem:
     """
     Contains the information needed to generate the CS string
@@ -498,6 +522,11 @@ class VerticalPipelineCRS(VerticalCRS):
         self.version = ''
         self.base_datum = ''
 
+    def pipeline_datum_name(self):
+        if self.datum_name.find('ellipse') != -1:
+            return 'ellipse'
+        return self.datum_name
+
     def add_pipeline(self, pipeline: str, region: str):
         self.regions.append(region)
         # remove region name from the pipeline, replace with 'REGION' keyword
@@ -628,6 +657,8 @@ class VyperPipelineCRS:
             if type(entry) == str:
                 crs_str = entry
                 if entry.lower() in datum_definition:
+                    if entry == 'ellipse':
+                        entry = f'{self._hori.name}_ellipse'
                     tmp_crs = VerticalPipelineCRS(datum_name=entry)
                     crs_str = tmp_crs.to_wkt()
                 crs = CRS.from_wkt(crs_str)
@@ -688,19 +719,16 @@ class VyperPipelineCRS:
             raise ValueError('Geocentric cooridinate systems are not supported.')
         elif len(crs.axis_info) > 2:
             # assuming 3D crs if not compound but axis length is > 2. Break into compound crs.
-            if crs.to_epsg() == 6319:  # if 3d nad83, go to 2d nad83
-                self._hori = CRS.from_epsg(6318)
-            elif crs.to_epsg() == 7911:  # 3d wgs84/itrf2008, go to 2d
-                self._hori = CRS.from_epsg(8999)
-            elif crs.to_epsg() == 7912:  # 3d itrf2014, go to 2d
-                self._hori = CRS.from_epsg(9000)
+            if crs.to_epsg() == NAD83_3D:  # if 3d nad83, go to 2d nad83
+                self._hori = CRS.from_epsg(NAD83_2D)
+            elif crs.to_epsg() == ITRF2008_3D:  # 3d wgs84/itrf2008, go to 2d
+                self._hori = CRS.from_epsg(ITRF2008_2D)
+            elif crs.to_epsg() == ITRF2014_3D:  # 3d itrf2014, go to 2d
+                self._hori = CRS.from_epsg(ITRF2014_2D)
             else:
-                raise NotImplementedError('A 3D coordinate system that is not NAD83 is not yet implemented.')
-            vert_name = guess_vertical_datum_from_string(crs.name)
-            if vert_name:
-                tmp = VerticalPipelineCRS(datum_name=vert_name)
-                self._vert = tmp.to_crs()
-                new_vert = True
+                raise NotImplementedError(f'A 3D coordinate system was provided that is not yet implemented: {crs.to_epsg()}')
+            self._vert = VerticalPipelineCRS(datum_name=f'{self._hori.name}_ellipse').to_crs()
+            new_vert = True
         elif crs.is_vertical:                
             self._vert = crs
             new_vert = True
@@ -825,10 +853,10 @@ def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str]) -> (pyproj_Ver
     new_crs.from_wkt(crs.to_wkt())
     if datum:
         for region in regions:
-            if datum == 'nad83':
+            if datum == 'ellipse':
                 new_pipeline = '[]'
             else:
-                new_pipeline = get_regional_pipeline('nad83', datum, region, is_alaska=is_ak)
+                new_pipeline = get_regional_pipeline('ellipse', datum, region, is_alaska=is_ak)
             if new_pipeline:
                 new_crs.add_pipeline(new_pipeline, region)
         pipeline = new_crs.pipeline_string
@@ -934,24 +962,24 @@ def get_transformation_pipeline(in_crs: Union[VyperPipelineCRS, VerticalPipeline
     if type(in_crs) == VyperPipelineCRS:
         in_def_str = in_crs.vyperdatum_str            
     elif type(in_crs) == VerticalPipelineCRS:
-        in_def_str = in_crs.datum_name.lower()
+        in_def_str = in_crs.pipeline_datum_name().lower()
     else:
         raise ValueError(f'In vertical crs datum object type unknown: {type(in_crs)}')
     if in_def_str not in datum_definition.keys():
         raise NotImplementedError(f'Unable to build pipeline, datum name not in the datum definition dict, {in_def_str} not in {list(datum_definition.keys())}')
     # nad83 is a special case, there would be no transformation there as it is the pivot datum, all regions (assuming nad83 bounds) are valid
-    if region not in in_crs.regions and in_crs.datum_name.lower() != 'nad83':
+    if region not in in_crs.regions and in_def_str != 'ellipse':
         raise NotImplementedError(f'Unable to build pipeline, region not in input CRS: {region}')
 
     if type(out_crs) == VyperPipelineCRS:
         out_def_str = out_crs.vyperdatum_str
     elif type(out_crs) == VerticalPipelineCRS:
-        out_def_str = out_crs.datum_name.lower()
+        out_def_str = out_crs.pipeline_datum_name().lower()
     else:
         raise ValueError(f'Out vertical crs datum object type unknown: {type(out_crs)}')
     if out_def_str not in datum_definition.keys():
         raise NotImplementedError(f'Unable to build pipeline, datum name not in the datum definition dict, {out_def_str} not in {list(datum_definition.keys())}')
-    if region not in out_crs.regions and out_crs.datum_name.lower() != 'nad83':
+    if region not in out_crs.regions and out_def_str != 'ellipse':
         raise NotImplementedError(f'Unable to build pipeline, region not in output CRS: {region}')
 
     return get_regional_pipeline(in_def_str, out_def_str, region, is_alaska=is_alaska)

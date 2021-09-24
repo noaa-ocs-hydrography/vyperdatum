@@ -73,7 +73,7 @@ def test_transformation_inv_nad83():
         "proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx step proj=vgridshift grids=REGION\\tss.gtx step proj=vgridshift grids=REGION\\mllw.gtx",
         "TXlaggal01_8301")
 
-    cstwo = VerticalPipelineCRS("nad83")
+    cstwo = VerticalPipelineCRS("NAD83(2011)_ellipse")
     pipe = get_transformation_pipeline(cs, cstwo, "TXlaggal01_8301")
     assert pipe == '+proj=pipeline +step +inv +proj=vgridshift grids=TXlaggal01_8301\\mllw.gtx ' \
                    '+step +proj=vgridshift grids=TXlaggal01_8301\\tss.gtx ' \
@@ -317,12 +317,12 @@ def test_vyperpipeline_set_compound_wkt_on_instantiation():
 def test_3d_to_compound():
     cs = VyperPipelineCRS(6319, ['MENHMAgome23_8301'])
     assert cs.is_valid
-    expected_wkt = 'COMPOUNDCRS["NAD83(2011) + nad83",GEOGCRS["NAD83(2011)",DATUM["NAD83 (National Spatial Reference System 2011)",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],USAGE[SCOPE["Horizontal component of 3D system."],AREA["Puerto Rico - onshore and offshore. United States (USA) onshore and offshore - Alabama; Alaska; Arizona; Arkansas; California; Colorado; Connecticut; Delaware; Florida; Georgia; Idaho; Illinois; Indiana; Iowa; Kansas; Kentucky; Louisiana; Maine; Maryland; Massachusetts; Michigan; Minnesota; Mississippi; Missouri; Montana; Nebraska; Nevada; New Hampshire; New Jersey; New Mexico; New York; North Carolina; North Dakota; Ohio; Oklahoma; Oregon; Pennsylvania; Rhode Island; South Carolina; South Dakota; Tennessee; Texas; Utah; Vermont; Virginia; Washington; West Virginia; Wisconsin; Wyoming. US Virgin Islands - onshore and offshore."],BBOX[14.92,167.65,74.71,-63.88]],ID["EPSG",6318]],VERTCRS["nad83",VDATUM["nad83"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1,ID["EPSG",9001]]],'
+    expected_wkt = 'COMPOUNDCRS["NAD83(2011) + NAD83(2011)_ellipse",GEOGCRS["NAD83(2011)",DATUM["NAD83 (National Spatial Reference System 2011)",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],USAGE[SCOPE["Horizontal component of 3D system."],AREA["Puerto Rico - onshore and offshore. United States (USA) onshore and offshore - Alabama; Alaska; Arizona; Arkansas; California; Colorado; Connecticut; Delaware; Florida; Georgia; Idaho; Illinois; Indiana; Iowa; Kansas; Kentucky; Louisiana; Maine; Maryland; Massachusetts; Michigan; Minnesota; Mississippi; Missouri; Montana; Nebraska; Nevada; New Hampshire; New Jersey; New Mexico; New York; North Carolina; North Dakota; Ohio; Oklahoma; Oregon; Pennsylvania; Rhode Island; South Carolina; South Dakota; Tennessee; Texas; Utah; Vermont; Virginia; Washington; West Virginia; Wisconsin; Wyoming. US Virgin Islands - onshore and offshore."],BBOX[14.92,167.65,74.71,-63.88]],ID["EPSG",6318]],VERTCRS["NAD83(2011)_ellipse",VDATUM["NAD83(2011)_ellipse"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1,ID["EPSG",9001]]],'
     base_wkt, version, base_datum, region_data, pipeline_data = split_wkt_remarks(cs.to_wkt())
     assert expected_wkt == base_wkt
     assert region_data.find('MENHMAgome') != -1
     assert pipeline_data == '[]'
-    assert cs.vyperdatum_str == 'nad83'
+    assert cs.vyperdatum_str == 'ellipse'
     assert cs.is_height
 
 
