@@ -2,6 +2,14 @@ import os
 import numpy as np
 
 
+geoid_possibilities = ['geoid12b', 'xgeoid16b', 'xgeoid17b', 'xgeoid18b', 'xgeoid19b', 'xgeoid20b']
+geoid_frame = {'geoid12b': 'nad83',
+               'xgeoid16b': 'itrf08',
+               'xgeoid17b': 'itrf08',
+               'xgeoid18b': 'itrf08',
+               'xgeoid19b': 'itrf08',
+               'xgeoid20b': 'itrf08'}
+
 vdatum42_hashes = {'AKglacier00_8301/dtl.gtx': '7b5cbeae1c0f34612dcc7ff9432ac9b9',
                    'AKglacier00_8301/mhhw.gtx': '11bcc780ee778f2942e04408c4c673a0',
                    'AKglacier00_8301/mhw.gtx': '0000fb9e120bd1ae6da71b43a0550cda',
@@ -339,7 +347,51 @@ vdatum42_hashes = {'AKglacier00_8301/dtl.gtx': '7b5cbeae1c0f34612dcc7ff9432ac9b9
                    'WApugets02_8301/mtl.gtx': '3ac1792c62401876833c0e4d1cc64ee1',
                    'WApugets02_8301/tss.gtx': 'e1ba4c9441dc88329e1ff90b9eb0d50a'}
 
+vdatum42_geoid = {'AKglacier00_8301': 'xgeoid17b',
+                  'AKwhale00_8301': 'xgeoid17b',
+                  'AKyakutat00_8301': 'xgeoid17b',
+                  'ALFLgom02_8301': 'geoid12b',
+                  'ALmobile02_8301': 'geoid12b',
+                  'CAmorrob01_8301': 'geoid12b',
+                  'CAORblan01_8301': 'geoid12b',
+                  'CAsanfrb12_8301': 'geoid12b',
+                  'CAsocal01_8301': 'geoid12b',
+                  'DEdelbay22_8301': 'geoid12b',
+                  'DEVAemb12_8301': 'geoid12b',
+                  'FLandrew02_8301': 'geoid12b',
+                  'FLapalach01_8301': 'geoid12b',
+                  'FLGAeastbays31_8301': 'geoid12b',
+                  'FLGAeastshelf41_8301': 'geoid12b',
+                  'FLjoseph03_8301': 'geoid12b',
+                  'FLpensac02_8301': 'geoid12b',
+                  'FLsoicw01_8301': 'geoid12b',
+                  'FLsouth12_8301': 'geoid12b',
+                  'FLwest01_8301': 'geoid12b',
+                  'GASCNCsab31_8301': 'geoid12b',
+                  'LAmobile02_8301': 'geoid12b',
+                  'LATXwest01_8301': 'geoid12b',
+                  'MDVAchb12_8301': 'geoid12b',
+                  'MENHMAgome23_8301': 'geoid12b',
+                  'NCcoast11_8301': 'geoid12b',
+                  'NCinner11_8301': 'geoid12b',
+                  'NJncstemb12_8301': 'geoid12b',
+                  'NJVAmab22_8301': 'geoid12b',
+                  'NYgr8bay34_8301': 'geoid12b',
+                  'NYNJhbr34_8301': 'geoid12b',
+                  'ORcentr01_8301': 'geoid12b',
+                  'ORWAcolr01_8301': 'geoid12b',
+                  'PRVI01_8301': 'geoid12b',
+                  'RICTbis34_8301': 'geoid12b',
+                  'TXlaggal01_8301': 'geoid12b',
+                  'TXshlgal01_8301': 'geoid12b',
+                  'TXshlmat01_8301': 'geoid12b',
+                  'WAjdfuca03_8301': 'geoid12b',
+                  'WApugets02_8301': 'geoid12b'
+                  }
+
+
 vdatum_hashlookup = {'vdatum_4.2': vdatum42_hashes}
+vdatum_geoidlookup = {'vdatum_4.2': vdatum42_geoid}
 
 vdatum_answers = {'vdatum_4.2': {'north_carolina': {'x': np.array([-75.73890, -75.73880, -75.73870]),
                                                     'y': np.array([35.39590, 35.39580, 35.39570]),
@@ -387,3 +439,5 @@ vdatum_answers = {'vdatum_4.2': {'north_carolina': {'x': np.array([-75.73890, -7
 
 # make sure that the lookups have the appropriate keys
 assert list(vdatum_hashlookup.keys()) == list(vdatum_answers.keys())
+assert list(vdatum_geoidlookup.keys()) == list(vdatum_answers.keys())
+assert geoid_possibilities == list(geoid_frame.keys())

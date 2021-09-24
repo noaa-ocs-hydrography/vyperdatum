@@ -5,6 +5,7 @@ nad83_itrf2008_pipeline = '+proj=pipeline +step +proj=axisswap +order=2,1 ' \
                           '+step +inv +proj=cart +ellps=GRS80  ' \
                           '+step +proj=unitconvert +xy_in=rad +xy_out=deg  ' \
                           '+step +proj=axisswap +order=2,1'
+
 nad83_itrf2014_pipeline = '+proj=pipeline +step +proj=axisswap +order=2,1 ' \
                           '+step +proj=unitconvert +xy_in=deg +xy_out=rad ' \
                           '+step +proj=cart +ellps=GRS80 ' \

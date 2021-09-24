@@ -841,7 +841,7 @@ def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str]) -> (pyproj_Ver
 def is_alaska(regions: [str]) -> bool:
     """
     A somewhat weak implementation of a method to determine if these regions are in alaska.  Currently, alaskan
-    tidal datums are based on xgeoid18, so we need to identify those regions to ensure we use the correct geoid
+    tidal datums are based on xgeoid17, so we need to identify those regions to ensure we use the correct geoid
     during transformation.
 
     Could probably just use the geographic bounds, but this method works and is less expensive.

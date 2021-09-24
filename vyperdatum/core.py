@@ -7,7 +7,7 @@ import logging
 from datetime import datetime
 
 from vyperdatum.vypercrs import VyperPipelineCRS, get_transformation_pipeline, is_alaska
-from vyperdatum.vdatum_validation import vdatum_hashlookup
+from vyperdatum.vdatum_validation import vdatum_hashlookup, geoid_possibilities
 
 NAD83_EPSG = 6318
 
@@ -330,12 +330,12 @@ class VyperCore:
             if self.out_crs.pipeline_string.find(lyr) != -1:
                 final_uncertainty += self.vdatum.uncertainties[region][lyr]
 
-        if self.out_crs.pipeline_string.find('geoid12b') != -1:
-            final_uncertainty += self.vdatum.uncertainties['geoid12b']
-        elif self.out_crs.pipeline_string.find('xgeoid18b') != -1:
-            final_uncertainty += self.vdatum.uncertainties['xgeoid18b']
-        elif self.out_crs.pipeline_string.find('geoid') != -1:
-            self.log_error('Unable to find either geoid12b or xgeoid18b in the output datum pipeline, which geoid is used?', ValueError)
+        geoid_search = [gd for gd in geoid_possibilities if self.out_crs.pipeline_string.find(gd) != -1]
+        if len(geoid_search) != 1:
+            self.log_error(f'Found {len(geoid_search)} geoid possibilities in pipeline string', ValueError)
+        else:
+            final_uncertainty += self.vdatum.uncertainties[geoid_search[0]]
+
         return final_uncertainty
 
     def transform_dataset(self, x: np.array, y: np.array, z: np.array = None, include_vdatum_uncertainty: bool = True,
@@ -716,8 +716,8 @@ def get_vdatum_uncertainties(vdatum_directory: str):
                     if prefix == 'conus':
                         if suffix == 'navd88':
                             grid_dict['geoid12b'] = float(val) * 0.01  # answer in meters
-                        elif suffix == 'xgeoid18b':
-                            grid_dict['xgeoid18b'] = float(val) * 0.01
+                        else:
+                            grid_dict[suffix] = float(val) * 0.01
                     else:
                         match = np.where(np.array([entry.lower().find(prefix) for entry in grid_entries]) == 0)
                         if match[0].size:

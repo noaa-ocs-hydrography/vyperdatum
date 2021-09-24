@@ -208,7 +208,7 @@ def test_transform_dataset_stateplane():
 
 def test_transform_dataset_region_index():
     vc = VyperCore()
-    vc.set_input_datum((6318,'nad83'))
+    vc.set_input_datum((6318, 'nad83'))
     vc.set_region_by_bounds(-75.79179, 35.80674, -75.3853, 36.01585)
     vc.set_output_datum('mllw')
     x = np.array([-75.79180, -75.79190, -75.79200])
