@@ -6,7 +6,7 @@ from typing import Any, Union
 import logging
 from datetime import datetime
 
-from vyperdatum.vypercrs import VyperPipelineCRS, get_transformation_pipeline, is_alaska, geoid_frame, geoid_possibilities, \
+from vyperdatum.vypercrs import VyperPipelineCRS, get_transformation_pipeline, geoid_frame, geoid_possibilities, \
     frame_to_3dcrs
 from vyperdatum.vdatum_validation import vdatum_hashlookup, vdatum_geoidlookup
 
@@ -50,21 +50,14 @@ class VyperCore:
         self.geographic_max_x = None
         self.geographic_max_y = None
 
-        self.in_crs = VyperPipelineCRS()
-        self.out_crs = VyperPipelineCRS()
+        self.in_crs = VyperPipelineCRS(self.vdatum.vdatum_version)
+        self.out_crs = VyperPipelineCRS(self.vdatum.vdatum_version)
 
         self.logger = return_logger(logfile)
         self._regions = []
         self._geoid_frame = None
         self.pipelines = []
-        
-    @property
-    def is_alaska(self):
-        ak = False
-        if len(self._regions) > 0:
-            ak = is_alaska(self._regions)
-        return ak
-    
+
     @property
     def regions(self):
         return self._regions
@@ -412,7 +405,7 @@ class VyperCore:
                 in_horiz_name = self.in_crs.horizontal.name
                 if in_horiz_name != gframe:
                     x, y, z = self._transform_to_geoid_frame(x, y, z)
-                pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.is_alaska)
+                pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.vdatum.vdatum_version)
                 if pipeline:
                     tmp_x, tmp_y, tmp_z = self._run_pipeline(x, y, pipeline, z=z)
                     self.pipelines.append(pipeline)

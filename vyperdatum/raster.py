@@ -192,7 +192,7 @@ class VyperRaster(VyperCore):
                 self.log_error('Region {region} not found in VDatum.', ValueError)
             # get the pipeline
             regional_sep = None
-            pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.is_alaska)
+            pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.vdatum.vdatum_version)
             self.pipelines.append(pipeline)
             # get each layer for for the pipeline and add to the stack
             for cmd in pipeline.split(' +step '):

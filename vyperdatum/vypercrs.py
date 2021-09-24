@@ -602,7 +602,8 @@ class VyperPipelineCRS:
     and the vypercrs.VerticalPipelineCRS object.
     """
     
-    def __init__(self, new_crs: Union[str, int, tuple] = None, regions: [str] = None):
+    def __init__(self, vdatum_version_string: str, new_crs: Union[str, int, tuple] = None, regions: [str] = None):
+        self.vdatum_version = vdatum_version_string
         self._is_valid = False
         self._ccsr = None
         self._vert = None
@@ -753,7 +754,7 @@ class VyperPipelineCRS:
 
         """
         if self._vert and self._regions:
-            self._vert, self._vyperdatum_str, self._pipeline_str = build_valid_vert_crs(self._vert, self._regions)
+            self._vert, self._vyperdatum_str, self._pipeline_str = build_valid_vert_crs(self._vert, self._regions, self.vdatum_version)
         if self._hori and self._vert and self._valid_vert():
             compound_name = f'{self._hori.name} + {self._vert.name}'
             self.ccrs = CompoundCRS(compound_name, [self._hori, self._vert])
@@ -826,7 +827,7 @@ class VyperPipelineCRS:
             return None
 
 
-def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str]) -> (pyproj_VerticalCRS, str, str):
+def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str], vdatum_version_string: str) -> (pyproj_VerticalCRS, str, str):
     """
     Add the regions and pipeline to the remarks section of the wkt for the
     provided pyproj VerticalCRS object.
@@ -837,6 +838,8 @@ def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str]) -> (pyproj_Ver
         The vertical crs object to add the pipeline and region into.
     regions : [str]
         The regions to add into the crs remarks.
+    vdatum_version_string
+        version of vdatum, used in the geoid/region lookup
 
     Returns
     -------
@@ -846,7 +849,6 @@ def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str]) -> (pyproj_Ver
         value is the pipeline string.
 
     """
-    is_ak = is_alaska(regions)
     datum = guess_vertical_datum_from_string(crs.name)
     pipeline = None
     new_crs = VerticalPipelineCRS()
@@ -856,7 +858,7 @@ def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str]) -> (pyproj_Ver
             if datum == 'ellipse':
                 new_pipeline = '[]'
             else:
-                new_pipeline = get_regional_pipeline('ellipse', datum, region, is_alaska=is_ak)
+                new_pipeline = get_regional_pipeline('ellipse', datum, region, vdatum_version_string)
             if new_pipeline:
                 new_crs.add_pipeline(new_pipeline, region)
         pipeline = new_crs.pipeline_string
@@ -864,39 +866,6 @@ def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str]) -> (pyproj_Ver
     else:
         valid_vert_crs = None
     return valid_vert_crs, datum, pipeline
-
-
-def is_alaska(regions: [str]) -> bool:
-    """
-    A somewhat weak implementation of a method to determine if these regions are in alaska.  Currently, alaskan
-    tidal datums are based on xgeoid17, so we need to identify those regions to ensure we use the correct geoid
-    during transformation.
-
-    Could probably just use the geographic bounds, but this method works and is less expensive.
-
-    Parameters
-    ----------
-    regions
-        list of vdatum region strings
-
-    Returns
-    -------
-    bool
-        True if all regions are in alaska
-    """
-    if regions:
-        ak_region = [t.find('AK') != -1 for t in regions]
-        any_ak = any(ak_region)
-        all_ak = all(ak_region)
-        if any_ak and all_ak:
-            is_ak = True
-        elif any_ak:
-            raise NotImplementedError('Regions in and not in alaska specified, not currently supported')
-        else:
-            is_ak = False
-    else:
-        is_ak = False
-    return is_ak
 
 
 def guess_vertical_datum_from_string(vertical_datum_name: str) -> str:
@@ -935,7 +904,8 @@ def guess_vertical_datum_from_string(vertical_datum_name: str) -> str:
         raise ValueError(f'More than one datum guess found in {vertical_datum_name}')
 
 
-def get_transformation_pipeline(in_crs: Union[VyperPipelineCRS, VerticalPipelineCRS], out_crs: Union[VyperPipelineCRS, VerticalPipelineCRS], region: str, is_alaska: bool = False):
+def get_transformation_pipeline(in_crs: Union[VyperPipelineCRS, VerticalPipelineCRS], out_crs: Union[VyperPipelineCRS, VerticalPipelineCRS],
+                                region: str, vdatum_version_string: str):
     """
     Use the datum name in the input/output crs and the region specified to build the pipeline between the two
     provided CRS.  This means that the datum names of the two crs must be in the datum_definition dictionary.
@@ -950,8 +920,8 @@ def get_transformation_pipeline(in_crs: Union[VyperPipelineCRS, VerticalPipeline
         VerticalPipelineCRS object representing the end point in the transformation
     region
         name of the vdatum folder for the region of interest, ex: NYNJhbr34_8301
-    is_alaska
-        # if True, regions are in alaska, which means we need to do a string replace to go to xgeoid17b
+    vdatum_version_string
+        string version number for vdatum, used in the region/geoid lookup
 
     Returns
     -------
@@ -982,7 +952,7 @@ def get_transformation_pipeline(in_crs: Union[VyperPipelineCRS, VerticalPipeline
     if region not in out_crs.regions and out_def_str != 'ellipse':
         raise NotImplementedError(f'Unable to build pipeline, region not in output CRS: {region}')
 
-    return get_regional_pipeline(in_def_str, out_def_str, region, is_alaska=is_alaska)
+    return get_regional_pipeline(in_def_str, out_def_str, region, vdatum_version_string)
 
 
 def crs_is_compound(my_crs: CRS):
@@ -1022,4 +992,4 @@ if __name__ == '__main__':
         "TXlaggal01_8301")
 
     print(vs.to_pretty_wkt())
-    print(get_transformation_pipeline(vs, vstwo, "TXlagmat01_8301"))
+    print(get_transformation_pipeline(vs, vstwo, "TXlagmat01_8301", 'vdatum_4.2'))
