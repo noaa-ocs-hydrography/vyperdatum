@@ -76,35 +76,40 @@ def test_set_output_datum():
     assert vc.regions[1].find('NCinner') != -1
 
 
-def test_transform_dataset():
+def _transform_region_dataset(region: str):
     vc = VyperCore()
     vc.set_input_datum(6318)
     vc.set_input_datum('ellipse')
     vc.set_output_datum((6318, 'mllw'))
-    x = vdatum_answer['north_carolina']['x']
-    y = vdatum_answer['north_carolina']['y']
-    z = vdatum_answer['north_carolina']['z_nad83']
+    x = vdatum_answer[region]['x']
+    y = vdatum_answer[region]['y']
+    z = vdatum_answer[region]['z_nad83']
     newx, newy, newz, _, _ = vc.transform_dataset(x, y, z, include_vdatum_uncertainty=False)
 
-    assert (x == newx).all()
-    assert (y == newy).all()
-    assert (newz == vdatum_answer['north_carolina']['z_mllw']).all()
+    assert x == approx(newx, abs=0.00001)
+    assert y == approx(newy, abs=0.00001)
+    assert newz == approx(vdatum_answer[region]['z_mllw'], abs=0.001)
 
-
-def test_transform_sounding_dataset():
-    # vdatum online answer, 9/1/2021, epoch 2021.0, (-75.79180, 36.01570, 10.5) ->  z=49.504
     vc = VyperCore()
     vc.set_input_datum(6318)
-    vc.set_input_datum(5866)
-    vc.set_output_datum((6318,'mllw'))
-    x = np.array([-75.79180, -75.79190, -75.79200])
-    y = np.array([36.01570, 36.01560, 36.01550])
-    z = np.array([10.5, 11.0, 11.5])
+    vc.set_input_datum('ellipse')
+    vc.set_output_datum((6318, 'mhw'))
+    x = vdatum_answer[region]['x']
+    y = vdatum_answer[region]['y']
+    z = vdatum_answer[region]['z_nad83']
     newx, newy, newz, _, _ = vc.transform_dataset(x, y, z, include_vdatum_uncertainty=False)
 
-    assert (x == newx).all()
-    assert (y == newy).all()
-    assert (newz == np.array([-10.5, -11. , -11.5])).all()
+    assert x == approx(newx, abs=0.00001)
+    assert y == approx(newy, abs=0.00001)
+    assert newz == approx(vdatum_answer[region]['z_mhw'], abs=0.001)
+
+
+def test_transform_north_carolina_dataset():
+    _transform_region_dataset('north_carolina')
+
+
+def test_transform_texas_dataset():
+    _transform_region_dataset('texas')
 
 
 def test_transform_to_sounding_dataset():
@@ -121,31 +126,6 @@ def test_transform_to_sounding_dataset():
     assert (x == newx).all()
     assert (y == newy).all()
     assert (newz == np.array([-49.518, -50.018, -50.518])).all()
-
-
-def test_transform_dataset_alaska():
-    # vdatum online answer, 9/1/2021, epoch 2021.0, (-136.0, 56.25, 10.5) ->  z=16.010   (NAD83/NAD83 to IGS08/MLLW)
-    # vdatum online NAD83 to IGS08, z=0.131
-    # vdatum online IGS08/IGS08 to IGS08/XGEOID17B, z = 3.157
-    # vdatum online IGS08/XGEOID17B to IGS08/LMSL = z = -0.255
-    # vdatum online IGS08/LMSL to IGS08/MLLW = z = 1.530
-
-    # answer from adding these vdatum online answers = 10.5 + 3.157 -0.255 + 1.530 = 14.931
-
-    # answer from adding the grids querying locations in QGIS = 10.5 + 3.125 (AK17B) - 0.257 (TSS) + 1.103 (MLLW) = 14.471  (AKWhale)
-
-    vc = VyperCore()
-    vc.set_input_datum(6318)
-    vc.set_input_datum('ellipse')
-    vc.set_output_datum('mllw')
-    x = np.array([-136.0, -136.1, -136.2])
-    y = np.array([56.25, 56.35, 56.45])
-    z = np.array([10.5, 11.0, 11.5])
-    newx, newy, newz, _, _ = vc.transform_dataset(x, y, z, include_vdatum_uncertainty=False)
-
-    assert x == approx(newx, abs=0.01)
-    assert y == approx(newy, abs=0.01)
-    assert newz == approx(np.array([15.02 , 15.22 , 15.327]), abs=0.001)
 
 
 def test_transform_dataset_inv():
