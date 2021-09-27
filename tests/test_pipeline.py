@@ -5,22 +5,16 @@ from vyperdatum.pipeline import *
 from vyperdatum.core import VyperCore
 
 
-def get_test_grid():
-    vc = VyperCore()  # load this to get the cached vdatum path
-    # first time, you need to run it with the path to the vdatum folder, vc = VyperCore('path\to\vdatum')
-    if not os.path.exists(vc.vdatum.vdatum_path):
-        raise EnvironmentError('You have to run VyperCore once and set the vdatum path in order for this to work')
-    tstgrid = os.path.join(vc.vdatum.vdatum_path, 'CAORblan01_8301')
-    return tstgrid
+vc = VyperCore()  # run this once so that the path to the grids is added in pyproj
 
 
 def test_get_regional_pipeline_upperlower():
-    pipe = get_regional_pipeline('NAD83', 'TSS', get_test_grid())
-    assert pipe == get_regional_pipeline('nad83', 'tss', get_test_grid())
+    pipe = get_regional_pipeline('Ellipse', 'TSS', 'CAORblan01_8301', 'vdatum_4.2')
+    assert pipe == get_regional_pipeline('ellipse', 'tss', 'CAORblan01_8301', 'vdatum_4.2')
 
 
 def test_get_regional_pipeline_nad83_tss():
-    pipe = get_regional_pipeline('NAD83', 'TSS', get_test_grid())
+    pipe = get_regional_pipeline('ellipse', 'TSS', 'CAORblan01_8301', 'vdatum_4.2')
     assert pipe.count('+step +proj') == 1
     assert pipe.count('+step +inv +proj') == 1
     assert pipe.count('gtx') == 2
@@ -30,7 +24,7 @@ def test_get_regional_pipeline_nad83_tss():
 
 
 def test_get_regional_pipeline_tss_nad83():
-    pipe = get_regional_pipeline('tss', 'nad83', get_test_grid())
+    pipe = get_regional_pipeline('tss', 'ellipse', 'CAORblan01_8301', 'vdatum_4.2')
     assert pipe.count('+step +inv +proj') == 1
     assert pipe.count('+step +proj') == 1
     assert pipe.count('gtx') == 2
@@ -40,7 +34,7 @@ def test_get_regional_pipeline_tss_nad83():
 
 
 def test_get_regional_pipeline_mllw():
-    pipe = get_regional_pipeline('nad83', 'mllw', get_test_grid())
+    pipe = get_regional_pipeline('ellipse', 'mllw', 'CAORblan01_8301', 'vdatum_4.2')
     assert pipe.count('+step +proj') == 2
     assert pipe.count('+step +inv +proj') == 1
     assert pipe.count('gtx') == 3
@@ -51,7 +45,7 @@ def test_get_regional_pipeline_mllw():
 
 
 def test_get_regional_pipeline_mhw():
-    pipe = get_regional_pipeline('nad83', 'mhw', get_test_grid())
+    pipe = get_regional_pipeline('ellipse', 'mhw', 'CAORblan01_8301', 'vdatum_4.2')
     assert pipe.count('+step +proj') == 2
     assert pipe.count('+step +inv +proj') == 1
     assert pipe.count('gtx') == 3
@@ -62,7 +56,7 @@ def test_get_regional_pipeline_mhw():
 
 
 def test_get_regional_pipeline_null():
-    pipe = get_regional_pipeline('mllw', 'mllw', get_test_grid())
+    pipe = get_regional_pipeline('mllw', 'mllw', 'CAORblan01_8301', 'vdatum_4.2')
     assert pipe is None
 
 

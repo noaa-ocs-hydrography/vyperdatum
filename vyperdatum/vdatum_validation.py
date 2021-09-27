@@ -1,8 +1,6 @@
 import os
 import numpy as np
 
-from pyproj import CRS
-
 
 vdatum42_hashes = {'AKglacier00_8301/dtl.gtx': '7b5cbeae1c0f34612dcc7ff9432ac9b9',
                    'AKglacier00_8301/mhhw.gtx': '11bcc780ee778f2942e04408c4c673a0',
@@ -389,6 +387,13 @@ vdatum42_geoid = {'AKglacier00_8301': r'core\xgeoid17b\AK_17B.gtx',
 vdatum_hashlookup = {'vdatum_4.2': vdatum42_hashes}
 vdatum_geoidlookup = {'vdatum_4.2': vdatum42_geoid}
 
+# vdatum_x = 284.2613, y = 35.35970, z_nad83 = 11.5,
+# from vdatum java app, geoid=-38.7532, mllw=-0.0894, tss=0.0389
+# vdatum nad83 to navd88 = 50.257 (navd=38.757)
+# my nad83 to navd88 = 50.263  (navd=38.763)
+# looking at the grid in qgis, (navd=-38.7532)
+# pyproj transformer with just the geoid (navd=38.7502)
+
 vdatum_answers = {'vdatum_4.2': {'north_carolina': {'x': np.array([-75.73890, -75.73880, -75.73870]),
                                                     'y': np.array([35.39590, 35.39580, 35.39570]),
                                                     'x_stateplane': [3613, np.array([905770.005, 905779.448, 905788.891])],  # NC-3200, meters, EPSG:3613
@@ -397,8 +402,8 @@ vdatum_answers = {'vdatum_4.2': {'north_carolina': {'x': np.array([-75.73890, -7
                                                     'y_utm': [26918, np.array([3917189.926, 3917187.768, 3917176.609])],
                                                     'z_nad83': np.array([10.5, 11.0, 11.5]),
                                                     'z_navd88': np.array([49.257, 49.757, 50.257]),
-                                                    'z_mllw': np.array([49.387, 49.887, 50.387]),
-                                                    'z_mhw': np.array([49.221, 49.721, 50.221])},
+                                                    'z_mllw': np.array([49.393, 49.893, 50.393]),
+                                                    'z_mhw': np.array([49.227, 49.727, 50.227])},
                                  'texas': {'x': np.array([-95.63490, -95.63480, -95.63470]),
                                            'y': np.array([28.38690, 28.38680, 28.38670]),
                                            'x_stateplane': [3673, np.array([929761.899, 929772.015, 929782.130])],  # TX SC 4204, meters, EPSG:3673

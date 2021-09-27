@@ -6,7 +6,7 @@ from typing import Any, Union
 import logging
 from datetime import datetime
 
-from vyperdatum.vypercrs import VyperPipelineCRS, get_transformation_pipeline, geoid_frame, geoid_possibilities, \
+from vyperdatum.vypercrs import VyperPipelineCRS, get_transformation_pipeline, geoid_frame_lookup, geoid_possibilities, \
     frame_to_3dcrs
 from vyperdatum.vdatum_validation import vdatum_hashlookup, vdatum_geoidlookup
 
@@ -146,7 +146,7 @@ class VyperCore:
                         valid_vdatum_poly = feature.GetGeometryRef()
                         if data_geometry.Intersect(valid_vdatum_poly):
                             intersecting_regions.append(region)
-                            gframe = geoid_frame[vdatum_geoidlookup[self.vdatum.vdatum_version][region]]
+                            gframe = geoid_frame_lookup[vdatum_geoidlookup[self.vdatum.vdatum_version][region]]
                             if self._geoid_frame and self._geoid_frame != gframe:
                                 raise NotImplementedError(f'Found two different geoid reference frames in the intersecting regions: {self._geoid_frame}, {gframe}')
                             self._geoid_frame = gframe
@@ -179,13 +179,14 @@ class VyperCore:
 
         """
         self.min_x, self.min_y, self.max_x, self.max_y = extents
-        gframe = self._geoid_frame
         in_horiz_name = self.in_crs.horizontal.name
-        if in_horiz_name != gframe:
+        # ideally we would use the geoid frame to do this, but we need to identify the regions to identify the geoid frame,
+        #   so we just use NAD83 coordinates instead.  The difference when dealing with the sep model grids is negligible
+        if in_horiz_name != 'NAD83(2011)':
             x = [self.min_x, self.max_x]
             y = [self.min_y, self.max_y]
             z = [0, 0]
-            x_geo, y_geo, z_geo = self._transform_to_geoid_frame(x, y, z)
+            x_geo, y_geo, z_geo = self._transform_to_geoid_frame(x, y, z, override_frame='NAD83(2011)')
             self.geographic_min_x, self.geographic_max_x = x_geo
             self.geographic_min_y, self.geographic_max_y = y_geo
         else:
@@ -194,7 +195,7 @@ class VyperCore:
             self.geographic_min_y = self.min_y
             self.geographic_max_y = self.max_y
 
-    def _transform_to_geoid_frame(self, x: np.array, y: np.array, z: np.array = None):
+    def _transform_to_geoid_frame(self, x: np.array, y: np.array, z: np.array = None, override_frame: str = None):
         """
         In order to do a vertical transform, we need to first get to the geoid reference frame if we aren't there
         already.  See set_region_by_bounds for where that geoid frame attribute gets set.  Basically we look at the
@@ -224,7 +225,10 @@ class VyperCore:
         """
 
         in_crs = self.in_crs.horizontal.to_epsg()
-        out_crs = frame_to_3dcrs[self._geoid_frame]
+        if override_frame:
+            out_crs = frame_to_3dcrs[override_frame]
+        else:
+            out_crs = frame_to_3dcrs[self._geoid_frame]
         # Transformer.transform input order is based on the CRS, see CRS.geodetic_crs.axis_info
         # - lon, lat - this appears to be valid when using CRS from proj4 string
         # - lat, lon - this appears to be valid when using CRS from epsg

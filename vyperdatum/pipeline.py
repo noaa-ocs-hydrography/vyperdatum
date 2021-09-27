@@ -21,9 +21,7 @@ reference_frames = ['nad83', 'itrf08']
 
 datum_definition = {
     'ellipse'  : [],
-    'geoid12b' : ['+proj=vgridshift grids=GEOID'],
-    'xgeoid18b': ['+proj=vgridshift grids=GEOID'],
-    'navd88'   : ['+proj=vgridshift grids=GEOID'],
+    'geoid'   : ['+proj=vgridshift grids=GEOID'],
     'tss'      : ['+proj=vgridshift grids=GEOID',
                   '+inv +proj=vgridshift grids=REGION\\tss.gtx'],
     'mllw'     : ['+proj=vgridshift grids=GEOID',
@@ -101,9 +99,9 @@ def _validate_datum_names(from_datum: str, to_datum: str):
     """
 
     if from_datum not in datum_definition:
-        raise ValueError(f'Input datum {from_datum} not found in datum definitions.')
+        raise ValueError(f'Input datum {from_datum} not found in datum definitions: {list(datum_definition.keys())}.')
     if to_datum not in datum_definition:
-        raise ValueError(f'Output datum {to_datum} not found in datum definitions.')
+        raise ValueError(f'Output datum {to_datum} not found in datum definitions: {list(datum_definition.keys())}')
 
 
 def compare_datums(in_datum_def: list, out_datum_def: list):
