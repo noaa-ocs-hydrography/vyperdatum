@@ -195,7 +195,7 @@ class VyperCore:
             self.geographic_min_y = self.min_y
             self.geographic_max_y = self.max_y
 
-    def _transform_to_geoid_frame(self, x: np.array, y: np.array, z: np.array = None, override_frame: str = None):
+    def _transform_to_geoid_frame(self, x: np.array, y: np.array, z: np.array = None, override_frame: Union[str, int] = None):
         """
         In order to do a vertical transform, we need to first get to the geoid reference frame if we aren't there
         already.  See set_region_by_bounds for where that geoid frame attribute gets set.  Basically we look at the
@@ -213,6 +213,9 @@ class VyperCore:
             latitude/northing of the input data
         z
             height value of the input data
+        override_frame
+            if you don't want to use the geoid frame, you can specify a new frame here, as either a string identifier
+            or an epsg code
 
         Returns
         -------
@@ -226,7 +229,10 @@ class VyperCore:
 
         in_crs = self.in_crs.horizontal.to_epsg()
         if override_frame:
-            out_crs = frame_to_3dcrs[override_frame]
+            if isinstance(override_frame, str):
+                out_crs = frame_to_3dcrs[override_frame]
+            else:
+                out_crs = CRS.from_epsg(override_frame)
         else:
             out_crs = frame_to_3dcrs[self._geoid_frame]
         # Transformer.transform input order is based on the CRS, see CRS.geodetic_crs.axis_info
@@ -328,16 +334,23 @@ class VyperCore:
         if not self.out_crs.pipeline_string:  # if nad83 is the output datum, no transformation is done
             return 0
         final_uncertainty = 0
-        layer_names = ['lmsl', 'mhhw', 'mhw', 'mtl', 'dtl', 'mlw', 'mllw']
-        for lyr in layer_names:
-            if self.out_crs.pipeline_string.find(lyr) != -1:
-                final_uncertainty += self.vdatum.uncertainties[region][lyr]
-
-        geoid_search = [gd for gd in geoid_possibilities if self.out_crs.pipeline_string.find(gd) != -1]
-        if len(geoid_search) != 1:
-            self.log_error(f'Found {len(geoid_search)} geoid possibilities in pipeline string', ValueError)
-        else:
-            final_uncertainty += self.vdatum.uncertainties[geoid_search[0]]
+        outdatum = self.out_crs.vyperdatum_str
+        indatum = self.in_crs.vyperdatum_str
+        if indatum == 'ellipse' and outdatum != 'ellipse':  # include ellipse-geoid uncertainty
+            gd_index = np.where([self.out_crs.pipeline_string.find(gd) for gd in geoid_possibilities] != -1)[0]
+            if gd_index.size != 1:
+                self.log_error(f'Found {len(gd_index.size)} geoid possibilities in pipeline string', ValueError)
+            geoid = geoid_possibilities[gd_index[0]]
+            final_uncertainty += self.vdatum.uncertainties[geoid]
+        if indatum in ['ellipse', 'geoid'] and outdatum not in ['ellipse', 'geoid']:  # include tss uncertainty
+            final_uncertainty += self.vdatum.uncertainties[region]['tss']
+        if outdatum not in ['ellipse', 'geoid', 'tss']:
+            srch_string = outdatum
+            if srch_string == 'noaa chart datum':
+                srch_string = 'mllw'
+            elif srch_string == 'noaa chart height':
+                srch_string = 'mhw'
+            final_uncertainty += self.vdatum.uncertainties[region][srch_string]
 
         return final_uncertainty
 
@@ -404,23 +417,33 @@ class VyperCore:
 
             self.pipelines = []
             for cnt, region in enumerate(self._regions):
-                # get the pipeline
                 gframe = self._geoid_frame
                 in_horiz_name = self.in_crs.horizontal.name
-                if in_horiz_name != gframe:
-                    x, y, z = self._transform_to_geoid_frame(x, y, z)
-                pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.vdatum.vdatum_version)
-                if pipeline:
-                    tmp_x, tmp_y, tmp_z = self._run_pipeline(x, y, pipeline, z=z)
-                    self.pipelines.append(pipeline)
+                out_horiz_name = self.out_crs.horizontal.name
+                if in_horiz_name != gframe:  # need to transform these points to use the geoid coordinate system
+                    new_x, new_y, new_z = self._transform_to_geoid_frame(x, y, z)
                 else:
-                    tmp_x, tmp_y, tmp_z = x, y, z
+                    new_x, new_y, new_z = x, y, z
+                pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.vdatum.vdatum_version)
+                if pipeline:  # do the vertical transformation if there is a valid one for this operation
+                    new_x, new_y, new_z = self._run_pipeline(new_x, new_y, pipeline, z=new_z)
+                    self.pipelines.append(pipeline)
+                if out_horiz_name == in_horiz_name:  # we can use the original xy as the input/output horiz datums are the same
+                    new_x, new_y = x, y
+                elif out_horiz_name == gframe:  # we can use the transformed geoid frame xy as the output and gframe datums are the same
+                    new_x, new_y = new_x, new_y
+                else:  # we need to get new xy to account for the change in horizontal datum
+                    if self.out_crs.vyperdatum_str != 'ellipse':
+                        new_x, new_y, _ = self._transform_to_geoid_frame(x, y, z, override_frame=self.out_crs.horizontal.to_epsg())
+                    else:  # special case, if output is to the ellipse, we need to do a 3d transformation to account for vertical differences in ellipses
+                        new_x, new_y, diffz = self._transform_to_geoid_frame(x, y, z, override_frame=self.out_crs.horizontal.to_epsg())
+                        new_z = new_z - (z - diffz)
 
                 # areas outside the coverage of the vert shift are inf
-                valid_index = ~np.isinf(tmp_z)
-                ans_x[valid_index] = tmp_x[valid_index]
-                ans_y[valid_index] = tmp_y[valid_index]
-                ans_z[valid_index] = flip * tmp_z[valid_index]
+                valid_index = ~np.isinf(new_z)
+                ans_x[valid_index] = new_x[valid_index]
+                ans_y[valid_index] = new_y[valid_index]
+                ans_z[valid_index] = flip * new_z[valid_index]
                 if include_vdatum_uncertainty:
                     ans_unc[valid_index] = self._get_output_uncertainty(region)
                 if include_region_index:
@@ -705,27 +728,25 @@ def get_vdatum_uncertainties(vdatum_directory: str):
     # use the polygon search to get a dict of all grids quickly
     grid_dict = get_vdatum_region_polygons(vdatum_directory)
     for k in grid_dict.keys():
-        grid_dict[k] = {'lmsl': 0, 'mhhw': 0, 'mhw': 0, 'mtl': 0, 'dtl': 0, 'mlw': 0, 'mllw': 0}
+        grid_dict[k] = {'tss': 0, 'mhhw': 0, 'mhw': 0, 'mlw': 0, 'mllw': 0, 'dtl': 0, 'mtl': 0}
     # add in the geoids we care about
     grid_entries = list(grid_dict.keys())
 
     with open(acc_file, 'r') as afil:
         for line in afil.readlines():
             data = line.split('=')
-            if len(data) == 2:  # a valid line, ex: nynjhbr.lmsl=1.4
+            if len(data) == 2:  # a valid line, ex: akglacier.navd88.lmsl=8.0
                 data_entry, val = data
                 sub_data = data_entry.split('.')
-                if len(sub_data) == 2:
-                    prefix, suffix = sub_data  # flpensac.mhw=1.8
-                # elif len(sub_data) == 3:
-                #     prefix, _, suffix = sub_data  # akyakutat.lmsl.mhhw=6.6
-                    if prefix == 'conus':
-                        if suffix == 'navd88':
-                            grid_dict['geoid12b'] = float(val) * 0.01  # answer in meters
-                        else:
-                            grid_dict[suffix] = float(val) * 0.01
+                if len(sub_data) == 3:
+                    region, src, target = sub_data
+                    if region == 'conus':
+                        if src == 'navd88' and target == 'nad83':
+                            grid_dict['geoid12b'] = float(val.lstrip().rstrip()) * 0.01
+                        elif src in geoid_possibilities:
+                            grid_dict[f'{src}'] = float(val.lstrip().rstrip()) * 0.01
                     else:
-                        match = np.where(np.array([entry.lower().find(prefix) for entry in grid_entries]) == 0)
+                        match = np.where(np.array([entry.lower().find(region) for entry in grid_entries]) == 0)
                         if match[0].size:
                             if len(match[0]) > 1:
                                 raise ValueError(f'Found multiple matches in vdatum_sigma file for entry {data_entry}')
@@ -734,7 +755,10 @@ def get_vdatum_uncertainties(vdatum_directory: str):
                                 val = val.lstrip().rstrip()
                                 if val == 'n/a':
                                     val = 0
-                                grid_dict[grid_key][suffix] = float(val) * 0.01
+                                if src == 'navd88' and target == 'lmsl':
+                                    grid_dict[grid_key]['tss'] = float(val) * 0.01
+                                elif src == 'lmsl':
+                                    grid_dict[grid_key][target] = float(val) * 0.01
                             else:
                                 print(f'No match for vdatum_sigma entry {data_entry}!')
     return grid_dict

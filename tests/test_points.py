@@ -1,6 +1,11 @@
 from pytest import approx
 
 from vyperdatum.points import *
+from vyperdatum.vdatum_validation import vdatum_answers
+
+gvc = VyperCore()
+data_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+vdatum_answer = vdatum_answers[gvc.vdatum.vdatum_version]
 
 
 def test_points_setup():
@@ -10,75 +15,33 @@ def test_points_setup():
     assert os.path.exists(vp.vdatum.vdatum_path)
     assert vp.vdatum.grid_files
     assert vp.vdatum.polygon_files
+    assert vp.vdatum.vdatum_version
+    assert vp.vdatum.regions
 
 
-def test_transform_dataset():
+def _transform_dataset(region: str):
     vp = VyperPoints()
-    x = np.array([-76.19698, -76.194, -76.198])
-    y = np.array([37.1299, 37.1399, 37.1499])
-    z = np.array([10.5, 11.0, 11.5])
-    vp.transform_points((6319,), 'mllw', x, y, z=z, include_vdatum_uncertainty=False)
+    x = vdatum_answer[region]['x']
+    y = vdatum_answer[region]['y']
+    z = vdatum_answer[region]['z_nad83']
+    vp.transform_points((6319, 'ellipse'), 'mllw', x, y, z=z, include_vdatum_uncertainty=False)
 
-    assert (x == vp.x).all()
-    assert (y == vp.y).all()
-    assert vp.z == approx(np.array([47.735, 48.219, 48.685]), abs=0.001)
+    assert vp.x == approx(x, abs=0.0001)
+    assert vp.y == approx(y, abs=0.0001)
+    assert vp.z == approx(vdatum_answer[region]['z_mllw'], abs=0.002)
     
 
-def test_transform_dataset_mhw():
-    vp = VyperPoints()
-    x = np.array([-76.19698, -76.194, -76.198])
-    y = np.array([37.1299, 37.1399, 37.1499])
-    z = np.array([10.5, 11.0, 11.5])
-    vp.transform_points((6318, 'noaa chart height'), 'noaa chart datum', x, y, z=z, include_vdatum_uncertainty=False)
-
-    assert (x == vp.x).all()
-    assert (y == vp.y).all()
-    assert vp.z == approx(np.array([11.227, 11.724, 12.218]), abs=0.001)
+def test_transform_north_carolina_dataset():
+    _transform_dataset('north_carolina')
 
 
-def test_transform_dataset_geoid():
-    vp = VyperPoints()
-    x = np.array([-76.19698, -76.194, -76.198])
-    y = np.array([37.1299, 37.1399, 37.1499])
-    z = np.array([10.5, 11.0, 11.5])
-    vp.transform_points((6318, 'navd88'), 'noaa chart datum', x, y, z=z, include_vdatum_uncertainty=False)
-
-    assert (x == vp.x).all()
-    assert (y == vp.y).all()
-    assert vp.z == approx(np.array([10.995, 11.493, 11.989]), abs=0.001)
+def test_transform_texas_dataset():
+    _transform_dataset('texas')
 
 
-def test_transform_dataset_inv_geoid():
-    vp = VyperPoints()
-    x = np.array([-76.19698, -76.194, -76.198])
-    y = np.array([37.1299, 37.1399, 37.1499])
-    z = np.array([10.995, 11.493, 11.989])
-    vp.transform_points((6318, 'noaa chart datum'), 'navd88', x, y, z=z, include_vdatum_uncertainty=False)
-
-    assert (x == vp.x).all()
-    assert (y == vp.y).all()
-    assert vp.z == approx(np.array([10.5, 11.0, 11.5]), abs=0.001)
+def test_transform_california_dataset():
+    _transform_dataset('california')
 
 
-def test_transform_dataset_2d_noop():
-    vp = VyperPoints()
-    x = np.array([898745.505, 898736.854, 898728.203])
-    y = np.array([256015.372, 256003.991, 255992.610])
-    z = np.array([10.5, 11.0, 11.5])
-    vp.transform_points((3631, 'mllw'), 'mllw', x, y, z=z, include_vdatum_uncertainty=False)
-
-    assert vp.x == approx(np.array([-75.7918, -75.7919, -75.792]), abs=0.0001)
-    assert vp.y == approx(np.array([36.0157, 36.0156, 36.0155]), abs=0.0001)
-    assert vp.z == approx(z, abs=0.001)
-
-
-def test_transform_dataset_2d_plus_mllw_to_navd88():
-    vp = VyperPoints()
-    x = np.array([661951, 661952, 661953])
-    y = np.array([4497577, 4497578, 4497576])
-    z = np.array([0, 0, 0])
-    vp.transform_points((26918, 'mllw'), 'navd88', x, y, z=z)
-
-    assert vp.x == approx(np.array([-73.0855, -73.0855, -73.0855]), abs=0.0001)
-    assert vp.y == approx(np.array([40.6131, 40.6131, 40.6131]), abs=0.0001)
-    assert vp.z == approx(np.array([-0.665, -0.665, -0.665]), abs=0.001)
+def test_transform_alaska_southeast_dataset():
+    _transform_dataset('alaska_southeast')
