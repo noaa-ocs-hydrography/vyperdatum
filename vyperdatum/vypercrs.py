@@ -1024,7 +1024,7 @@ def crs_is_compound(my_crs: CRS):
 
 
 if __name__ == '__main__':
-    vs = VerticalPipelineCRS(vdatum_version_string='vdatum_4.2', vert_datum_name='NOAA Chart Datum')
+    vs = VerticalPipelineCRS(vdatum_version_string='vdatum_4.1.2', vert_datum_name='NOAA Chart Datum')
     vs.add_pipeline(
         "proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx step proj=vgridshift grids=REGION\\tss.gtx",
         "TXlagmat01_8301")
@@ -1032,7 +1032,7 @@ if __name__ == '__main__':
         "proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx step proj=vgridshift grids=REGION\\tss.gtx",
         "TXlaggal01_8301")
 
-    vstwo = VerticalPipelineCRS(vdatum_version_string='vdatum_4.2', vert_datum_name='NAD83_ellipse')
+    vstwo = VerticalPipelineCRS(vdatum_version_string='vdatum_4.1.2', vert_datum_name='NAD83_ellipse')
     vstwo.add_pipeline(
         "proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx step proj=vgridshift grids=REGION\\tss.gtx proj=vgridshift grids=regionname\\mllw.gtx",
         "TXlagmat01_8301")
@@ -1041,4 +1041,4 @@ if __name__ == '__main__':
         "TXlaggal01_8301")
 
     print(vs.to_pretty_wkt())
-    print(get_transformation_pipeline(vs, vstwo, "TXlagmat01_8301", 'vdatum_4.2'))
+    print(get_transformation_pipeline(vs, vstwo, "TXlagmat01_8301", 'vdatum_4.1.2'))

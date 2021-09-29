@@ -385,8 +385,8 @@ vdatum42_geoid = {'AKglacier00_8301': r'core\xgeoid17b\AK_17B.gtx',
                   }
 
 
-vdatum_hashlookup = {'vdatum_4.2': vdatum42_hashes}
-vdatum_geoidlookup = {'vdatum_4.2': vdatum42_geoid}
+vdatum_hashlookup = {'vdatum_4.1.2': vdatum42_hashes}
+vdatum_geoidlookup = {'vdatum_4.1.2': vdatum42_geoid}
 
 # vdatum_x = 284.2613, y = 35.35970, z_nad83 = 11.5,
 # from vdatum java app, geoid=-38.7532, mllw=-0.0894, tss=0.0389
@@ -395,68 +395,68 @@ vdatum_geoidlookup = {'vdatum_4.2': vdatum42_geoid}
 # looking at the grid in qgis, (navd=-38.7532)
 # pyproj transformer with just the geoid (navd=38.7502)
 
-vdatum_answers = {'vdatum_4.2': {'north_carolina': {'horiz_epsg': 6318,
-                                                    'x': np.array([-75.73890, -75.73880, -75.73870]),
-                                                    'y': np.array([35.39590, 35.39580, 35.39570]),
-                                                    'x_stateplane': [3631, np.array([905770.005, 905779.448, 905788.891])],  # NC-3200, meters, EPSG:3613
-                                                    'y_stateplane': [3631, np.array([187445.080, 187434.291, 187423.502])],
-                                                    'x_utm': [26918, np.array([432899.901, 432908.900, 432917.898])],  # UTM 18, EPSG:26918
-                                                    'y_utm': [26918, np.array([3917198.926, 3917187.768, 3917176.609])],
-                                                    'z_nad83': np.array([10.5, 11.0, 11.5]),
-                                                    'z_navd88': np.array([49.264, 49.764, 50.264]),
-                                                    'z_mllw': np.array([49.393, 49.893, 50.393]),
-                                                    'z_mllw_unc': np.array([0.124, 0.124, 0.124]),
-                                                    'z_mhw': np.array([49.227, 49.727, 50.227])},
-                                 'texas': {'horiz_epsg': 6318,
-                                           'x': np.array([-95.63490, -95.63480, -95.63470]),
-                                           'y': np.array([28.38690, 28.38680, 28.38670]),
-                                           'x_stateplane': [3673, np.array([929761.899, 929772.015, 929782.130])],  # TX SC 4204, meters, EPSG:3673
-                                           'y_stateplane': [3673, np.array([4066097.205, 4066086.409, 4066075.613])],
-                                           'x_utm': [26915, np.array([241810.975, 241820.535, 241830.096])],  # UTM 15, EPSG:26915
-                                           'y_utm': [26915, np.array([3142886.229, 3142874.930, 3142863.631])],
-                                           'z_nad83': np.array([10.5, 11.0, 11.5]),
-                                           'z_navd88': np.array([36.537, 37.037, 37.537]),
-                                           'z_mllw': np.array([36.694, 37.194, 37.694]),
-                                           'z_mllw_unc': np.array([0.112, 0.112, 0.112]),
-                                           'z_mhw': np.array([36.226, 36.726, 37.226])},
-                                 'california': {'horiz_epsg': 6318,
-                                                'x': np.array([-122.34990, -122.34980, -122.34970]),
-                                                'y': np.array([35.79190, 35.79180, 35.79170]),
-                                                'x_stateplane': [3495, np.array([1697216.653, 1697225.301, 1697233.949])],  # CA Zone4 0404, meters, EPSG:3495
-                                                'y_stateplane': [3495, np.array([556165.351, 556153.947, 556142.542])],
-                                                'x_utm': [26910, np.array([558745.916, 558755.0265, 558764.137])],  # UTM 10, EPSG:26910
-                                                'y_utm': [26910, np.array([3961062.442, 3961051.411, 3961040.379])],
-                                                'z_nad83': np.array([10.5, 11.0, 11.5]),
-                                                'z_navd88': np.array([48.868, 49.368, 49.868]),
-                                                'z_mllw': np.array([48.826, 49.326, 49.826]),
-                                                'z_mllw_unc': np.array([0.078, 0.078, 0.078]),
-                                                'z_mhw': np.array([47.436, 47.936, 48.436])},
-                                 # getting this answer from the vdatum java app was difficult.  I found I had to:
-                                 #  - transform NAD83(2011)/NAD83(2011) -> ITRF2008/ITRF2008
-                                 #  - transform ITRF2008/ITRF2008 -> ITRF2008/MLLW
-                                 # going from NAD83 directly to ITRF2008/MLLW gets a different answer for some reason that does not align with PROJ
-                                 'alaska_southeast': {'horiz_epsg': 8999,
-                                                      'x': np.array([-137.43590, -137.43580, -137.43570]),
-                                                      'y': np.array([57.61290, 57.61280, 57.61270]),
-                                                      'x_stateplane': [3468, np.array([593515.511, 593520.860, 593526.209])],  # AK Zone1 5001, meters, EPSG:3468
-                                                      'y_stateplane': [3468, np.array([649604.259, 649592.805, 649581.352])],
-                                                      'x_utm': [26908, np.array([354484.054, 354489.627, 354495.199])],  # UTM 8, EPSG:26908
-                                                      'y_utm': [26908, np.array([6388227.166, 6388215.823, 6388204.480])],
+vdatum_answers = {'vdatum_4.1.2': {'north_carolina': {'horiz_epsg': 6318,
+                                                      'x': np.array([-75.73890, -75.73880, -75.73870]),
+                                                      'y': np.array([35.39590, 35.39580, 35.39570]),
+                                                      'x_stateplane': [3631, np.array([905770.005, 905779.448, 905788.891])],  # NC-3200, meters, EPSG:3613
+                                                      'y_stateplane': [3631, np.array([187445.080, 187434.291, 187423.502])],
+                                                      'x_utm': [26918, np.array([432899.901, 432908.900, 432917.898])],  # UTM 18, EPSG:26918
+                                                      'y_utm': [26918, np.array([3917198.926, 3917187.768, 3917176.609])],
                                                       'z_nad83': np.array([10.5, 11.0, 11.5]),
-                                                      'z_navd88': np.array([10.348, 10.848, 11.348]),  # using xgeoid17b
-                                                      'z_mllw': np.array([11.614, 12.114, 12.614]),  # using IGS08
-                                                      'z_mllw_unc': np.array([0.19, 0.19, 0.19]),
-                                                      'z_mhw': np.array([8.959, 9.459, 9.959])},  # using IGS08
-                                 'rastertest': {'horiz_epsg': 6348,
-                                                'x': np.array([339664.0, 339664.0, 340864.0]),
-                                                'y': np.array([4692852.0, 4689052.0, 4691652.00]),
-                                                'elev': np.array([-10.61, -21.3, -10.560]),
-                                                'added_unc': np.array([0.196, 0.196, 0.196]),
-                                                'unc': np.array([1.21, 1.43, 12.316812]),
-                                                'cont': np.array([124.0, 214.0, 396.0]),
-                                                'geoid': np.array([-27.5492, -27.6468, -27.526]),
-                                                'final_mllw': np.array([-39.7732, -50.591, -39.708])}
-                                 }
+                                                      'z_navd88': np.array([49.264, 49.764, 50.264]),
+                                                      'z_mllw': np.array([49.393, 49.893, 50.393]),
+                                                      'z_mllw_unc': np.array([0.124, 0.124, 0.124]),
+                                                      'z_mhw': np.array([49.227, 49.727, 50.227])},
+                                   'texas': {'horiz_epsg': 6318,
+                                             'x': np.array([-95.63490, -95.63480, -95.63470]),
+                                             'y': np.array([28.38690, 28.38680, 28.38670]),
+                                             'x_stateplane': [3673, np.array([929761.899, 929772.015, 929782.130])],  # TX SC 4204, meters, EPSG:3673
+                                             'y_stateplane': [3673, np.array([4066097.205, 4066086.409, 4066075.613])],
+                                             'x_utm': [26915, np.array([241810.975, 241820.535, 241830.096])],  # UTM 15, EPSG:26915
+                                             'y_utm': [26915, np.array([3142886.229, 3142874.930, 3142863.631])],
+                                             'z_nad83': np.array([10.5, 11.0, 11.5]),
+                                             'z_navd88': np.array([36.537, 37.037, 37.537]),
+                                             'z_mllw': np.array([36.694, 37.194, 37.694]),
+                                             'z_mllw_unc': np.array([0.112, 0.112, 0.112]),
+                                             'z_mhw': np.array([36.226, 36.726, 37.226])},
+                                   'california': {'horiz_epsg': 6318,
+                                                  'x': np.array([-122.34990, -122.34980, -122.34970]),
+                                                  'y': np.array([35.79190, 35.79180, 35.79170]),
+                                                  'x_stateplane': [3495, np.array([1697216.653, 1697225.301, 1697233.949])],  # CA Zone4 0404, meters, EPSG:3495
+                                                  'y_stateplane': [3495, np.array([556165.351, 556153.947, 556142.542])],
+                                                  'x_utm': [26910, np.array([558745.916, 558755.0265, 558764.137])],  # UTM 10, EPSG:26910
+                                                  'y_utm': [26910, np.array([3961062.442, 3961051.411, 3961040.379])],
+                                                  'z_nad83': np.array([10.5, 11.0, 11.5]),
+                                                  'z_navd88': np.array([48.868, 49.368, 49.868]),
+                                                  'z_mllw': np.array([48.826, 49.326, 49.826]),
+                                                  'z_mllw_unc': np.array([0.078, 0.078, 0.078]),
+                                                  'z_mhw': np.array([47.436, 47.936, 48.436])},
+                                   # getting this answer from the vdatum java app was difficult.  I found I had to:
+                                   #  - transform NAD83(2011)/NAD83(2011) -> ITRF2008/ITRF2008
+                                   #  - transform ITRF2008/ITRF2008 -> ITRF2008/MLLW
+                                   # going from NAD83 directly to ITRF2008/MLLW gets a different answer for some reason that does not align with PROJ
+                                   'alaska_southeast': {'horiz_epsg': 8999,
+                                                        'x': np.array([-137.43590, -137.43580, -137.43570]),
+                                                        'y': np.array([57.61290, 57.61280, 57.61270]),
+                                                        'x_stateplane': [3468, np.array([593515.511, 593520.860, 593526.209])],  # AK Zone1 5001, meters, EPSG:3468
+                                                        'y_stateplane': [3468, np.array([649604.259, 649592.805, 649581.352])],
+                                                        'x_utm': [26908, np.array([354484.054, 354489.627, 354495.199])],  # UTM 8, EPSG:26908
+                                                        'y_utm': [26908, np.array([6388227.166, 6388215.823, 6388204.480])],
+                                                        'z_nad83': np.array([10.5, 11.0, 11.5]),
+                                                        'z_navd88': np.array([10.348, 10.848, 11.348]),  # using xgeoid17b
+                                                        'z_mllw': np.array([11.614, 12.114, 12.614]),  # using IGS08
+                                                        'z_mllw_unc': np.array([0.19, 0.19, 0.19]),
+                                                        'z_mhw': np.array([8.959, 9.459, 9.959])},  # using IGS08
+                                   'rastertest': {'horiz_epsg': 6348,
+                                                  'x': np.array([339664.0, 339664.0, 340864.0]),
+                                                  'y': np.array([4692852.0, 4689052.0, 4691652.00]),
+                                                  'elev': np.array([-10.61, -21.3, -10.560]),
+                                                  'added_unc': np.array([0.196, 0.196, 0.196]),
+                                                  'unc': np.array([1.21, 1.43, 12.316812]),
+                                                  'cont': np.array([124.0, 214.0, 396.0]),
+                                                  'geoid': np.array([-27.5492, -27.6468, -27.526]),
+                                                  'final_mllw': np.array([-39.7732, -50.591, -39.708])}
+                                   }
                   }
 
 
