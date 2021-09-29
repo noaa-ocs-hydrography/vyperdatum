@@ -2,6 +2,7 @@ import os
 import numpy as np
 
 
+# see vyperdatum.core.hash_vdatum_grids to generate
 vdatum42_hashes = {'AKglacier00_8301/dtl.gtx': '7b5cbeae1c0f34612dcc7ff9432ac9b9',
                    'AKglacier00_8301/mhhw.gtx': '11bcc780ee778f2942e04408c4c673a0',
                    'AKglacier00_8301/mhw.gtx': '0000fb9e120bd1ae6da71b43a0550cda',
@@ -450,9 +451,11 @@ vdatum_answers = {'vdatum_4.2': {'north_carolina': {'horiz_epsg': 6318,
                                                 'x': np.array([339664.0, 339664.0, 340864.0]),
                                                 'y': np.array([4692852.0, 4689052.0, 4691652.00]),
                                                 'elev': np.array([-10.61, -21.3, -10.560]),
+                                                'added_unc': np.array([0.196, 0.196, 0.196]),
                                                 'unc': np.array([1.21, 1.43, 12.316812]),
                                                 'cont': np.array([124.0, 214.0, 396.0]),
-                                                'mllw': np.array([18.528, 7.959, 18.589])}
+                                                'geoid': np.array([-27.5492, -27.6468, -27.526]),
+                                                'final_mllw': np.array([-39.7732, -50.591, -39.708])}
                                  }
                   }
 
