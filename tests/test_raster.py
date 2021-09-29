@@ -132,17 +132,17 @@ def test_raster_apply_sep():
     cont_layer = layers[2]
 
     # restart validation work here
-    assert np.isnan(elev_layer[0][0])
+    assert elev_layer[0][0] == vr.nodatavalue[0]
     assert elev_layer[100][100] == approx(-39.773, abs=0.001)
     assert elev_layer[1050][100] == approx(-50.591, abs=0.001)
     assert elev_layer[400][400] == approx(-39.708, abs=0.001)
 
-    assert np.isnan(unc_layer[0][0])
+    assert unc_layer[0][0] == vr.nodatavalue[1]
     assert unc_layer[100][100] == approx(1.21, abs=0.001)
     assert unc_layer[1050][100] == approx(1.429, abs=0.001)
     assert unc_layer[400][400] == approx(12.316, abs=0.001)
 
-    assert np.isnan(cont_layer[0][0])
+    assert cont_layer[0][0] == vr.nodatavalue[2]
     assert cont_layer[100][100] == 124.0
     assert cont_layer[1050][100] == 214.0
     assert cont_layer[400][400] == 396.0
@@ -156,17 +156,17 @@ def test_raster_transform_raster():
     unc_layer = layers[1]
     cont_layer = layers[2]
 
-    assert np.isnan(elev_layer[0][0])
+    assert elev_layer[0][0] == vr.nodatavalue[0]
     assert elev_layer[100][100] == approx(-39.773, abs=0.001)
     assert elev_layer[1050][100] == approx(-50.591, abs=0.001)
     assert elev_layer[400][400] == approx(-39.708, abs=0.001)
 
-    assert np.isnan(unc_layer[0][0])
+    assert unc_layer[0][0] == vr.nodatavalue[1]
     assert unc_layer[100][100] == approx(1.21, abs=0.001)
     assert unc_layer[1050][100] == approx(1.429, abs=0.001)
     assert unc_layer[400][400] == approx(12.316, abs=0.001)
 
-    assert np.isnan(cont_layer[0][0])
+    assert cont_layer[0][0] == vr.nodatavalue[2]
     assert cont_layer[100][100] == 124.0
     assert cont_layer[1050][100] == 214.0
     assert cont_layer[400][400] == 396.0

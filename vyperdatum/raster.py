@@ -290,9 +290,9 @@ class VyperRaster(VyperCore):
             layernames.append(self.layernames[contributor_layer_idx])
             layernodata.append(self.nodatavalue[contributor_layer_idx])
 
-        missing_idx = np.isnan(self.raster_vdatum_sep)
-        missing_count = np.count_nonzero(missing_idx)
-        missing_idx = np.where(missing_idx)
+        missing = np.isnan(self.raster_vdatum_sep)
+        missing_count = np.count_nonzero(missing)
+        missing_idx = np.where(missing)
         self.log_info(f'Applying vdatum separation model to {self.raster_vdatum_sep.size} total points')
 
         if self.in_crs.is_height == self.out_crs.is_height:
@@ -300,29 +300,38 @@ class VyperRaster(VyperCore):
         else:
             flip = -1
 
+        elev_nodata_idx = np.where(np.isnan(elevation_layer))
         if self.in_crs.is_height == True:
             final_elevation_layer = flip * (elevation_layer + self.raster_vdatum_sep)
         else:
             final_elevation_layer = flip * (elevation_layer - self.raster_vdatum_sep)
+        final_elevation_layer[elev_nodata_idx] = self.nodatavalue[elevation_layer_idx]
 
+        uncert_nodata_idx = np.where(np.isnan(uncertainty_layer))
         if uncertainty_layer_idx:
             final_uncertainty_layer = uncertainty_layer + self.raster_vdatum_uncertainty
         else:
             final_uncertainty_layer = self.raster_vdatum_uncertainty
+        final_uncertainty_layer[uncert_nodata_idx] = self.nodatavalue[uncertainty_layer_idx]
+
+        if contributor_layer is not None:
+            contrib_nodata_idx = np.where(np.isnan(contributor_layer))
+            contributor_layer[contrib_nodata_idx] = self.nodatavalue[contributor_layer_idx]
 
         if not allow_points_outside_coverage:
             self.log_info(f'applying nodatavalue to {missing_count} points that are outside of vdatum coverage')
-            final_elevation_layer[missing_idx] = self.nodatavalue[elevation_layer_idx]
+            #final_elevation_layer[missing_idx] = self.nodatavalue[elevation_layer_idx]
             final_uncertainty_layer[missing_idx] = self.nodatavalue[uncertainty_layer_idx]
             if contributor_layer is not None:
                 contributor_layer[missing_idx] = self.nodatavalue[contributor_layer_idx]
         else:
             self.log_info(f'Allowing {missing_count} points that are outside of vdatum coverage, using CATZOC D vertical uncertainty')
-            final_elevation_layer[missing_idx] = elevation_layer[missing_idx]
-            z_values = final_elevation_layer[missing_idx]
+            pass_through_idx = np.where(missing & ~np.isnan(elevation_layer))
+            final_elevation_layer[pass_through_idx] = elevation_layer[pass_through_idx]
+            z_values = final_elevation_layer[pass_through_idx]
             u_values = 3 - 0.06 * z_values
             u_values[np.where(z_values > 0)] = 3.0
-            final_uncertainty_layer[missing_idx] = u_values
+            final_uncertainty_layer[pass_through_idx] = u_values
 
         layers = (final_elevation_layer, final_uncertainty_layer, contributor_layer)
         return layers, layernames, layernodata
