@@ -38,6 +38,7 @@ def _transform_dataset_sampled(region: str):
     z = vdatum_answer[region]['z_nad83']
     vp.transform_points((6319, 'ellipse'), 'mllw', x, y, z=z, include_vdatum_uncertainty=False, sample_distance=0.0005)
 
+    # sampled points workflow does not return new xy coordinates, we can't just expand the sampled points to get new xy
     assert vp.x is None
     assert vp.y is None
     assert vp.z == approx(vdatum_answer[region]['z_mllw'], abs=0.002)
