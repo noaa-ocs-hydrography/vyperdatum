@@ -29,6 +29,18 @@ def _transform_dataset(region: str):
     assert vp.x == approx(x, abs=0.0001)
     assert vp.y == approx(y, abs=0.0001)
     assert vp.z == approx(vdatum_answer[region]['z_mllw'], abs=0.002)
+
+
+def _transform_dataset_sampled(region: str):
+    vp = VyperPoints()
+    x = vdatum_answer[region]['x']
+    y = vdatum_answer[region]['y']
+    z = vdatum_answer[region]['z_nad83']
+    vp.transform_points((6319, 'ellipse'), 'mllw', x, y, z=z, include_vdatum_uncertainty=False, sample_distance=0.0005)
+
+    assert vp.x is None
+    assert vp.y is None
+    assert vp.z == approx(vdatum_answer[region]['z_mllw'], abs=0.002)
     
 
 def test_transform_north_carolina_dataset():
@@ -45,3 +57,20 @@ def test_transform_california_dataset():
 
 def test_transform_alaska_southeast_dataset():
     _transform_dataset('alaska_southeast')
+
+
+def test_transform_north_carolina_dataset_sampled():
+    _transform_dataset_sampled('north_carolina')
+
+
+def test_transform_texas_dataset_sampled():
+    _transform_dataset_sampled('texas')
+
+
+def test_transform_california_dataset_sampled():
+    _transform_dataset_sampled('california')
+
+
+def test_transform_alaska_southeast_dataset_sampled():
+    _transform_dataset_sampled('alaska_southeast')
+
