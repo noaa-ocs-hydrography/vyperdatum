@@ -77,7 +77,10 @@ class VyperPoints(VyperCore):
             self.x = None
             self.y = None
             z_sep = z_sep.reshape(xx_sampled.shape)
-            self.z = z_sep[y_bins - 1, x_bins - 1] + z
+            if z is not None:
+                self.z = z_sep[y_bins - 1, x_bins - 1] + z
+            else:
+                self.z = z_sep[y_bins - 1, x_bins - 1]
             if include_vdatum_uncertainty:
                 unc_new = unc_new.reshape(xx_sampled.shape)
                 self.unc = unc_new[y_bins - 1, x_bins - 1]
