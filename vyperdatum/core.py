@@ -1,4 +1,5 @@
 import os, sys, glob, configparser, hashlib
+from copy import deepcopy
 import numpy as np
 from pyproj import Transformer, datadir, CRS
 from osgeo import gdal, ogr
@@ -9,6 +10,9 @@ from datetime import datetime
 from vyperdatum.vypercrs import VyperPipelineCRS, get_transformation_pipeline, geoid_frame_lookup, geoid_possibilities, \
     frame_to_3dcrs
 from vyperdatum.vdatum_validation import vdatum_hashlookup, vdatum_geoidlookup
+
+
+grid_formats = ['.tif', '.tiff', '.gtx']
 
 
 class VyperCore:
@@ -613,7 +617,7 @@ class VdatumData:
             datadir.append_data_dir(vdatum_path)
     
         # also want to populate grids and polygons with what we find
-        self.grid_files, self.regions = get_gtx_grid_list(vdatum_path)
+        self.grid_files, self.regions = get_vdatum_grid_list(vdatum_path)
         self.polygon_files = get_vdatum_region_polygons(vdatum_path)
         self.uncertainties = get_vdatum_uncertainties(vdatum_path)
 
@@ -646,7 +650,7 @@ class VdatumData:
         self.vdatum_version = vversion
 
 
-def get_gtx_grid_list(vdatum_directory: str):
+def get_vdatum_grid_list(vdatum_directory: str):
     """
     Search the vdatum directory to find all gtx files
 
@@ -663,20 +667,22 @@ def get_gtx_grid_list(vdatum_directory: str):
         list of vdatum regions
     """
 
-    search_path = os.path.join(vdatum_directory, '*/*.gtx')
-    gtx_list = glob.glob(search_path)
-    if len(gtx_list) == 0:
-        errmsg = f'No GTX files found in the provided VDatum directory: {vdatum_directory}'
+    grid_list = []
+    for gfmt in grid_formats:
+        search_path = os.path.join(vdatum_directory, '*/*{}'.format(gfmt))
+        grid_list += glob.glob(search_path)
+    if len(grid_list) == 0:
+        errmsg = f'No grid files found in the provided VDatum directory: {vdatum_directory}'
         print(errmsg)
     grids = {}
     regions = []
-    for gtx in gtx_list:
-        gtx_path, gtx_file = os.path.split(gtx)
-        gtx_path, gtx_folder = os.path.split(gtx_path)
-        gtx_name = '/'.join([gtx_folder, gtx_file])
-        gtx_subpath = os.path.join(gtx_folder, gtx_file)
+    for grd in grid_list:
+        grd_path, grd_file = os.path.split(grd)
+        grd_path, grd_folder = os.path.split(grd_path)
+        gtx_name = '/'.join([grd_folder, grd_file])
+        gtx_subpath = os.path.join(grd_folder, grd_file)
         grids[gtx_name] = gtx_subpath
-        regions.append(gtx_folder)
+        regions.append(grd_folder)
     regions = list(set(regions))
     return grids, regions
 
@@ -892,10 +898,16 @@ def return_vdatum_version(grid_files: dict, vdatum_path: str, save_path: str = N
 
     """
     hashdict = hash_vdatum_grids(grid_files, vdatum_path)
+    acc_file = os.path.join(vdatum_path, 'vdatum_sigma.inf')
+    acc_hash = hash_a_file(acc_file)
     myversion = ''
-    for vdversion, vdhashes in vdatum_hashlookup.items():
-        if hashdict == vdhashes:
+    cpy_vdatum_hashlookup = deepcopy(vdatum_hashlookup)
+    for vdversion, vdhashes in cpy_vdatum_hashlookup.items():
+        sigmahash = vdhashes.pop('vdatum_sigma.inf')
+        if hashdict == vdhashes and acc_hash == sigmahash:
             myversion = vdversion
+            print('Found {}'.format(myversion))
+            break
     if myversion and save_path:
         with open(save_path, 'w') as ofile:
             ofile.write(myversion)
