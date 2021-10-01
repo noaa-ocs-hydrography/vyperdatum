@@ -90,8 +90,3 @@ def _transform_dataset_direction():
     vp = VyperPoints()
     vp.transform_points((6319, 'ellipse'), 5866, x, y, z=z, include_vdatum_uncertainty=False)
     assert vp.z == approx(-vdatum_answer['north_carolina']['z_mllw'], abs=0.002)
-
-    # assumes positive up input, and mllw means positive up output
-    vp = VyperPoints()
-    vp.transform_points((6319, 'ellipse'), 5866, x, y, z=z * -1, include_vdatum_uncertainty=False)
-    assert vp.z == approx(vdatum_answer['north_carolina']['z_mllw'], abs=0.002)
