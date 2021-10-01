@@ -319,12 +319,14 @@ class VyperRaster(VyperCore):
 
         if allow_points_outside_coverage:
             self.log_info(f'Allowing {missing_count} points that are outside of vdatum coverage, using CATZOC D vertical uncertainty')
-            final_elevation_layer[missing_idx] = elevation_layer[missing_idx]
-            z_values = final_elevation_layer[missing_idx]
+            final_elevation_layer[missing_idx] = flip * elevation_layer[missing_idx]
+            if self.in_crs.is_height:
+                z_values = elevation_layer[missing_idx]
+            else:
+                z_values = -elevation_layer[missing_idx]
             u_values = 3 - 0.06 * z_values
             u_values[np.where(z_values > 0)] = 3.0
             final_uncertainty_layer[missing_idx] = u_values
-            
         else:
             self.log_info(f'applying nodatavalue to {missing_count} points that are outside of vdatum coverage')
             final_elevation_layer[missing_idx] = self.nodatavalue[elevation_layer_idx]
