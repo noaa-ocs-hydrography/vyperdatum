@@ -76,3 +76,22 @@ def test_transform_alaska_southeast_dataset_sampled():
     _transform_dataset_sampled('alaska_southeast')
 
 
+def _transform_dataset_direction():
+    vp = VyperPoints()
+    x = vdatum_answer['north_carolina']['x']
+    y = vdatum_answer['north_carolina']['y']
+    z = vdatum_answer['north_carolina']['z_nad83']
+
+    # assumes positive up input, and mllw means positive up output
+    vp.transform_points((6319, 'ellipse'), 'mllw', x, y, z=z, include_vdatum_uncertainty=False)
+    assert vp.z == approx(vdatum_answer['north_carolina']['z_mllw'], abs=0.002)
+
+    # if we want positive down output, we need to use an epsg with positive down axis direction for mllw
+    vp = VyperPoints()
+    vp.transform_points((6319, 'ellipse'), 5866, x, y, z=z, include_vdatum_uncertainty=False)
+    assert vp.z == approx(-vdatum_answer['north_carolina']['z_mllw'], abs=0.002)
+
+    # assumes positive up input, and mllw means positive up output
+    vp = VyperPoints()
+    vp.transform_points((6319, 'ellipse'), 5866, x, y, z=z * -1, include_vdatum_uncertainty=False)
+    assert vp.z == approx(vdatum_answer['north_carolina']['z_mllw'], abs=0.002)
