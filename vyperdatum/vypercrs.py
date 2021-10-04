@@ -73,7 +73,7 @@ class CoordinateSystem:
         for cnt, ax in enumerate(self.axis):
             if cnt >= 1:
                 axis_string += ','
-            if ax.lower() in ['h', 'height', 'gravity-related height (h)', 'gravity-related height']:
+            if ax.lower() in ['h', 'height', 'gravity-related height (h)', 'gravity-related height', 'up']:
                 axis_string += 'AXIS["gravity-related height (H)",up]'
             elif ax.lower() in ['d', 'depth', 'depth (d)']:
                 axis_string += 'AXIS["depth (D)",down]'
