@@ -77,6 +77,8 @@ class CoordinateSystem:
                 axis_string += 'AXIS["gravity-related height (H)",up]'
             elif ax.lower() in ['d', 'depth', 'depth (d)']:
                 axis_string += 'AXIS["depth (D)",down]'
+            else:
+                raise ValueError(f'"{ax}" is not a registered axis type, such as "height" or "depth".')
         return axis_string
 
     @property
