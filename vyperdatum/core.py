@@ -346,9 +346,9 @@ class VyperCore:
                 self.log_error(f'Found {len(gd_index.size)} geoid possibilities in pipeline string', ValueError)
             geoid = geoid_possibilities[gd_index[0]]
             final_uncertainty += self.vdatum.uncertainties[geoid]
-        if indatum in ['ellipse', 'geoid'] and outdatum not in ['ellipse', 'geoid']:  # include tss uncertainty
+        if indatum in ['ellipse', 'geoid', 'navd88'] and outdatum not in ['ellipse', 'geoid', 'navd88']:  # include tss uncertainty
             final_uncertainty += self.vdatum.uncertainties[region]['tss']
-        if outdatum not in ['ellipse', 'geoid', 'tss']:
+        if outdatum not in ['ellipse', 'geoid', 'tss', 'navd88']:
             srch_string = outdatum
             if srch_string == 'noaa chart datum':
                 srch_string = 'mllw'
