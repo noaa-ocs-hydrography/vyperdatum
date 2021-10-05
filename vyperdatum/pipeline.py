@@ -22,6 +22,7 @@ reference_frames = ['nad83', 'itrf08']
 datum_definition = {
     'ellipse'  : [],
     'geoid'   : ['+proj=vgridshift grids=GEOID'],
+    'navd88'  : ['+proj=vgridshift grids=GEOID'],
     'tss'      : ['+proj=vgridshift grids=GEOID',
                   '+inv +proj=vgridshift grids=REGION\\tss.gtx'],
     'mllw'     : ['+proj=vgridshift grids=GEOID',
