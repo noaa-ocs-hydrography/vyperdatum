@@ -393,7 +393,7 @@ class VerticalCRS:
         if remarks:
             version = None
             vdatversion = None
-            base_datum = None
+            base_datum = []
             regions = []
             pipelines = []
             vdatversion_start = remarks.find('vdatum=')
@@ -406,8 +406,10 @@ class VerticalCRS:
                 version = remarks[strt:]
             datum_start = remarks.find('base_datum=')
             if datum_start != -1:
-                strt = datum_start + len('base_datum=')
-                base_datum = remarks[strt:]
+                strt = datum_start + len('base_datum=') + 1
+                datum_end = remarks.find('],', strt)
+                datum_data = remarks[strt:datum_end]
+                base_datum = [x.strip() for x in datum_data.split(',')]
             regions_start = remarks.find('regions=')
             if regions_start != -1:
                 strt = regions_start + len('regions=') + 1
@@ -564,14 +566,16 @@ class VerticalPipelineCRS(VerticalCRS):
 
     @property
     def base_datum(self):
-        basedatum = ''
+        fmt_datums = '['
         if self.regions:
             geoids = [vdatum_geoidlookup[self.vdatum_version_string][regi] for regi in self.regions]
             basedatums = [geoid_frame_lookup[gdat] for gdat in geoids]
-            if len(set(basedatums)) > 1:
-                raise NotImplementedError(f'Unable to use two different base datums in one pipeline operation: {basedatums}')
-            basedatum = basedatums[0]
-        return basedatum
+            for cnt, ppe in enumerate(basedatums):
+                if cnt >= 1:
+                    fmt_datums += ','
+                fmt_datums += ppe
+            fmt_datums += ']'
+        return fmt_datums
 
     def pipeline_datum_name(self):
         if self.datum_name.find('ellipse') != -1:

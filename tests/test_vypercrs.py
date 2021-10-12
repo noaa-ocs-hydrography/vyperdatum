@@ -60,7 +60,8 @@ def test_vertical_pipeline_crs():
     assert expected_wkt == base_wkt
     assert vdatversion
     assert version == __version__
-    assert base_datum == 'NAD83(2011)'
+    assert base_datum[0] == 'NAD83(2011)'
+    assert base_datum[1] == 'NAD83(2011)'
     assert pipeline_data[0].find('TXlagmat01_8301') != -1
     assert pipeline_data[1].find('TXlaggal01_8301') != -1
     assert regions_data[0] == 'TXlagmat01_8301'
@@ -157,7 +158,8 @@ def test_vyperpipeline_add_vertcrs_with_pipeline():
     base_wkt, vdatversion, version, base_datum, pipeline_data, regions_data = split_wkt_remarks(cs.vertical.to_wkt())
     assert expected_wkt == base_wkt
     assert version == __version__
-    assert base_datum == 'NAD83(2011)'
+    assert base_datum[0] == 'NAD83(2011)'
+    assert base_datum[1] == 'NAD83(2011)'
     assert pipeline_data[0].find('TXlagmat01_8301') != -1
     assert pipeline_data[1].find('TXlaggal01_8301') != -1
     assert regions_data[0] == 'TXlagmat01_8301'
@@ -177,7 +179,7 @@ def test_vyperpipeline_add_vertcrs_then_pipeline_then_pipeline():
     base_wkt, vdatversion, version, base_datum, pipeline_data, regions_data = split_wkt_remarks(cs.vertical.to_wkt())
     assert expected_wkt == base_wkt
     assert version == __version__
-    assert base_datum == 'NAD83(2011)'
+    assert base_datum[0] == 'NAD83(2011)'
     assert pipeline_data[0].find('TXlagmat01_8301') != -1
     assert regions_data[0] == 'TXlagmat01_8301'
 
@@ -195,6 +197,7 @@ def test_vyperpipeline_add_vertcrs_wkt_then_pipeline_then_pipeline():
     expected_wkt = 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1]],'
     base_wkt, vdatversion, version, base_datum, pipeline_data, regions_data = split_wkt_remarks(cs.vertical.to_wkt())
     assert expected_wkt == base_wkt
+    assert base_datum[0] == 'NAD83(2011)'
     assert regions_data[0] == 'TXlagmat01_8301'
     assert pipeline_data == ['+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=TXlagmat01_8301\\tss.gtx +step +proj=vgridshift grids=TXlagmat01_8301\\mllw.gtx']
 
@@ -212,6 +215,7 @@ def test_vyperpipeline_add_vertcrs_wkt_then_pipeline_then_horizcrs():
     expected_wkt = 'COMPOUNDCRS["NAD83 / UTM zone 14N + NOAA Chart Datum",PROJCRS["NAD83 / UTM zone 14N",BASEGEOGCRS["NAD83",DATUM["North American Datum 1983",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4269]],CONVERSION["UTM zone 14N",METHOD["Transverse Mercator",ID["EPSG",9807]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",-99,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["Scale factor at natural origin",0.9996,SCALEUNIT["unity",1],ID["EPSG",8805]],PARAMETER["False easting",500000,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],AXIS["(E)",east,ORDER[1],LENGTHUNIT["metre",1]],AXIS["(N)",north,ORDER[2],LENGTHUNIT["metre",1]],USAGE[SCOPE["Engineering survey, topographic mapping."],AREA["North America - between 102°W and 96°W - onshore and offshore. Canada - Manitoba; Nunavut; Saskatchewan. United States (USA) - Iowa; Kansas; Minnesota; Nebraska; North Dakota; Oklahoma; South Dakota; Texas."],BBOX[25.83,-102,84,-96]],ID["EPSG",26914]],VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1,ID["EPSG",9001]]],'
     base_wkt, vdatversion, version, base_datum, pipeline_data, regions_data = split_wkt_remarks(cs.to_wkt())
     assert expected_wkt == base_wkt
+    assert base_datum[0] == 'NAD83(2011)'
     assert regions_data[0] == 'TXlagmat01_8301'
     assert pipeline_data == ['+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=TXlagmat01_8301\\tss.gtx +step +proj=vgridshift grids=TXlagmat01_8301\\mllw.gtx']
 
@@ -245,7 +249,8 @@ def test_vyperpipeline_with_horizcrs_and_vertcrs_and_region_in_wkt():
 
     base_wkt, vdatversion, version, base_datum, pipeline_data, regions_data = split_wkt_remarks(cs.to_wkt())
     assert version == __version__
-    assert base_datum == 'NAD83(2011)'
+    assert base_datum[0] == 'NAD83(2011)'
+    assert base_datum[1] == 'NAD83(2011)'
     assert pipeline_data[0].find('TXlagmat01_8301') != -1
     assert pipeline_data[1].find('TXlaggal01_8301') != -1
     assert regions_data[0] == 'TXlagmat01_8301'
@@ -264,7 +269,8 @@ def test_vyperpipeline_with_horizcrs_and_vertcrs_and_region_in_wkt_change_horizc
     expected_wkt = 'COMPOUNDCRS["NAD83 / UTM zone 15N + NOAA Chart Datum",PROJCRS["NAD83 / UTM zone 15N",BASEGEOGCRS["NAD83",DATUM["North American Datum 1983",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4269]],CONVERSION["UTM zone 15N",METHOD["Transverse Mercator",ID["EPSG",9807]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",-93,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["Scale factor at natural origin",0.9996,SCALEUNIT["unity",1],ID["EPSG",8805]],PARAMETER["False easting",500000,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],AXIS["(E)",east,ORDER[1],LENGTHUNIT["metre",1]],AXIS["(N)",north,ORDER[2],LENGTHUNIT["metre",1]],USAGE[SCOPE["Engineering survey, topographic mapping."],AREA["North America - between 96°W and 90°W - onshore and offshore. Canada - Manitoba; Nunavut; Ontario. United States (USA) - Arkansas; Illinois; Iowa; Kansas; Louisiana; Michigan; Minnesota; Mississippi; Missouri; Nebraska; Oklahoma; Tennessee; Texas; Wisconsin."],BBOX[25.61,-96,84,-90]],ID["EPSG",26915]],VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1,ID["EPSG",9001]]],'
     base_wkt, vdatversion, version, base_datum, pipeline_data, regions_data = split_wkt_remarks(cs.to_wkt())
     assert version == __version__
-    assert base_datum == 'NAD83(2011)'
+    assert base_datum[0] == 'NAD83(2011)'
+    assert base_datum[1] == 'NAD83(2011)'
     assert expected_wkt == base_wkt
     assert pipeline_data[0].find('TXlagmat01_8301') != -1
     assert pipeline_data[1].find('TXlaggal01_8301') != -1
@@ -310,6 +316,7 @@ def test_vyperpipeline_with_compound_wkt_add_region():
     expected_wkt = 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["depth (D)",down,LENGTHUNIT["metre",1]],'
     base_wkt, vdatversion, version, base_datum, pipeline_data, regions_data = split_wkt_remarks(cs.vertical.to_wkt())
     assert expected_wkt == base_wkt
+    assert base_datum == ['NAD83(2011)']
     assert regions_data == ['MENHMAgome23_8301']
     assert pipeline_data == ['+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=MENHMAgome23_8301\\tss.gtx +step +proj=vgridshift grids=MENHMAgome23_8301\\mllw.gtx']
     assert cs.vyperdatum_str == 'noaa chart datum'
@@ -326,6 +333,7 @@ def test_vyperpipeline_set_compound_wkt_on_instantiation():
     expected_wkt = 'VERTCRS["MLLW depth",VDATUM["MLLW depth"],CS[vertical,1],AXIS["depth (D)",down,LENGTHUNIT["metre",1]],'
     base_wkt, vdatversion, version, base_datum, pipeline_data, regions_data = split_wkt_remarks(cs.vertical.to_wkt())
     assert expected_wkt == base_wkt
+    assert base_datum == ['NAD83(2011)']
     assert regions_data == ['MENHMAgome23_8301']
     assert pipeline_data == ['+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=MENHMAgome23_8301\\tss.gtx +step +proj=vgridshift grids=MENHMAgome23_8301\\mllw.gtx']
     assert cs.vyperdatum_str == 'mllw'
@@ -339,6 +347,7 @@ def test_3d_to_compound():
     expected_wkt = 'COMPOUNDCRS["NAD83(2011) + NAD83(2011)_ellipse",GEOGCRS["NAD83(2011)",DATUM["NAD83 (National Spatial Reference System 2011)",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],USAGE[SCOPE["Horizontal component of 3D system."],AREA["Puerto Rico - onshore and offshore. United States (USA) onshore and offshore - Alabama; Alaska; Arizona; Arkansas; California; Colorado; Connecticut; Delaware; Florida; Georgia; Idaho; Illinois; Indiana; Iowa; Kansas; Kentucky; Louisiana; Maine; Maryland; Massachusetts; Michigan; Minnesota; Mississippi; Missouri; Montana; Nebraska; Nevada; New Hampshire; New Jersey; New Mexico; New York; North Carolina; North Dakota; Ohio; Oklahoma; Oregon; Pennsylvania; Rhode Island; South Carolina; South Dakota; Tennessee; Texas; Utah; Vermont; Virginia; Washington; West Virginia; Wisconsin; Wyoming. US Virgin Islands - onshore and offshore."],BBOX[14.92,167.65,74.71,-63.88]],ID["EPSG",6318]],VERTCRS["NAD83(2011)_ellipse",VDATUM["NAD83(2011)_ellipse"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1,ID["EPSG",9001]]],'
     base_wkt, vdatversion, version, base_datum, pipeline_data, regions_data = split_wkt_remarks(cs.to_wkt())
     assert expected_wkt == base_wkt
+    assert base_datum == ['NAD83(2011)']
     assert regions_data == ['MENHMAgome23_8301']
     assert pipeline_data == ['[]']
     assert cs.vyperdatum_str == 'ellipse'
@@ -358,7 +367,7 @@ def split_wkt_remarks(wkt):
     base_wkt = ''
     version = ''
     vdatversion = ''
-    base_datum = ''
+    base_datum_data = []
     pipeline_data = []
     regions_data = []
     wkt_split = wkt.split('REMARK')
@@ -371,7 +380,10 @@ def split_wkt_remarks(wkt):
             elif remark.startswith('vyperdatum='):
                 version = remark[len('vyperdatum='):]
             elif remark.startswith('base_datum='):
-                base_datum = remark[len('base_datum='):]
+                base_datum_start = content.find('base_datum=')
+                strt = base_datum_start + len('base_datum=') + 1
+                base_datum_end = content.find('],', strt)
+                base_datum_data = content[strt:base_datum_end].split(',')
             elif remark.startswith('pipelines='):
                 pipeline_start = content.find('pipelines=')
                 strt = pipeline_start + len('pipelines=') + 1
@@ -383,7 +395,7 @@ def split_wkt_remarks(wkt):
                 regions_end = content.find('],', strt)
                 regions_data = content[strt:regions_end].split(',')
 
-    return base_wkt, vdatversion, version, base_datum, pipeline_data, regions_data
+    return base_wkt, vdatversion, version, base_datum_data, pipeline_data, regions_data
 
 
 if __name__ == '__main__':

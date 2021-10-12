@@ -59,7 +59,7 @@ class VyperCore:
 
         self.logger = return_logger(logfile)
         self._regions = []
-        self._geoid_frame = None
+        self._geoid_frame = []
         self.pipelines = []
 
     @property
@@ -137,6 +137,7 @@ class VyperCore:
 
         # see if the regions intersect with the provided geometries
         intersecting_regions = []
+        self._geoid_frame = []
         for region in self.vdatum.polygon_files:
             vector = ogr.Open(self.vdatum.polygon_files[region])
             layer_count = vector.GetLayerCount()
@@ -151,9 +152,7 @@ class VyperCore:
                         if data_geometry.Intersect(valid_vdatum_poly):
                             intersecting_regions.append(region)
                             gframe = geoid_frame_lookup[vdatum_geoidlookup[self.vdatum.vdatum_version][region]]
-                            if self._geoid_frame and self._geoid_frame != gframe:
-                                raise NotImplementedError(f'Found two different geoid reference frames in the intersecting regions: {self._geoid_frame}, {gframe}')
-                            self._geoid_frame = gframe
+                            self._geoid_frame.append(gframe)
                     feature = None
                 layer = None
             vector = None
@@ -237,8 +236,8 @@ class VyperCore:
                 out_crs = frame_to_3dcrs[override_frame]
             else:
                 out_crs = CRS.from_epsg(override_frame)
-        else:
-            out_crs = frame_to_3dcrs[self._geoid_frame]
+        else:  # the geoid frame attribute is the 2d coord system for each region, if override not specified, just use the first region frame
+            out_crs = frame_to_3dcrs[self._geoid_frame[0]]
         # Transformer.transform input order is based on the CRS, see CRS.geodetic_crs.axis_info
         # - lon, lat - this appears to be valid when using CRS from proj4 string
         # - lat, lon - this appears to be valid when using CRS from epsg
@@ -421,11 +420,11 @@ class VyperCore:
 
             self.pipelines = []
             for cnt, region in enumerate(self._regions):
-                gframe = self._geoid_frame
+                gframe = self._geoid_frame[cnt]
                 in_horiz_name = self.in_crs.horizontal.name
                 out_horiz_name = self.out_crs.horizontal.name
                 if in_horiz_name != gframe:  # need to transform these points to use the geoid coordinate system
-                    new_x, new_y, new_z = self._transform_to_geoid_frame(x, y, z)
+                    new_x, new_y, new_z = self._transform_to_geoid_frame(x, y, z, override_frame=gframe)
                 else:
                     new_x, new_y, new_z = x, y, z
                 pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.vdatum.vdatum_version)
