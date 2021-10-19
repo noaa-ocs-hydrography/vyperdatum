@@ -41,8 +41,11 @@ geoid_frame_lookup = {r'core\geoid12b\g2012bu0.gtx': CRS.from_epsg(NAD83_2D).nam
                       r'core\xgeoid18b\CONUS_18B.gtx': CRS.from_epsg(ITRF2008_2D).name,
                       r'core\xgeoid18b\PRVI_18B.gtx': CRS.from_epsg(ITRF2008_2D).name,
                       r'core\xgeoid18b\GU_18B.gtx': CRS.from_epsg(ITRF2008_2D).name,
-                      r'core\xgeoid19b\CONUSPAC.pc.gtx': CRS.from_epsg(ITRF2008_2D).name}
-geoid_possibilities = ['geoid12b', 'xgeoid16b', 'xgeoid17b', 'xgeoid18b', 'xgeoid19b']
+                      r'core\xgeoid19b\CONUSPAC.pc.gtx': CRS.from_epsg(ITRF2008_2D).name,
+                      r'core\xgeoid20b\conuspac.gtx': CRS.from_epsg(ITRF2014_2D).name,
+                      r'core\xgeoid20b\as.gtx': CRS.from_epsg(ITRF2014_2D).name,
+                      r'core\xgeoid20b\gu.gtx': CRS.from_epsg(ITRF2014_2D).name}
+geoid_possibilities = ['geoid12b', 'xgeoid16b', 'xgeoid17b', 'xgeoid18b', 'xgeoid19b', 'xgeoid20b']
 frame_to_3dcrs = {CRS.from_epsg(NAD83_2D).name: CRS.from_epsg(NAD83_3D),
                   CRS.from_epsg(ITRF2008_2D).name: CRS.from_epsg(ITRF2008_3D),
                   CRS.from_epsg(ITRF2014_2D).name: CRS.from_epsg(ITRF2014_3D)}
