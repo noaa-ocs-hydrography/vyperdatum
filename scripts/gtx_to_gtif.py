@@ -18,19 +18,27 @@ from vyperdatum.core import VdatumData
 vdatum = VdatumData()
 
 current_path = os.getcwd()
-os.chdir(vdatum.vdatum_path)
+root_path, vdatum_folder = os.path.split(vdatum.vdatum_path)
+gtif_folder = '_'.join([vdatum_folder, 'geotiffs'])
+os.chdir(root_path)
+os.mkdir(gtif_folder)
 failures = 0
 msg = ''
 total = len(vdatum.grid_files)
 for count, gtx_filename in enumerate(vdatum.grid_files):
     base, ext = os.path.splitext(gtx_filename)
     gtif_filename = '.'.join([base, 'tiff'])
-    cmd = f'gdalwarp -t_srs WGS84 {gtx_filename} {gtif_filename}  -wo SOURCE_EXTRA=1000 --config CENTER_LONG 0'
+    gtif_path = os.path.join(gtif_folder, gtif_filename)
+    gtx_path = os.path.join(vdatum_folder, gtx_filename)
+    folder, file = os.path.split(gtif_path)
+    if not os.path.exists(folder):
+        os.mkdir(folder)
+    cmd = f'gdalwarp -t_srs WGS84 {gtx_path} {gtif_path}  -wo SOURCE_EXTRA=1000 --config CENTER_LONG 0'
     response = subprocess.run(cmd)
     num_char = len(msg)
     if response.returncode != 0:
         failures += 1
-        print(num_char * '\b' + f'{count}/{total}: failed to convert {gtx_filename}')
+        print(num_char * '\b' + f'{count}/{total}: failed to convert {gtx_path}')
         msg = ''
     else:
         msg = f'{count}/{total} completed'
