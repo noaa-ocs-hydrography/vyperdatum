@@ -111,7 +111,7 @@ class VyperRaster(VyperCore):
         elif 'elevation' in check_layer_names:
             depth_idx = check_layer_names.index('elevation')
         else:
-            depth_idx = -1
+            depth_idx = None
             self.log_warning(f'Unable to find depth or elevation layer by name, layers={check_layer_names}')
         return depth_idx
 
@@ -130,7 +130,7 @@ class VyperRaster(VyperCore):
         elif 'vertical uncertainty' in check_layer_names:
             unc_idx = check_layer_names.index('vertical uncertainty')
         else:
-            unc_idx = -1
+            unc_idx = None
             self.log_warning(f'Unable to find uncertainty or vertical uncertainty layer by name, layers={check_layer_names}')
         return unc_idx
 
@@ -147,7 +147,7 @@ class VyperRaster(VyperCore):
         if 'contributor' in check_layer_names:
             cont_idx = check_layer_names.index('contributor')
         else:
-            cont_idx = -1
+            cont_idx = None
             self.log_warning(f'Unable to find contributor layer by name, layers={check_layer_names}')
         return cont_idx
 
@@ -192,7 +192,7 @@ class VyperRaster(VyperCore):
                 self.log_error('Region {region} not found in VDatum.', ValueError)
             # get the pipeline
             regional_sep = None
-            pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.is_alaska)
+            pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.vdatum.vdatum_version)
             self.pipelines.append(pipeline)
             # get each layer for for the pipeline and add to the stack
             for cmd in pipeline.split(' +step '):
@@ -268,9 +268,9 @@ class VyperRaster(VyperCore):
         uncertainty_layer_idx = self._get_uncertainty_layer_index()
         contributor_layer_idx = self._get_contributor_layer_index()
 
-        if elevation_layer_idx == -1:
+        if elevation_layer_idx is None:
             self.log_error('Unable to find elevation layer', ValueError)
-        if uncertainty_layer_idx == -1:
+        if uncertainty_layer_idx is None:
             self.log_info('Unable to find uncertainty layer, uncertainty will be entirely based off of vdatum sep model')
 
         elevation_layer = self.layers[elevation_layer_idx]
@@ -278,14 +278,17 @@ class VyperRaster(VyperCore):
         layernodata = [self.nodatavalue[elevation_layer_idx]]
         uncertainty_layer = None
         contributor_layer = None
-        if uncertainty_layer_idx:
+        if uncertainty_layer_idx is not None:
             uncertainty_layer = self.layers[uncertainty_layer_idx]
             layernames.append(self.layernames[uncertainty_layer_idx])
             layernodata.append(self.nodatavalue[uncertainty_layer_idx])
+            had_uncertainty = True
         else:
             layernames.append('Uncertainty')
-            layernodata.append(np.nan)
-        if contributor_layer_idx:
+            uncertainty_layer_idx = len(layernodata)
+            layernodata.append(self.nodatavalue[elevation_layer_idx])
+            had_uncertainty = False
+        if contributor_layer_idx is not None:
             contributor_layer = self.layers[contributor_layer_idx]
             layernames.append(self.layernames[contributor_layer_idx])
             layernodata.append(self.nodatavalue[contributor_layer_idx])
@@ -306,33 +309,42 @@ class VyperRaster(VyperCore):
             final_elevation_layer = flip * (elevation_layer + self.raster_vdatum_sep)
         else:
             final_elevation_layer = flip * (elevation_layer - self.raster_vdatum_sep)
-        final_elevation_layer[elev_nodata_idx] = self.nodatavalue[elevation_layer_idx]
+        final_elevation_layer[elev_nodata_idx] = layernodata[elevation_layer_idx]
 
-        if uncertainty_layer_idx:
+        if had_uncertainty:
             final_uncertainty_layer = uncertainty_layer + self.raster_vdatum_uncertainty
         else:
             final_uncertainty_layer = self.raster_vdatum_uncertainty
-        final_uncertainty_layer[elev_nodata_idx] = self.nodatavalue[uncertainty_layer_idx]
+        
+        final_uncertainty_layer[elev_nodata_idx] = layernodata[uncertainty_layer_idx]
 
         if contributor_layer is not None:
-            contributor_layer[elev_nodata_idx] = self.nodatavalue[contributor_layer_idx]
+            contributor_layer[elev_nodata_idx] = layernodata[contributor_layer_idx]
 
-        if allow_points_outside_coverage:
-            self.log_info(f'Allowing {missing_count} points that are outside of vdatum coverage, using CATZOC D vertical uncertainty')
-            final_elevation_layer[missing_idx] = flip * elevation_layer[missing_idx]
-            if self.in_crs.is_height:
-                z_values = elevation_layer[missing_idx]
+        if missing_count > 0:
+            if allow_points_outside_coverage:
+                self.log_info(f'Allowing {missing_count} points that are outside of vdatum coverage.')
+                final_elevation_layer[missing_idx] = flip * elevation_layer[missing_idx]
+                if self.in_crs.is_height:
+                    z_values = elevation_layer[missing_idx]
+                else:
+                    z_values = -elevation_layer[missing_idx]
+                u_values = 3 - 0.06 * z_values
+                u_values[np.where(z_values > 0)] = 3.0
+                sub_missing_idx = missing_idx
+                if had_uncertainty:
+                    new_uncert_sub_idx = np.where(u_values > uncertainty_layer[missing_idx])[0]
+                    if len(new_uncert_sub_idx) > 0:
+                        self.log_info(f'Updating {len(new_uncert_sub_idx)} points with CATZOC D vertical uncertainty where greater than existing uncertainties.')
+                        u_values = u_values[new_uncert_sub_idx]
+                        sub_missing_idx = (missing_idx[0][new_uncert_sub_idx], missing_idx[1][new_uncert_sub_idx])                    
+                final_uncertainty_layer[sub_missing_idx] = u_values
             else:
-                z_values = -elevation_layer[missing_idx]
-            u_values = 3 - 0.06 * z_values
-            u_values[np.where(z_values > 0)] = 3.0
-            final_uncertainty_layer[missing_idx] = u_values
-        else:
-            self.log_info(f'applying nodatavalue to {missing_count} points that are outside of vdatum coverage')
-            final_elevation_layer[missing_idx] = self.nodatavalue[elevation_layer_idx]
-            final_uncertainty_layer[missing_idx] = self.nodatavalue[uncertainty_layer_idx]
-            if contributor_layer is not None:
-                contributor_layer[missing_idx] = self.nodatavalue[contributor_layer_idx]         
+                self.log_info(f'applying nodatavalue to {missing_count} points that are outside of vdatum coverage')
+                final_elevation_layer[missing_idx] = layernodata[elevation_layer_idx]
+                final_uncertainty_layer[missing_idx] = layernodata[uncertainty_layer_idx]
+                if contributor_layer is not None:
+                    contributor_layer[missing_idx] = layernodata[contributor_layer_idx]
 
         layers = (final_elevation_layer, final_uncertainty_layer, contributor_layer)
         return layers, layernames, layernodata
@@ -379,7 +391,7 @@ class VyperRaster(VyperCore):
         self.get_datum_sep()
         layers, layernames, layernodata = self.apply_sep(allow_points_outside_coverage=allow_points_outside_coverage)
         if output_filename:
-            if layernodata[2]:  # contributor
+            if layers[2] is not None:  # contributor
                 tiffdata = np.concatenate([layers[0][None, :, :], layers[1][None, :, :], layers[2][None, :, :]])
             else:
                 tiffdata = np.concatenate([layers[0][None, :, :], layers[1][None, :, :]])

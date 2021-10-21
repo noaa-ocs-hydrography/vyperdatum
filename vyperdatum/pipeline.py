@@ -1,28 +1,46 @@
-# All datum definitions are defined relative to the same 'pivot' ellipsoid.
+from vyperdatum.vdatum_validation import vdatum_geoidlookup
+
+
+nad83_itrf2008_pipeline = '+proj=pipeline +step +proj=axisswap +order=2,1 ' \
+                          '+step +proj=unitconvert +xy_in=deg +xy_out=rad ' \
+                          '+step +proj=cart +ellps=GRS80 ' \
+                          '+step +inv +proj=helmert +x=0.99343 +y=-1.90331 +z=-0.52655 +rx=0.02591467 +ry=0.00942644999999999 +rz=0.01159935 +s=0.00171504 +dx=0.00079 +dy=-0.0006 +dz=-0.00134 +drx=6.667e-05 +dry=-0.00075744 +drz=-5.133e-05 +ds=-0.00010201 +t_epoch=1997 +convention=coordinate_frame ' \
+                          '+step +inv +proj=cart +ellps=GRS80  ' \
+                          '+step +proj=unitconvert +xy_in=rad +xy_out=deg  ' \
+                          '+step +proj=axisswap +order=2,1'
+
+nad83_itrf2014_pipeline = '+proj=pipeline +step +proj=axisswap +order=2,1 ' \
+                          '+step +proj=unitconvert +xy_in=deg +xy_out=rad ' \
+                          '+step +proj=cart +ellps=GRS80 ' \
+                          '+step +inv +proj=helmert +x=1.0053 +y=-1.9092 +z=-0.5416 +rx=0.0267814 +ry=-0.0004203 +rz=0.0109321 +s=0.00037 +dx=0.0008 +dy=-0.0006 +dz=-0.0014 +drx=6.67e-05 +dry=-0.0007574 +drz=-5.13e-05 +ds=-7e-05 +t_epoch=2010 +convention=coordinate_frame ' \
+                          '+step +inv +proj=cart +ellps=GRS80 ' \
+                          '+step +proj=unitconvert +xy_in=rad +xy_out=deg ' \
+                          '+step +proj=axisswap +order=2,1'
+
+reference_frames = ['nad83', 'itrf08']
 
 datum_definition = {
-    'nad83'    : [],
-    'geoid12b' : ['+proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx'],
-    'xgeoid18b': ['+proj=vgridshift grids=core\\xgeoid18b\\AK_18B.gtx'],
-    'navd88'   : ['+proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx'],
-    'tss'      : ['+proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
+    'ellipse'  : [],
+    'geoid'   : ['+proj=vgridshift grids=GEOID'],
+    'navd88'  : ['+proj=vgridshift grids=GEOID'],
+    'tss'      : ['+proj=vgridshift grids=GEOID',
                   '+inv +proj=vgridshift grids=REGION\\tss.gtx'],
-    'mllw'     : ['+proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
+    'mllw'     : ['+proj=vgridshift grids=GEOID',
                   '+inv +proj=vgridshift grids=REGION\\tss.gtx',
                   '+proj=vgridshift grids=REGION\\mllw.gtx'],
-    'noaa chart datum': ['+proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
+    'noaa chart datum': ['+proj=vgridshift grids=GEOID',
                          '+inv +proj=vgridshift grids=REGION\\tss.gtx',
                          '+proj=vgridshift grids=REGION\\mllw.gtx'],
-    'mhw'     : ['+proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
+    'mhw'     : ['+proj=vgridshift grids=GEOID',
                  '+inv +proj=vgridshift grids=REGION\\tss.gtx',
                  '+proj=vgridshift grids=REGION\\mhw.gtx'],
-    'noaa chart height': ['+proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx',
+    'noaa chart height': ['+proj=vgridshift grids=GEOID',
                           '+inv +proj=vgridshift grids=REGION\\tss.gtx',
                           '+proj=vgridshift grids=REGION\\mhw.gtx']
     }
 
 
-def get_regional_pipeline(from_datum: str, to_datum: str, region_name: str, is_alaska: bool = False):
+def get_regional_pipeline(from_datum: str, to_datum: str, region_name: str, vdatum_version_string: str):
     """
     Return a string describing the pipeline to use to convert between the provided datums.
 
@@ -34,8 +52,8 @@ def get_regional_pipeline(from_datum: str, to_datum: str, region_name: str, is_a
         A string corresponding to one of the stored datums.
     region_name: str
         A region name corrisponding to a VDatum subfolder name.
-    is_alaska
-        if True, regions are in alaska, which means we need to do a string replace to go to xgeoid17b
+    vdatum_version_string
+        string version number for vdatum, used in the region/geoid lookup
 
     Raises
     ------
@@ -63,9 +81,8 @@ def get_regional_pipeline(from_datum: str, to_datum: str, region_name: str, is_a
     transformation_def = ['+proj=pipeline', *reversed_input_def, *output_datum_def]
     pipeline = ' +step '.join(transformation_def)
     regional_pipeline = pipeline.replace('REGION', region_name)
-    if is_alaska:
-        regional_pipeline = regional_pipeline.replace('geoid12b', 'xgeoid17b')
-        regional_pipeline = regional_pipeline.replace('g2012bu0', 'AK_17B')
+    regional_pipeline = regional_pipeline.replace('GEOID', vdatum_geoidlookup[vdatum_version_string][region_name])
+
     return regional_pipeline
 
 
@@ -83,9 +100,9 @@ def _validate_datum_names(from_datum: str, to_datum: str):
     """
 
     if from_datum not in datum_definition:
-        raise ValueError(f'Input datum {from_datum} not found in datum definitions.')
+        raise ValueError(f'Input datum {from_datum} not found in datum definitions: {list(datum_definition.keys())}.')
     if to_datum not in datum_definition:
-        raise ValueError(f'Output datum {to_datum} not found in datum definitions.')
+        raise ValueError(f'Output datum {to_datum} not found in datum definitions: {list(datum_definition.keys())}')
 
 
 def compare_datums(in_datum_def: list, out_datum_def: list):

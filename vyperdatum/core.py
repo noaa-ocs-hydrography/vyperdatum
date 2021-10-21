@@ -1,4 +1,5 @@
-import os, sys, glob, configparser
+import os, sys, glob, configparser, hashlib
+from copy import deepcopy
 import numpy as np
 from pyproj import Transformer, datadir, CRS
 from osgeo import gdal, ogr
@@ -6,9 +7,12 @@ from typing import Any, Union
 import logging
 from datetime import datetime
 
-from vyperdatum.vypercrs import VyperPipelineCRS, get_transformation_pipeline, is_alaska
+from vyperdatum.vypercrs import VyperPipelineCRS, get_transformation_pipeline, geoid_frame_lookup, geoid_possibilities, \
+    frame_to_3dcrs
+from vyperdatum.vdatum_validation import vdatum_hashlookup, vdatum_geoidlookup
 
-NAD83_EPSG = 6318
+
+grid_formats = ['.tif', '.tiff', '.gtx']
 
 
 class VyperCore:
@@ -50,20 +54,14 @@ class VyperCore:
         self.geographic_max_x = None
         self.geographic_max_y = None
 
-        self.in_crs = VyperPipelineCRS()
-        self.out_crs = VyperPipelineCRS()
+        self.in_crs = VyperPipelineCRS(self.vdatum.vdatum_version)
+        self.out_crs = VyperPipelineCRS(self.vdatum.vdatum_version)
 
         self.logger = return_logger(logfile)
         self._regions = []
+        self._geoid_frame = []
         self.pipelines = []
-        
-    @property
-    def is_alaska(self):
-        ak = False
-        if len(self._regions) > 0:
-            ak = is_alaska(self._regions)
-        return ak
-    
+
     @property
     def regions(self):
         return self._regions
@@ -139,6 +137,7 @@ class VyperCore:
 
         # see if the regions intersect with the provided geometries
         intersecting_regions = []
+        self._geoid_frame = []
         for region in self.vdatum.polygon_files:
             vector = ogr.Open(self.vdatum.polygon_files[region])
             layer_count = vector.GetLayerCount()
@@ -152,6 +151,8 @@ class VyperCore:
                         valid_vdatum_poly = feature.GetGeometryRef()
                         if data_geometry.Intersect(valid_vdatum_poly):
                             intersecting_regions.append(region)
+                            gframe = geoid_frame_lookup[vdatum_geoidlookup[self.vdatum.vdatum_version][region]]
+                            self._geoid_frame.append(gframe)
                     feature = None
                 layer = None
             vector = None
@@ -181,12 +182,14 @@ class VyperCore:
 
         """
         self.min_x, self.min_y, self.max_x, self.max_y = extents
-        in_horiz_epsg = self.in_crs.horizontal.to_epsg()
-        if in_horiz_epsg != NAD83_EPSG:
+        in_horiz_name = self.in_crs.horizontal.name
+        # ideally we would use the geoid frame to do this, but we need to identify the regions to identify the geoid frame,
+        #   so we just use NAD83 coordinates instead.  The difference when dealing with the sep model grids is negligible
+        if in_horiz_name != 'NAD83(2011)':
             x = [self.min_x, self.max_x]
             y = [self.min_y, self.max_y]
             z = [0, 0]
-            x_geo, y_geo, z_geo = self._transform_to_nad83(x, y, z)
+            x_geo, y_geo, z_geo = self._transform_to_geoid_frame(x, y, z, override_frame='NAD83(2011)')
             self.geographic_min_x, self.geographic_max_x = x_geo
             self.geographic_min_y, self.geographic_max_y = y_geo
         else:
@@ -195,15 +198,15 @@ class VyperCore:
             self.geographic_min_y = self.min_y
             self.geographic_max_y = self.max_y
 
-    def _transform_to_nad83(self, x: np.array, y: np.array, z: np.array = None):
+    def _transform_to_geoid_frame(self, x: np.array, y: np.array, z: np.array = None, override_frame: Union[str, int] = None):
         """
-        NAD83 is our pivot datum in vyperdatum.  In order to do a vertical transform, we need to first get to NAD83
-        if we aren't there already.  We assume that if you are not at NAD83, you are providing an integer EPSG code,
-        which triggers this method.
+        In order to do a vertical transform, we need to first get to the geoid reference frame if we aren't there
+        already.  See set_region_by_bounds for where that geoid frame attribute gets set.  Basically we look at the
+        regions of interest to figure out the correct geoid frame.
 
         Here we use the Transformer object to do a 3d (if EPSG is 3d coordinate system) or 2d transformation to
-        6319, which is 3d NAD83 (2011).  If the transformation is 3d, you'll get a z value which is the sep between
-        source and 6319.  Otherwise z will be unchanged.
+        the geoid frame.  If the transformation is a valid 3d, you'll get a z value which is the sep between
+        source and geoid frame.  Otherwise z will be unchanged.
 
         Parameters
         ----------
@@ -213,6 +216,9 @@ class VyperCore:
             latitude/northing of the input data
         z
             height value of the input data
+        override_frame
+            if you don't want to use the geoid frame, you can specify a new frame here, as either a string identifier
+            or an epsg code
 
         Returns
         -------
@@ -225,7 +231,13 @@ class VyperCore:
         """
 
         in_crs = self.in_crs.horizontal.to_epsg()
-        out_crs = CRS.from_epsg(NAD83_EPSG)
+        if override_frame:
+            if isinstance(override_frame, str):
+                out_crs = frame_to_3dcrs[override_frame]
+            else:
+                out_crs = CRS.from_epsg(override_frame)
+        else:  # the geoid frame attribute is the 2d coord system for each region, if override not specified, just use the first region frame
+            out_crs = frame_to_3dcrs[self._geoid_frame[0]]
         # Transformer.transform input order is based on the CRS, see CRS.geodetic_crs.axis_info
         # - lon, lat - this appears to be valid when using CRS from proj4 string
         # - lat, lon - this appears to be valid when using CRS from epsg
@@ -235,6 +247,7 @@ class VyperCore:
         if z is None:
             z = np.zeros_like(x)
         x, y, z = transformer.transform(x, y, z)
+
         return x, y, z
 
     def set_input_datum(self, input_datum: Union[str, int, tuple], extents: tuple = None):
@@ -324,17 +337,24 @@ class VyperCore:
         if not self.out_crs.pipeline_string:  # if nad83 is the output datum, no transformation is done
             return 0
         final_uncertainty = 0
-        layer_names = ['lmsl', 'mhhw', 'mhw', 'mtl', 'dtl', 'mlw', 'mllw']
-        for lyr in layer_names:
-            if self.out_crs.pipeline_string.find(lyr) != -1:
-                final_uncertainty += self.vdatum.uncertainties[region][lyr]
+        outdatum = self.out_crs.vyperdatum_str
+        indatum = self.in_crs.vyperdatum_str
+        if indatum == 'ellipse' and outdatum != 'ellipse':  # include ellipse-geoid uncertainty
+            gd_index = np.where([self.out_crs.pipeline_string.find(gd) for gd in geoid_possibilities] != -1)[0]
+            if gd_index.size != 1:
+                self.log_error(f'Found {len(gd_index.size)} geoid possibilities in pipeline string', ValueError)
+            geoid = geoid_possibilities[gd_index[0]]
+            final_uncertainty += self.vdatum.uncertainties[geoid]
+        if indatum in ['ellipse', 'geoid', 'navd88'] and outdatum not in ['ellipse', 'geoid', 'navd88']:  # include tss uncertainty
+            final_uncertainty += self.vdatum.uncertainties[region]['tss']
+        if outdatum not in ['ellipse', 'geoid', 'tss', 'navd88']:
+            srch_string = outdatum
+            if srch_string == 'noaa chart datum':
+                srch_string = 'mllw'
+            elif srch_string == 'noaa chart height':
+                srch_string = 'mhw'
+            final_uncertainty += self.vdatum.uncertainties[region][srch_string]
 
-        if self.out_crs.pipeline_string.find('geoid12b') != -1:
-            final_uncertainty += self.vdatum.uncertainties['geoid12b']
-        elif self.out_crs.pipeline_string.find('xgeoid18b') != -1:
-            final_uncertainty += self.vdatum.uncertainties['xgeoid18b']
-        elif self.out_crs.pipeline_string.find('geoid') != -1:
-            self.log_error('Unable to find either geoid12b or xgeoid18b in the output datum pipeline, which geoid is used?', ValueError)
         return final_uncertainty
 
     def transform_dataset(self, x: np.array, y: np.array, z: np.array = None, include_vdatum_uncertainty: bool = True,
@@ -376,15 +396,14 @@ class VyperCore:
                 self.log_error('Input datum insufficently specified', ValueError)
             if not self.out_crs.is_valid:
                 self.log_error('Output datum insufficently specified', ValueError)
-            in_horiz_epsg = self.in_crs.horizontal.to_epsg()
+
             if z is not None and not self.in_crs.is_height:
                 z *= -1
             if self.out_crs.is_height:
                 flip = 1
             else:
                 flip = -1
-            if in_horiz_epsg != NAD83_EPSG:
-                x, y, z = self._transform_to_nad83(x, y, z)
+
             ans_x = np.full_like(x, np.nan)
             ans_y = np.full_like(y, np.nan)
             if z is None:
@@ -401,19 +420,33 @@ class VyperCore:
 
             self.pipelines = []
             for cnt, region in enumerate(self._regions):
-                # get the pipeline
-                pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.is_alaska)
-                if pipeline:
-                    tmp_x, tmp_y, tmp_z = self._run_pipeline(x, y, pipeline, z=z)
-                    self.pipelines.append(pipeline)
+                gframe = self._geoid_frame[cnt]
+                in_horiz_name = self.in_crs.horizontal.name
+                out_horiz_name = self.out_crs.horizontal.name
+                if in_horiz_name != gframe:  # need to transform these points to use the geoid coordinate system
+                    new_x, new_y, new_z = self._transform_to_geoid_frame(x, y, z, override_frame=gframe)
                 else:
-                    tmp_x, tmp_y, tmp_z = x, y, z
+                    new_x, new_y, new_z = x, y, z
+                pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.vdatum.vdatum_version)
+                if pipeline:  # do the vertical transformation if there is a valid one for this operation
+                    new_x, new_y, new_z = self._run_pipeline(new_x, new_y, pipeline, z=new_z)
+                    self.pipelines.append(pipeline)
+                if out_horiz_name == in_horiz_name:  # we can use the original xy as the input/output horiz datums are the same
+                    new_x, new_y = x, y
+                elif out_horiz_name == gframe:  # we can use the transformed geoid frame xy as the output and gframe datums are the same
+                    new_x, new_y = new_x, new_y
+                else:  # we need to get new xy to account for the change in horizontal datum
+                    if self.out_crs.vyperdatum_str != 'ellipse':
+                        new_x, new_y, _ = self._transform_to_geoid_frame(x, y, z, override_frame=self.out_crs.horizontal.to_epsg())
+                    else:  # special case, if output is to the ellipse, we need to do a 3d transformation to account for vertical differences in ellipses
+                        new_x, new_y, diffz = self._transform_to_geoid_frame(x, y, z, override_frame=self.out_crs.horizontal.to_epsg())
+                        new_z = new_z - (z - diffz)
 
                 # areas outside the coverage of the vert shift are inf
-                valid_index = ~np.isinf(tmp_z)
-                ans_x[valid_index] = tmp_x[valid_index]
-                ans_y[valid_index] = tmp_y[valid_index]
-                ans_z[valid_index] = flip * tmp_z[valid_index]
+                valid_index = ~np.isinf(new_z)
+                ans_x[valid_index] = new_x[valid_index]
+                ans_y[valid_index] = new_y[valid_index]
+                ans_z[valid_index] = flip * new_z[valid_index]
                 if include_vdatum_uncertainty:
                     ans_unc[valid_index] = self._get_output_uncertainty(region)
                 if include_region_index:
@@ -442,6 +475,7 @@ class VdatumData:
         self.polygon_files = {}  # dict of file names to file paths for the kml files
         self.uncertainties = {}  # dict of file names to uncertainties for each grid
         self.vdatum_path = ''  # path to the parent vdatum folder
+        self.vdatum_version = ''
 
         self._config = {'vdatum_path': ''}  # dict of all the settings
         self.config_path_file = ''  # path to the config file that maintains the settings between runs
@@ -451,6 +485,7 @@ class VdatumData:
             self.set_vdatum_directory(vdatum_directory)
         else:
             self.set_vdatum_directory(self.vdatum_path)
+        self.get_vdatum_version()
 
     def set_config(self, ky: str, value: Any):
         """
@@ -477,8 +512,11 @@ class VdatumData:
                 config.write(configfile)
         except:
             # get a number of exceptions here when reading and writing to the config file in multiprocessing
-            if self.parent:
-                self.parent.log_warning('Unable to set {} in config file {}'.format(ky, self.config_path_file))
+            try:
+                if self.parent:
+                    self.parent.log_warning('Unable to set {} in config file {}'.format(ky, self.config_path_file))
+            except AttributeError:  # logger not initialized yet
+                print('WARNING: Unable to set {} in config file {}'.format(ky, self.config_path_file))
         if ky == 'vdatum_path':
             self.vdatum_path = value
 
@@ -498,8 +536,11 @@ class VdatumData:
             self.vdatum_path = self._config['vdatum_path']
         except:
             # get a number of exceptions here when reading and writing to the config file in multiprocessing
-            if self.parent:
-                self.parent.log_warning('Unable to read from existing config file {}'.format(self.config_path_file))
+            try:
+                if self.parent:
+                    self.parent.log_warning('Unable to read from existing config file {}'.format(self.config_path_file))
+            except AttributeError:  # logger not initialized yet
+                print('WARNING: Unable to read from existing config file {}'.format(self.config_path_file))
             
     def _read_from_config_file(self):
         """
@@ -522,8 +563,11 @@ class VdatumData:
                     settings[key] = config_file_section[key]
         except:
             # get a number of exceptions here when reading and writing to the config file in multiprocessing
-            if self.parent:
-                self.parent.log_warning('Unable to read from config file {}'.format(self.config_path_file))
+            try:
+                if self.parent:
+                    self.parent.log_warning('Unable to read from existing config file {}'.format(self.config_path_file))
+            except AttributeError:  # logger not initialized yet
+                print('WARNING: Unable to read from existing config file {}'.format(self.config_path_file))
         return settings
 
     def _create_new_config_file(self, default_settings: dict) -> dict:
@@ -550,8 +594,11 @@ class VdatumData:
                 config.write(configfile)
         except:
             # get a number of exceptions here when reading and writing to the config file in multiprocessing
-            if self.parent:
-                self.parent.log_warning('Unable to create new config file {}'.format(self.config_path_file))
+            try:
+                if self.parent:
+                    self.parent.log_warning('Unable to create new config file {}'.format(self.config_path_file))
+            except AttributeError:  # logger not initialized yet
+                print('WARNING: Unable to create new config file {}'.format(self.config_path_file))
         return default_settings
 
     def set_vdatum_directory(self, vdatum_path: str):
@@ -569,14 +616,40 @@ class VdatumData:
             datadir.append_data_dir(vdatum_path)
     
         # also want to populate grids and polygons with what we find
-        self.grid_files, self.regions = get_gtx_grid_list(vdatum_path)
+        self.grid_files, self.regions = get_vdatum_grid_list(vdatum_path)
         self.polygon_files = get_vdatum_region_polygons(vdatum_path)
         self.uncertainties = get_vdatum_uncertainties(vdatum_path)
 
         self.vdatum_path = self._config['vdatum_path']
 
+    def get_vdatum_version(self):
+        """
+        Get the current vdatum version that vyperdatum generates on the fly.  If this has been run before, the version
+        will be encoded in a new vdatum_vyperversion.txt file that we can read instead so that we don't have to do the
+        lengthy check.
+        """
+        if not os.path.exists(self.vdatum_path):
+            raise ValueError(f'VDatum is not found at the provided path: {self.vdatum_path}')
+        vyperversion_file = os.path.join(self.vdatum_path, 'vdatum_vyperversion.txt')
+        if os.path.exists(vyperversion_file):
+            with open(vyperversion_file, 'r') as vfile:
+                vversion = vfile.read()
+        else:
+            try:
+                if self.parent:
+                    self.parent.log_info(f'Performing hash comparison to identify VDatum version, should only run once for a new VDatum directory...')
+            except AttributeError:  # logger not initialized yet
+                print(f'Performing hash comparison to identify VDatum version, should only run once for a new VDatum directory...')
+            vversion = return_vdatum_version(self.grid_files, self.vdatum_path, save_path=vyperversion_file)
+            try:
+                if self.parent:
+                    self.parent.log_info(f'Generated new version file: {vyperversion_file}')
+            except AttributeError:  # logger not initialized yet
+                print(f'Generated new version file: {vyperversion_file}')
+        self.vdatum_version = vversion
 
-def get_gtx_grid_list(vdatum_directory: str):
+
+def get_vdatum_grid_list(vdatum_directory: str):
     """
     Search the vdatum directory to find all gtx files
 
@@ -593,20 +666,22 @@ def get_gtx_grid_list(vdatum_directory: str):
         list of vdatum regions
     """
 
-    search_path = os.path.join(vdatum_directory, '*/*.gtx')
-    gtx_list = glob.glob(search_path)
-    if len(gtx_list) == 0:
-        errmsg = f'No GTX files found in the provided VDatum directory: {vdatum_directory}'
+    grid_list = []
+    for gfmt in grid_formats:
+        search_path = os.path.join(vdatum_directory, '*/*{}'.format(gfmt))
+        grid_list += glob.glob(search_path)
+    if len(grid_list) == 0:
+        errmsg = f'No grid files found in the provided VDatum directory: {vdatum_directory}'
         print(errmsg)
     grids = {}
     regions = []
-    for gtx in gtx_list:
-        gtx_path, gtx_file = os.path.split(gtx)
-        gtx_path, gtx_folder = os.path.split(gtx_path)
-        gtx_name = '/'.join([gtx_folder, gtx_file])
-        gtx_subpath = os.path.join(gtx_folder, gtx_file)
+    for grd in grid_list:
+        grd_path, grd_file = os.path.split(grd)
+        grd_path, grd_folder = os.path.split(grd_path)
+        gtx_name = '/'.join([grd_folder, grd_file])
+        gtx_subpath = os.path.join(grd_folder, grd_file)
         grids[gtx_name] = gtx_subpath
-        regions.append(gtx_folder)
+        regions.append(grd_folder)
     regions = list(set(regions))
     return grids, regions
 
@@ -658,27 +733,25 @@ def get_vdatum_uncertainties(vdatum_directory: str):
     # use the polygon search to get a dict of all grids quickly
     grid_dict = get_vdatum_region_polygons(vdatum_directory)
     for k in grid_dict.keys():
-        grid_dict[k] = {'lmsl': 0, 'mhhw': 0, 'mhw': 0, 'mtl': 0, 'dtl': 0, 'mlw': 0, 'mllw': 0}
+        grid_dict[k] = {'tss': 0, 'mhhw': 0, 'mhw': 0, 'mlw': 0, 'mllw': 0, 'dtl': 0, 'mtl': 0}
     # add in the geoids we care about
     grid_entries = list(grid_dict.keys())
 
     with open(acc_file, 'r') as afil:
         for line in afil.readlines():
             data = line.split('=')
-            if len(data) == 2:  # a valid line, ex: nynjhbr.lmsl=1.4
+            if len(data) == 2:  # a valid line, ex: akglacier.navd88.lmsl=8.0
                 data_entry, val = data
                 sub_data = data_entry.split('.')
-                if len(sub_data) == 2:
-                    prefix, suffix = sub_data  # flpensac.mhw=1.8
-                # elif len(sub_data) == 3:
-                #     prefix, _, suffix = sub_data  # akyakutat.lmsl.mhhw=6.6
-                    if prefix == 'conus':
-                        if suffix == 'navd88':
-                            grid_dict['geoid12b'] = float(val) * 0.01  # answer in meters
-                        elif suffix == 'xgeoid18b':
-                            grid_dict['xgeoid18b'] = float(val) * 0.01
+                if len(sub_data) == 3:
+                    region, src, target = sub_data
+                    if region == 'conus':
+                        if src == 'navd88' and target == 'nad83':
+                            grid_dict['geoid12b'] = float(val.lstrip().rstrip()) * 0.01
+                        elif src in geoid_possibilities:
+                            grid_dict[f'{src}'] = float(val.lstrip().rstrip()) * 0.01
                     else:
-                        match = np.where(np.array([entry.lower().find(prefix) for entry in grid_entries]) == 0)
+                        match = np.where(np.array([entry.lower().find(region) for entry in grid_entries]) == 0)
                         if match[0].size:
                             if len(match[0]) > 1:
                                 raise ValueError(f'Found multiple matches in vdatum_sigma file for entry {data_entry}')
@@ -687,7 +760,10 @@ def get_vdatum_uncertainties(vdatum_directory: str):
                                 val = val.lstrip().rstrip()
                                 if val == 'n/a':
                                     val = 0
-                                grid_dict[grid_key][suffix] = float(val) * 0.01
+                                if src == 'navd88' and target == 'lmsl':
+                                    grid_dict[grid_key]['tss'] = float(val) * 0.01
+                                elif src == 'lmsl':
+                                    grid_dict[grid_key][target] = float(val) * 0.01
                             else:
                                 print(f'No match for vdatum_sigma entry {data_entry}!')
     return grid_dict
@@ -755,3 +831,85 @@ def return_logger(logfile: str = None):
     logging.getLogger().handlers = []
 
     return logger
+
+
+def hash_a_file(filepath: str):
+    """
+    Generate a new md5 hash for the provided file
+
+    Parameters
+    ----------
+    filepath
+        full absolute file path to the file to hash
+
+    Returns
+    -------
+    str
+        new md5 hex digest for the file
+    """
+
+    md5 = hashlib.md5()
+    with open(filepath, 'rb') as f:
+        data = f.read()
+        md5.update(data)
+    return md5.hexdigest()
+
+
+def hash_vdatum_grids(grid_files: dict, vdatum_path: str):
+    """
+    Generate a new md5 hash for each grid file in the provided dictionary
+
+    Parameters
+    ----------
+    grid_files
+        dictionary of {file name: file path} for the grids in this vdatum directory
+    vdatum_path
+        path to the vdatum folder
+
+    Returns
+    -------
+    dict
+        dictionary of {file path: file hash}
+    """
+
+    hashdict = {}
+    for grd in grid_files.keys():
+        hashdict[grd] = hash_a_file(os.path.join(vdatum_path, grd))
+    return hashdict
+
+
+def return_vdatum_version(grid_files: dict, vdatum_path: str, save_path: str = None):
+    """
+    Return the vdatum version either by brute force using our vdatum hash lookup check, or by reading the vdatum
+    version file that vyperdatum generates, if this check has been run once before.
+
+    Parameters
+    ----------
+    grid_files
+        dictionary of {file name: file path} for the grids in this vdatum directory
+    vdatum_path
+        path to the vdatum folder
+    save_path
+        if provided, saves the vdatum version to a new text file in the vdatum directory
+
+    Returns
+    -------
+
+    """
+    hashdict = hash_vdatum_grids(grid_files, vdatum_path)
+    acc_file = os.path.join(vdatum_path, 'vdatum_sigma.inf')
+    acc_hash = hash_a_file(acc_file)
+    myversion = ''
+    cpy_vdatum_hashlookup = deepcopy(vdatum_hashlookup)
+    for vdversion, vdhashes in cpy_vdatum_hashlookup.items():
+        sigmahash = vdhashes.pop('vdatum_sigma.inf')
+        if hashdict == vdhashes and acc_hash == sigmahash:
+            myversion = vdversion
+            print('Found {}'.format(myversion))
+            break
+    if myversion and save_path:
+        with open(save_path, 'w') as ofile:
+            ofile.write(myversion)
+    if not myversion:
+        raise EnvironmentError(f'Unable to find version for {vdatum_path} in the currently accepted versions: {list(vdatum_hashlookup.keys())}')
+    return myversion
