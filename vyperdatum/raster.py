@@ -315,7 +315,7 @@ class VyperRaster(VyperCore):
             final_uncertainty_layer = uncertainty_layer + self.raster_vdatum_uncertainty
         else:
             final_uncertainty_layer = self.raster_vdatum_uncertainty
-
+        
         final_uncertainty_layer[elev_nodata_idx] = layernodata[uncertainty_layer_idx]
 
         if contributor_layer is not None:
@@ -344,7 +344,7 @@ class VyperRaster(VyperCore):
                 final_elevation_layer[missing_idx] = layernodata[elevation_layer_idx]
                 final_uncertainty_layer[missing_idx] = layernodata[uncertainty_layer_idx]
                 if contributor_layer is not None:
-                    contributor_layer[missing_idx] = layernodata[contributor_layer_idx]         
+                    contributor_layer[missing_idx] = layernodata[contributor_layer_idx]
 
         layers = (final_elevation_layer, final_uncertainty_layer, contributor_layer)
         return layers, layernames, layernodata
