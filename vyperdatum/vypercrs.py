@@ -31,6 +31,7 @@ frame_lookup = {CRS.from_epsg(NAD83_2D).name: 'NAD83',
                 CRS.from_epsg(ITRF2014_3D).name: 'ITRF2014'}
 
 geoid_frame_lookup = {r'core\geoid12b\g2012bu0.gtx': CRS.from_epsg(NAD83_2D).name,
+                      r'core\geoid12b\g2012bp0.gtx': CRS.from_epsg(NAD83_2D).name,
                       r'core\xgeoid16b\ak.gtx': CRS.from_epsg(ITRF2008_2D).name,
                       r'core\xgeoid16b\conus.gtx': CRS.from_epsg(ITRF2008_2D).name,
                       r'core\xgeoid16b\hi.gtx': CRS.from_epsg(ITRF2008_2D).name,
