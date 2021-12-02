@@ -1,6 +1,8 @@
 from vyperdatum.vypercrs import *
 from vyperdatum.__version__ import __version__
+from vyperdatum.core import VyperCore
 
+gvc = VyperCore()
 
 def test_vertical_derived_crs():
     cs = VerticalDerivedCRS('mllw', 'nad83', 'NAD83(2011) Height to NOAA Mean Lower Low Water',
@@ -362,6 +364,19 @@ def test_crs_is_compound():
     compound_wkt = 'COMPOUNDCRS["NAD83 / UTM zone 15N + NOAA Chart Datum",PROJCRS["NAD83 / UTM zone 15N",BASEGEOGCRS["NAD83",DATUM["North American Datum 1983",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4269]],CONVERSION["UTM zone 15N",METHOD["Transverse Mercator",ID["EPSG",9807]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",-93,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["Scale factor at natural origin",0.9996,SCALEUNIT["unity",1],ID["EPSG",8805]],PARAMETER["False easting",500000,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],AXIS["(E)",east,ORDER[1],LENGTHUNIT["metre",1]],AXIS["(N)",north,ORDER[2],LENGTHUNIT["metre",1]],USAGE[SCOPE["Engineering survey, topographic mapping."],AREA["North America - between 96°W and 90°W - onshore and offshore. Canada - Manitoba; Nunavut; Ontario. United States (USA) - Arkansas; Illinois; Iowa; Kansas; Louisiana; Michigan; Minnesota; Mississippi; Missouri; Nebraska; Oklahoma; Tennessee; Texas; Wisconsin."],BBOX[25.61,-96,84,-90]],ID["EPSG",26915]],VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1,ID["EPSG",9001]]],REMARK["regions=[TXlagmat01_8301,TXlaggal01_8301],pipeline=+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=REGION\\tss.gtx +step +proj=vgridshift grids=REGION\\mllw.gtx"]]]'
     assert crs_is_compound(CRS.from_wkt(compound_wkt))
 
+
+def test_pipeline_retrieval():
+    cs = VyperPipelineCRS(gvc.vdatum.vdatum_version)
+    region_name = gvc.vdatum.regions[0]
+    cs.set_crs((26914, 'navd88'), regions = [region_name])
+    cs2 = VyperPipelineCRS(gvc.vdatum.vdatum_version)
+    cs2.set_crs((26914, 'mllw'), regions = [region_name])
+    pipe = get_transformation_pipeline(cs, cs2, region_name, gvc.vdatum.vdatum_version)
+    assert pipe == f'+proj=pipeline +step +inv +proj=vgridshift grids={region_name}\\tss.gtx +step +proj=vgridshift grids={region_name}\\mllw.gtx'
+    assert is_valid_regional_pipeline(pipe)
+    bad_pipe = pipe.replace('mllw', 'fail')
+    assert not is_valid_regional_pipeline(bad_pipe)
+    
 
 def split_wkt_remarks(wkt):
     base_wkt = ''

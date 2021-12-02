@@ -8,9 +8,10 @@ horiz later.  How do we handle these custom vert transformations though?  We hav
 something we can directly use in pyproj.  We have to build our own pipeline from a source custom vert to a source custom
 vert.
 """
+import os
 from typing import Union
 from pyproj.crs import CRS, CompoundCRS, VerticalCRS as pyproj_VerticalCRS
-
+import pyproj.datadir
 from vyperdatum.pipeline import get_regional_pipeline, datum_definition
 from vyperdatum.__version__ import __version__
 from vyperdatum.vdatum_validation import vdatum_geoidlookup
@@ -988,7 +989,9 @@ def get_transformation_pipeline(in_crs: Union[VyperPipelineCRS, VerticalPipeline
     Returns
     -------
     str
-        PROJ pipeline string specifying the vertical transformation between source incrs and outcrs
+        PROJ pipeline string specifying the vertical transformation between source incrs and outcrs.
+        If the pipeline is a no operation None is returned.
+        If the pipeline is determined to be invalide for a a region 'invalid' is returned for the pipeline.
     """
 
     if type(in_crs) == VyperPipelineCRS:
@@ -1013,8 +1016,48 @@ def get_transformation_pipeline(in_crs: Union[VyperPipelineCRS, VerticalPipeline
         raise NotImplementedError(f'Unable to build pipeline, datum name not in the datum definition dict, {out_def_str} not in {list(datum_definition.keys())}')
     if region not in out_crs.regions and out_def_str != 'ellipse':
         raise NotImplementedError(f'Unable to build pipeline, region not in output CRS: {region}')
+    pipeline = get_regional_pipeline(in_def_str, out_def_str, region, vdatum_version_string)
+    if pipeline:
+        is_valid = is_valid_regional_pipeline(pipeline)
+        if not is_valid:
+            pipeline = 'invalid'
+    return pipeline
 
-    return get_regional_pipeline(in_def_str, out_def_str, region, vdatum_version_string)
+
+def is_valid_regional_pipeline(pipeline: str) -> bool:
+    """
+    Confirm all files to perform transformation are available to pyproj.
+
+    Parameters
+    ----------
+    pipeline : TYPE
+        DESCRIPTION.
+    available_files : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    True if all files are available, False if any are missing.
+
+    """
+    parts = pipeline.split()
+    grid_list = []
+    for part in parts:
+        if part.startswith('grids='):
+            prefix, grid = part.split('=')
+            grid_list.append(grid)
+    paths = pyproj.datadir.get_data_dir()
+    path_list = paths.split(';')
+    for grid in grid_list:
+        valid = False
+        for path in path_list:
+            full_path = os.path.normpath(os.path.join(path, grid))
+            if os.path.exists(full_path):
+                valid = True
+                break
+        if valid == False:
+            break
+    return valid
 
 
 def crs_is_compound(my_crs: CRS):
