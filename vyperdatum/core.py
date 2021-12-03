@@ -419,6 +419,7 @@ class VyperCore:
                 ans_region = None
 
             self.pipelines = []
+            valid_regions = []
             for cnt, region in enumerate(self._regions):
                 gframe = self._geoid_frame[cnt]
                 in_horiz_name = self.in_crs.horizontal.name
@@ -428,9 +429,13 @@ class VyperCore:
                 else:
                     new_x, new_y, new_z = x, y, z
                 pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.vdatum.vdatum_version)
-                if pipeline:  # do the vertical transformation if there is a valid one for this operation
+                if pipeline == 'invalid':
+                    self.log_info(f'Transformation from {self.in_crs.to_wkt()} to {self.out_crs.to_wkt()} in region {region} was flagged as invalid.  Missing support files?')
+                    continue
+                elif pipeline:  # do the vertical transformation if there is a valid one for this operation
                     new_x, new_y, new_z = self._run_pipeline(new_x, new_y, pipeline, z=new_z)
                     self.pipelines.append(pipeline)
+                    valid_regions.append(region)
                 if out_horiz_name == in_horiz_name:  # we can use the original xy as the input/output horiz datums are the same
                     new_x, new_y = x, y
                 elif out_horiz_name == gframe:  # we can use the transformed geoid frame xy as the output and gframe datums are the same
@@ -441,7 +446,6 @@ class VyperCore:
                     else:  # special case, if output is to the ellipse, we need to do a 3d transformation to account for vertical differences in ellipses
                         new_x, new_y, diffz = self._transform_to_geoid_frame(x, y, z, override_frame=self.out_crs.horizontal.to_epsg())
                         new_z = new_z - (z - diffz)
-
                 # areas outside the coverage of the vert shift are inf
                 valid_index = ~np.isinf(new_z)
                 ans_x[valid_index] = new_x[valid_index]
@@ -451,7 +455,14 @@ class VyperCore:
                     ans_unc[valid_index] = self._get_output_uncertainty(region)
                 if include_region_index:
                     ans_region[valid_index] = cnt
-            self.log_info(f'transformed {len(ans_z)} points from {self.in_crs.vyperdatum_str} to {self.out_crs.vyperdatum_str}')
+            # update the regions to those that passed
+            if len(valid_regions) > 0:
+                self._regions = valid_regions
+                self.in_crs.update_regions(valid_regions)
+                self.out_crs.update_regions(valid_regions)
+                self.log_info(f'transformed {len(ans_z)} points from {self.in_crs.vyperdatum_str} to {self.out_crs.vyperdatum_str}')
+            else:
+                self.log_error('No valid region found with the specified datum transformation. Unable to perform transformation', ValueError)
             return ans_x, ans_y, np.round(ans_z, 3), ans_unc, ans_region
         else:
             self.log_error('No regions specified, unable to transform points', ValueError)

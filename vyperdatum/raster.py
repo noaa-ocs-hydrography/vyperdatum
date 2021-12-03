@@ -187,40 +187,21 @@ class VyperRaster(VyperCore):
         self.regional_uncertainties = []
         valid_counts = []
         valid_idx = []
+        valid_regions = []
         for region in self.regions:
             if region not in self.vdatum.regions:
                 self.log_error('Region {region} not found in VDatum.', ValueError)
-            # get the pipeline
-            regional_sep = None
             pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.vdatum.vdatum_version)
-            self.pipelines.append(pipeline)
-            # get each layer for for the pipeline and add to the stack
-            for cmd in pipeline.split(' +step '):
-                if cmd.find('vgridshift') >= 0:
-                    inv = False
-                    cmd_parts = cmd.split()
-                    for part in cmd_parts:
-                        if part == '+inv':
-                            inv = True
-                        elif part.startswith('grids='):
-                            junk, grid_file = part.split('=')
-                            grid_path = os.path.join(self.vdatum.vdatum_path, grid_file)
-                    # transform, crop and resample the source grid
-                    epsg = self.out_crs.horizontal.to_epsg()
-                    ds = gdal.Warp('', grid_path, format = 'MEM', dstSRS = f'EPSG:{epsg}', 
-                                   xRes = self.resolution_x, yRes = self.resolution_y, 
-                                   outputBounds = [self.min_x, self.min_y, self.max_x, self.max_y])
-                    band = ds.GetRasterBand(1)
-                    array = band.ReadAsArray()
-                    nodata = band.GetNoDataValue()
-                    array[np.where(array == nodata)] = np.nan
-                    if not inv:
-                        array *= -1
-                    ds = None
-                    if regional_sep is None:
-                        regional_sep = array.copy()
-                    else:
-                        regional_sep += array
+            if pipeline == 'invalid':
+                self.log_info(f'Transformation from {self.in_crs.to_wkt()} to {self.out_crs.to_wkt()} in region {region} was flagged as invalid.  Missing support files?')
+                continue
+            elif pipeline:
+                regional_sep = self._get_regional_datum_sep(pipeline)
+            else:
+                self.log_info(f'Null transformation from {self.in_crs.to_wkt()} to {self.out_crs.to_wkt()} in region {region}')
+                regional_sep = np.zeros(self.layers[0].shape)
+            valid_regions.append(region)
+            self.pipelines.append(pipeline)   
             self.regional_seps.append(regional_sep)
             valid = np.where(~np.isnan(regional_sep))
             valid_idx.append(valid)
@@ -229,15 +210,68 @@ class VyperRaster(VyperCore):
             regional_uncertainty = np.full(regional_sep.shape, np.nan)
             regional_uncertainty[valid] = datum_unc
             self.regional_uncertainties.append(regional_uncertainty)
-        # combine the regional seps
-        self.raster_vdatum_sep = np.full((self.height, self.width), np.nan)
-        self.raster_vdatum_uncertainty = np.full((self.height, self.width), np.nan)
-        self.raster_vdatum_region_index = np.full((self.height, self.width), np.nan)
-        stack_order = np.argsort(valid_counts)
-        for idx in stack_order:
-            self.raster_vdatum_sep[valid_idx[idx]] = self.regional_seps[idx][valid_idx[idx]]
-            self.raster_vdatum_uncertainty[valid_idx[idx]] = self.regional_uncertainties[idx][valid_idx[idx]]
-            self.raster_vdatum_region_index[valid_idx[idx]] = idx
+        if len(valid_regions) > 0:
+            self._regions = valid_regions
+            self.in_crs.update_regions(valid_regions)
+            self.out_crs.update_regions(valid_regions)
+            # combine the regional seps
+            self.raster_vdatum_sep = np.full((self.height, self.width), np.nan)
+            self.raster_vdatum_uncertainty = np.full((self.height, self.width), np.nan)
+            self.raster_vdatum_region_index = np.full((self.height, self.width), np.nan)
+            stack_order = np.argsort(valid_counts)
+            for idx in stack_order:
+                self.raster_vdatum_sep[valid_idx[idx]] = self.regional_seps[idx][valid_idx[idx]]
+                self.raster_vdatum_uncertainty[valid_idx[idx]] = self.regional_uncertainties[idx][valid_idx[idx]]
+                self.raster_vdatum_region_index[valid_idx[idx]] = idx
+        else:
+            self.log_error('No valid region found with the specified datum transformation. Unable to perform transformation', ValueError)
+
+            
+    def _get_regional_datum_sep(self, pipeline: str) -> np.ndarray:
+        """
+        Get a separation raster for a particular regional pipeline using gdal
+        warp.
+
+        Parameters
+        ----------
+        pipeline : str
+            DESCRIPTION.
+
+        Returns
+        -------
+        regional_sep
+            DESCRIPTION.
+
+        """
+        regional_sep = None
+        for cmd in pipeline.split(' +step '):
+            if cmd.find('vgridshift') >= 0:
+                inv = False
+                cmd_parts = cmd.split()
+                for part in cmd_parts:
+                    if part == '+inv':
+                        inv = True
+                    elif part.startswith('grids='):
+                        junk, grid_file = part.split('=')
+                        grid_path = os.path.join(self.vdatum.vdatum_path, grid_file)
+                # transform, crop and resample the source grid
+                epsg = self.out_crs.horizontal.to_epsg()
+                ds = gdal.Warp('', grid_path, format = 'MEM', dstSRS = f'EPSG:{epsg}', 
+                               xRes = self.resolution_x, yRes = self.resolution_y, 
+                               outputBounds = [self.min_x, self.min_y, self.max_x, self.max_y])
+                band = ds.GetRasterBand(1)
+                array = band.ReadAsArray()
+                nodata = band.GetNoDataValue()
+                array[np.where(array == nodata)] = np.nan
+                if not inv:
+                    array *= -1
+                ds = None
+                if regional_sep is None:
+                    regional_sep = array.copy()
+                else:
+                    regional_sep += array
+        return regional_sep
+                    
 
     def apply_sep(self, allow_points_outside_coverage: bool = False):
         """
