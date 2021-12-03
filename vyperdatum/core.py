@@ -145,7 +145,7 @@ class VyperCore:
                 layer = vector.GetLayerByIndex(m)
                 feature_count = layer.GetFeatureCount()
                 for n in range(feature_count):
-                    feature = layer.GetFeature(n)
+                    feature = layer.GetNextFeature()
                     try:
                         feature_name = feature.GetField(0)
                     except AttributeError:
