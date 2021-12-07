@@ -145,8 +145,12 @@ class VyperCore:
                 layer = vector.GetLayerByIndex(m)
                 feature_count = layer.GetFeatureCount()
                 for n in range(feature_count):
-                    feature = layer.GetFeature(n)
-                    feature_name = feature.GetField(0)
+                    feature = layer.GetNextFeature()
+                    try:
+                        feature_name = feature.GetField(0)
+                    except AttributeError:
+                        print('WARNING: Unable to read feature name from feature in layer in {}'.format(self.vdatum.polygon_files[region]))
+                        continue
                     if feature_name[:15] == 'valid-transform':
                         valid_vdatum_poly = feature.GetGeometryRef()
                         if data_geometry.Intersect(valid_vdatum_poly):
