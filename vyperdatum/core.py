@@ -497,6 +497,7 @@ class VdatumData:
         else:
             self.set_vdatum_directory(self.vdatum_path)
         self.get_vdatum_version()
+        self.set_other_paths(self._config)
 
     def set_config(self, ky: str, value: Any):
         """
@@ -627,11 +628,27 @@ class VdatumData:
             datadir.append_data_dir(vdatum_path)
     
         # also want to populate grids and polygons with what we find
-        self.grid_files, self.regions = get_vdatum_grid_list(vdatum_path)
-        self.polygon_files = get_vdatum_region_polygons(vdatum_path)
+        self.grid_files, self.regions = get_grid_list(vdatum_path)
+        self.polygon_files = get_region_polygons(vdatum_path)
         self.uncertainties = get_vdatum_uncertainties(vdatum_path)
 
         self.vdatum_path = self._config['vdatum_path']
+        
+    def set_other_paths(self, config: str):
+        """
+        Get other paths (as *_path) from the config and add to proj path. 
+        """
+        orig_proj_paths = datadir.get_data_dir()
+        for entry in config:
+            if entry.endswith('_path') and entry != 'vdatum_path':
+                new_path = config[entry]
+                if os.path.exists(new_path):
+                    if new_path not in orig_proj_paths:
+                        datadir.append_data_dir(new_path)
+                    other_polygons = get_region_polygons(new_path, extension = 'gpkg')
+                    other_grids, other_regions = get_grid_list(new_path)
+                    self.regions.extend(other_regions)
+                    self.polygon_files.update(other_polygons)
 
     def get_vdatum_version(self):
         """
@@ -660,7 +677,7 @@ class VdatumData:
         self.vdatum_version = vversion
 
 
-def get_vdatum_grid_list(vdatum_directory: str):
+def get_grid_list(vdatum_directory: str):
     """
     Search the vdatum directory to find all gtx files
 
@@ -697,14 +714,17 @@ def get_vdatum_grid_list(vdatum_directory: str):
     return grids, regions
 
 
-def get_vdatum_region_polygons(vdatum_directory: str):
+def get_region_polygons(datums_directory: str, extension: str = 'kml') -> dict:
     """"
-    Search the vdatum directory to find all kml files
+    Search the datums directory to find all geometry files.  All datums are assumed to reside in a subfolder.
 
     Parameters
     ----------
-    vdatum_directory
+    datums_directory : str
         absolute folder path to the vdatum directory
+        
+    extension : str
+        the geometry file extension to search for
 
     Returns
     -------
@@ -712,16 +732,16 @@ def get_vdatum_region_polygons(vdatum_directory: str):
         dictionary of {kml name: kml path, ...}
     """
 
-    search_path = os.path.join(vdatum_directory, '*/*.kml')
-    kml_list = glob.glob(search_path)
-    if len(kml_list) == 0:
-        errmsg = f'No kml files found in the provided VDatum directory: {vdatum_directory}'
+    search_path = os.path.join(datums_directory, f'*/*.{extension}')
+    geom_list = glob.glob(search_path)
+    if len(geom_list) == 0:
+        errmsg = f'No {extension} files found in the provided directory: {datums_directory}'
         print(errmsg)
     geom = {}
-    for kml in kml_list:
-        kml_path, kml_file = os.path.split(kml)
-        root_dir, kml_name = os.path.split(kml_path)
-        geom[kml_name] = kml
+    for filename in geom_list:
+        geom_path, geom_file = os.path.split(filename)
+        root_dir, geom_name = os.path.split(geom_path)
+        geom[geom_name] = filename
     return geom
 
 
@@ -742,7 +762,7 @@ def get_vdatum_uncertainties(vdatum_directory: str):
     acc_file = os.path.join(vdatum_directory, 'vdatum_sigma.inf')
 
     # use the polygon search to get a dict of all grids quickly
-    grid_dict = get_vdatum_region_polygons(vdatum_directory)
+    grid_dict = get_region_polygons(vdatum_directory)
     for k in grid_dict.keys():
         grid_dict[k] = {'tss': 0, 'mhhw': 0, 'mhw': 0, 'mlw': 0, 'mllw': 0, 'dtl': 0, 'mtl': 0}
     # add in the geoids we care about
