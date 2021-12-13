@@ -155,7 +155,10 @@ class VyperCore:
                         valid_vdatum_poly = feature.GetGeometryRef()
                         if data_geometry.Intersect(valid_vdatum_poly):
                             intersecting_regions.append(region)
-                            gframe = geoid_frame_lookup[vdatum_geoidlookup[self.vdatum.vdatum_version][region]]
+                            try:
+                                gframe = geoid_frame_lookup[vdatum_geoidlookup[self.vdatum.vdatum_version][region]]
+                            except KeyError:
+                                gframe = self.vdatum.extended_region[region]['reference_frame']
                             self._geoid_frame.append(gframe)
                     feature = None
                 layer = None
@@ -642,6 +645,7 @@ class VdatumData:
         """
         Get other paths (as *_path) from the config and add to proj path. 
         """
+        self.extended_region = {}
         orig_proj_paths = datadir.get_data_dir()
         for entry in config:
             if entry.endswith('_path') and entry != 'vdatum_path':
@@ -649,10 +653,21 @@ class VdatumData:
                 if os.path.exists(new_path):
                     if new_path not in orig_proj_paths:
                         datadir.append_data_dir(new_path)
-                    other_polygons = get_region_polygons(new_path, extension = 'gpkg')
                     other_grids, other_regions = get_grid_list(new_path)
-                    self.regions.extend(other_regions)
-                    self.polygon_files.update(other_polygons)
+                    for region in other_regions:
+                        valid_region = False
+                        polygon_file = os.path.join(new_path,region,region + '.gpkg')
+                        if os.path.exists(polygon_file):
+                            config_path = os.path.join(new_path,region,region + '.config')
+                            if os.path.exists(polygon_file):
+                                new_region_info = read_regional_config(config_path)
+                                if 'reference_frame' in new_region_info and 'reference_geoid' in new_region_info:
+                                    valid_region = True
+                        breakpoint()
+                        if valid_region:
+                            self.regions.append(region)
+                            self.polygon_files[region] = polygon_file
+                            self.extended_region[region] = new_region_info
 
     def get_vdatum_version(self):
         """
@@ -803,6 +818,32 @@ def get_vdatum_uncertainties(vdatum_directory: str):
                                 print(f'No match for vdatum_sigma entry {data_entry}!')
     return grid_dict
 
+
+def read_regional_config(config_path:str) -> dict:
+    """
+    read the config for the extended datum region and return the information.  All sections in the config
+    will be removed so no duplicative keys should exist between sections.
+
+    Parameters
+    ----------
+    config_path : str
+        A config file contining the information for the region.
+
+    Returns
+    -------
+    dict
+        key / value pairs for the region inforamtion.
+
+    """
+    settings = {}
+    config_file = configparser.ConfigParser()
+    config_file.read(config_path)
+    sections = config_file.sections()
+    for section in sections:
+        config_file_section = config_file[section]
+        for key in config_file_section:
+            settings[key] = config_file_section[key]
+    return settings
 
 class StdErrFilter(logging.Filter):
     """
