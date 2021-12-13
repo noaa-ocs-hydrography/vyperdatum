@@ -53,28 +53,39 @@ From there it is simple to start performing transformations.  Use the following 
         
         # source ('nad83') = nad83(2011)/nad83(2011)height
         # destination ('mllw') = nad83/mllw
-        vp.transform_points('nad83', 'mllw', x, y, z=z)
+        
+        vp.transform_points(6319, 'mllw', x, y, z=z)
+        # this is a shortcut for vp.transform_points((6319, 'ellipse'), 'mllw', x, y, z=z)
         
         vp.x
         Out: array([-76.19698, -76.194  , -76.198  ])
         vp.y
         Out: array([37.1299, 37.1399, 37.1499])
         vp.z
-        Out: array([47.505, 47.987, 48.454])
+        Out: array([47.735, 48.219, 48.685])
         vp.unc
-        Out: array([0.066, 0.066, 0.066])
+        Out: array([0.115, 0.115, 0.115])
         
-        print(vp.out_crs.to_pretty_wkt())
+        print(vp.out_crs.to_wkt())
         
-        VERTCRS["mllw",
-          VDATUM["mllw"],
-          CS[vertical,1],
-               AXIS["gravity-related height (H)",up],
-               LENGTHUNIT["metre",1]]
-          REMARK["regions=[MDVAchb12_8301],
-                  pipeline=proj=pipeline step proj=vgridshift grids=core\geoid12b\g2012bu0.gtx step proj=vgridshift grids=REGION\tss.gtx step proj=vgridshift grids=REGION\mllw.gtx"]]
-        
-
+        COMPOUNDCRS["NAD83(2011) + mllw",
+          GEOGCRS["NAD83(2011)",
+            DATUM["NAD83 (National Spatial Reference System 2011)",
+              ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],
+              PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],
+              CS[ellipsoidal,2],
+                AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],
+                AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],
+                USAGE[SCOPE["Horizontal component of 3D system."],
+                AREA["Puerto Rico - onshore and offshore. United States (USA) onshore and offshore - Alabama; Alaska; Arizona; Arkansas; California; Colorado; Connecticut; Delaware; Florida; Georgia; Idaho; Illinois; Indiana; Iowa; Kansas; Kentucky; Louisiana; Maine; Maryland; Massachusetts; Michigan; Minnesota; Mississippi; Missouri; Montana; Nebraska; Nevada; New Hampshire; New Jersey; New Mexico; New York; North Carolina; North Dakota; Ohio; Oklahoma; Oregon; Pennsylvania; Rhode Island; South Carolina; South Dakota; Tennessee; Texas; Utah; Vermont; Virginia; Washington; West Virginia; Wisconsin; Wyoming. US Virgin Islands - onshore and offshore."],
+                BBOX[14.92,167.65,74.71,-63.88]],ID["EPSG",6318]],
+          VERTCRS["mllw",
+            VDATUM["mllw"],
+              CS[vertical,1],
+                AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1,ID["EPSG",9001]]],
+                REMARK["vdatum=vdatum_4.1.2_20201203,vyperdatum=0.1.6,base_datum=[NAD83(2011)],
+                        regions=[MDVAchb12_8301],
+                        pipelines=[+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=MDVAchb12_8301\\tss.gtx +step +proj=vgridshift grids=MDVAchb12_8301\\mllw.gtx]"]]]'        
 
 - 3d Transformation from EPSG:3631(NC StatePlane)/MLLW to NAD83/MLLW. 
 
@@ -83,8 +94,8 @@ From there it is simple to start performing transformations.  Use the following 
         y = np.array([256015.372, 256003.991, 255992.610])
         z = np.array([10.5, 11.0, 11.5])
         
-        # force vertical datum used here to indicate source is at vert=mllw
-        vp.transform_points(3631, 'mllw', x, y, z=z, force_input_vertical_datum='mllw')
+        # here we use input horizontal/vertical datums for both input and output datum
+        vp.transform_points((3631, 'mllw'), (6319, 'mllw'), x, y, z=z)
         
         vp.x
         Out: array([-75.7918, -75.7919, -75.792 ])
@@ -93,58 +104,41 @@ From there it is simple to start performing transformations.  Use the following 
         vp.z
         Out: array([10.5, 11. , 11.5])
         vp.unc
-        Out: array([0.065, 0.065, 0.065])
+        Out: array([0.028, 0.028, 0.028])
 
 - GeoTIFF transformation - GeoTIFF with horizontal=EPSG:26919, vertical=NAD83(2011) height (assumed) to EPSG:26919/MLLW.  
-
+        
+        from vyperdatum.raster import VyperRaster
+        
         new_file = r"C:\data\tiff\output.tiff"
         test_file = r"C:\data\tiff\test.tiff"
         
         # source EPSG:26919 read automatically, NAD83 height assumed
-        vr = VyperRaster(test_file, is_height=True)
+        vr = VyperRaster(test_file)
         
-        layers, layernames, layernodata = vr.transform_raster('mllw', 100, allow_points_outside_coverage=False, output_file=output_file)
+        # optional step saying the raster is at horiz=26919, vert=ellipse
+        # vr.set_input_datum(26919, 'ellipse')
+        
+        # output=mllw input=ellipse
+        layers, layernames, layernodata = vr.transform_raster('mllw', 'ellipse', allow_points_outside_coverage=True, output_filename=new_file)
         
         print(vr.out_crs.to_compound_wkt())
          
-         COMPOUNDCRS["NAD83 / UTM zone 19N + mllw",
-              PROJCS["NAD83 / UTM zone 19N",
-                 GEOGCS["NAD83",DATUM["North_American_Datum_1983",
-                    SPHEROID["GRS 1980",6378137,298.257222101,AUTHORITY["EPSG","7019"]],
-                    AUTHORITY["EPSG","6269"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],
-                    UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4269"]],
-                    PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],
-                    PARAMETER["central_meridian",-69],PARAMETER["scale_factor",0.9996],
-                    PARAMETER["false_easting",500000],PARAMETER["false_northing",0],
-                    UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH],
-                AUTHORITY["EPSG","26919"]],
-              VERTCRS["mllw",
-                VDATUM["mllw"],
-                CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],
-                REMARK["regions=[MENHMAgome23_8301],
-                       'pipeline=proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx
-                                               step proj=vgridshift grids=REGION\\tss.gtx
-                                               step proj=vgridshift grids=REGION\\mllw.gtx"]]]
-
- - GeoTIFF transformation - transform to EPSG:26919 MLLW, designates the input raster to be at vertical=NAVD88
- 
-        new_file = r"C:\data\tiff\output.tiff"
-        test_file = r"C:\data\tiff\test.tiff"
-        
-        # source EPSG:26919 read automatically, NAD83 height assumed
-        vr = VyperRaster(test_file, is_height=True)
-        
-        layers, layernames, layernodata = vr.transform_raster('mllw', 100, allow_points_outside_coverage=False, 
-                                                              force_input_vertical_datum='navd88', output_file=output_file)
- 
-  - GeoTIFF transformation - transform to EPSG:4326 mhw, designates the input raster to be at vertical=mllw
- 
-        new_file = r"C:\data\tiff\output.tiff"
-        test_file = r"C:\data\tiff\test.tiff"
-        
-        # source EPSG:26919 read automatically, NAD83 height assumed
-        vr = VyperRaster(test_file, is_height=True)
-        
-        layers, layernames, layernodata = vr.transform_raster('mhw', 100, allow_points_outside_coverage=False, 
-                                                              force_input_vertical_datum='mllw', output_file=output_file,
-                                                              new_2d_crs=4326)
+        COMPOUNDCRS["NAD83 / UTM zone 19N + mllw",
+          PROJCRS["NAD83 / UTM zone 19N",
+            BASEGEOGCRS["NAD83",DATUM["North American Datum 1983",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],
+              PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4269]],
+                CONVERSION["UTM zone 19N",METHOD["Transverse Mercator",ID["EPSG",9807]],
+                  PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],
+                  PARAMETER["Longitude of natural origin",-69,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],
+                  PARAMETER["Scale factor at natural origin",0.9996,SCALEUNIT["unity",1],ID["EPSG",8805]],
+                  PARAMETER["False easting",500000,LENGTHUNIT["metre",1],ID["EPSG",8806]],
+                  PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],
+                    AXIS["easting",east,ORDER[1],LENGTHUNIT["metre",1]],
+                    AXIS["northing",north,ORDER[2],LENGTHUNIT["metre",1]],ID["EPSG",26919]],
+          VERTCRS["mllw",
+            VDATUM["mllw"],
+              CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1,ID["EPSG",9001]]],
+              REMARK["vdatum=vdatum_4.1.2_20201203,vyperdatum=0.1.6,base_datum=[NAD83(2011)],
+                      regions=[MENHMAgome23_8301],
+                      pipelines=[+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=MENHMAgome23_8301\\tss.gtx +step +proj=vgridshift grids=MENHMAgome23_8301\\mllw.gtx]"]]]'
