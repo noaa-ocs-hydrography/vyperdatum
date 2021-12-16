@@ -1,5 +1,3 @@
-from vyperdatum.vdatum_validation import vdatum_geoidlookup
-
 
 nad83_itrf2008_pipeline = '+proj=pipeline +step +proj=axisswap +order=2,1 ' \
                           '+step +proj=unitconvert +xy_in=deg +xy_out=rad ' \
@@ -40,7 +38,7 @@ datum_definition = {
     }
 
 
-def get_regional_pipeline(from_datum: str, to_datum: str, region_name: str, vdatum_version_string: str):
+def get_regional_pipeline(from_datum: str, to_datum: str, region_name: str, geoid_name: str):
     """
     Return a string describing the pipeline to use to convert between the provided datums.
 
@@ -52,8 +50,8 @@ def get_regional_pipeline(from_datum: str, to_datum: str, region_name: str, vdat
         A string corresponding to one of the stored datums.
     region_name: str
         A region name corrisponding to a VDatum subfolder name.
-    vdatum_version_string
-        string version number for vdatum, used in the region/geoid lookup
+    geoid_name
+        name of the geoid used in the pipeline
 
     Raises
     ------
@@ -81,7 +79,7 @@ def get_regional_pipeline(from_datum: str, to_datum: str, region_name: str, vdat
     transformation_def = ['+proj=pipeline', *reversed_input_def, *output_datum_def]
     pipeline = ' +step '.join(transformation_def)
     regional_pipeline = pipeline.replace('REGION', region_name)
-    regional_pipeline = regional_pipeline.replace('GEOID', vdatum_geoidlookup[vdatum_version_string][region_name])
+    regional_pipeline = regional_pipeline.replace('GEOID', geoid_name)
 
     return regional_pipeline
 

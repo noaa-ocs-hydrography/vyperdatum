@@ -7,16 +7,16 @@ from vyperdatum.vdatum_validation import vdatum_answers
 test_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'tiff', 'test.tiff')
 gvc = VyperCore()
 data_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
-vdatum_answer = vdatum_answers[gvc.vdatum.vdatum_version]
+vdatum_answer = vdatum_answers[gvc.datum_data.vdatum_version]
 
 
 def test_core_setup():
     # these tests assume you have the vdatum path setup in VyperCore
     # first time, you need to run it with the path to the vdatum folder, vc = VyperCore('path\to\vdatum')
     vc = VyperCore()
-    assert os.path.exists(vc.vdatum.vdatum_path)
-    assert vc.vdatum.grid_files
-    assert vc.vdatum.polygon_files
+    assert os.path.exists(vc.datum_data.vdatum_path)
+    assert vc.datum_data.grid_files
+    assert vc.datum_data.polygon_files
 
 
 def test_find_testdata():
