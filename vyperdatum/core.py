@@ -40,9 +40,8 @@ class VyperCore:
     """
 
     def __init__(self, vdatum_directory: str = None, logfile: str = None, silent: bool = False):
-        # if vdatum_directory is provided initialize VdatumData with that path
         self.silent = silent
-        self.vdatum = VdatumData(vdatum_directory=vdatum_directory, parent=self)
+        self.datum_data = DatumData(vdatum_directory=vdatum_directory, parent=self)
 
         self.min_x = None
         self.min_y = None
@@ -54,8 +53,8 @@ class VyperCore:
         self.geographic_max_x = None
         self.geographic_max_y = None
 
-        self.in_crs = VyperPipelineCRS(self.vdatum.vdatum_version)
-        self.out_crs = VyperPipelineCRS(self.vdatum.vdatum_version)
+        self.in_crs = VyperPipelineCRS(self.datum_data)
+        self.out_crs = VyperPipelineCRS(self.datum_data)
 
         self.logger = return_logger(logfile)
         self._regions = []
@@ -138,8 +137,8 @@ class VyperCore:
         # see if the regions intersect with the provided geometries
         intersecting_regions = []
         self._geoid_frame = []
-        for region in self.vdatum.polygon_files:
-            vector = ogr.Open(self.vdatum.polygon_files[region])
+        for region in self.datum_data.polygon_files:
+            vector = ogr.Open(self.datum_data.polygon_files[region])
             layer_count = vector.GetLayerCount()
             for m in range(layer_count):
                 layer = vector.GetLayerByIndex(m)
@@ -149,16 +148,13 @@ class VyperCore:
                     try:
                         feature_name = feature.GetField(0)
                     except AttributeError:
-                        print('WARNING: Unable to read feature name from feature in layer in {}'.format(self.vdatum.polygon_files[region]))
+                        print('WARNING: Unable to read feature name from feature in layer in {}'.format(self.datum_data.polygon_files[region]))
                         continue
                     if feature_name[:15] == 'valid-transform':
                         valid_vdatum_poly = feature.GetGeometryRef()
                         if data_geometry.Intersect(valid_vdatum_poly):
                             intersecting_regions.append(region)
-                            try:
-                                gframe = geoid_frame_lookup[vdatum_geoidlookup[self.vdatum.vdatum_version][region]]
-                            except KeyError:
-                                gframe = self.vdatum.extended_region[region]['reference_frame']
+                            gframe = self.datum_data.get_geoid_frame(region)
                             self._geoid_frame.append(gframe)
                     feature = None
                 layer = None
@@ -351,16 +347,16 @@ class VyperCore:
             if gd_index.size != 1:
                 self.log_error(f'Found {len(gd_index.size)} geoid possibilities in pipeline string', ValueError)
             geoid = geoid_possibilities[gd_index[0]]
-            final_uncertainty += self.vdatum.uncertainties[geoid]
+            final_uncertainty += self.datum_data.uncertainties[geoid]
         if indatum in ['ellipse', 'geoid', 'navd88'] and outdatum not in ['ellipse', 'geoid', 'navd88']:  # include tss uncertainty
-            final_uncertainty += self.vdatum.uncertainties[region]['tss']
+            final_uncertainty += self.datum_data.uncertainties[region]['tss']
         if outdatum not in ['ellipse', 'geoid', 'tss', 'navd88']:
             srch_string = outdatum
             if srch_string == 'noaa chart datum':
                 srch_string = 'mllw'
             elif srch_string == 'noaa chart height':
                 srch_string = 'mhw'
-            final_uncertainty += self.vdatum.uncertainties[region][srch_string]
+            final_uncertainty += self.datum_data.uncertainties[region][srch_string]
 
         return final_uncertainty
 
@@ -428,16 +424,17 @@ class VyperCore:
             self.pipelines = []
             valid_regions = []
             for cnt, region in enumerate(self._regions):
-                gframe = self._geoid_frame[cnt]
+                gframe = self.datum_data.get_geoid_frame(region)
+                geoid_name = self.datum_data.get_geoid_name(region)
                 in_horiz_name = self.in_crs.horizontal.name
                 out_horiz_name = self.out_crs.horizontal.name
                 if in_horiz_name != gframe:  # need to transform these points to use the geoid coordinate system
                     new_x, new_y, new_z = self._transform_to_geoid_frame(x, y, z, override_frame=gframe)
                 else:
                     new_x, new_y, new_z = x, y, z
-                pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.vdatum.vdatum_version)
-                if pipeline == 'invalid':
-                    self.log_info(f'Transformation from {self.in_crs.to_wkt()} to {self.out_crs.to_wkt()} in region {region} was flagged as invalid.  Missing support files?')
+                pipeline, valid_pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, geoid_name)
+                if not valid_pipeline:
+                    self.log_info(f'Pipeline {pipeline} for transformation from {self.in_crs.to_wkt()} to {self.out_crs.to_wkt()} in region {region} was flagged as invalid.  Missing support files?')
                     continue
                 elif pipeline:  # do the vertical transformation if there is a valid one for this operation
                     new_x, new_y, new_z = self._run_pipeline(new_x, new_y, pipeline, z=new_z)
@@ -475,9 +472,9 @@ class VyperCore:
             self.log_error('No regions specified, unable to transform points', ValueError)
 
 
-class VdatumData:
+class DatumData:
     """
-    Gets and maintains VDatum information for use with Vyperdatum.
+    Gets and maintains datum information for use with Vyperdatum.
     
     The VDatum path location is stored in a config file which is in the user's directory.  Use configparser to sync
     self._config and the ini file.
@@ -663,7 +660,6 @@ class VdatumData:
                                 new_region_info = read_regional_config(config_path)
                                 if 'reference_frame' in new_region_info and 'reference_geoid' in new_region_info:
                                     valid_region = True
-                        breakpoint()
                         if valid_region:
                             self.regions.append(region)
                             self.polygon_files[region] = polygon_file
@@ -694,7 +690,27 @@ class VdatumData:
             except AttributeError:  # logger not initialized yet
                 print(f'Generated new version file: {vyperversion_file}')
         self.vdatum_version = vversion
+        
+    def get_geoid_name(self, region_name: str, vdatum_version: str = None) -> str:
+        
+        if not vdatum_version:
+            vdatum_version = self.vdatum_version
+        try:
+            geoid_name = vdatum_geoidlookup[vdatum_version][region_name]
+        except KeyError:
+            geoid_name = self.extended_region[region_name]['reference_geoid']
+        
+        return geoid_name
+    
+    def get_geoid_frame(self, region_name: str, vdatum_version: str = None) -> str:
+        if not vdatum_version:
+            vdatum_version = self.vdatum_version
+        try:
+            geoid_frame = geoid_frame_lookup[vdatum_geoidlookup[vdatum_version][region_name]]
+        except KeyError:
+            geoid_frame = self.extended_region[region_name]['reference_frame']
 
+        return geoid_frame
 
 def get_grid_list(vdatum_directory: str):
     """

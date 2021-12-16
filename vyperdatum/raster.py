@@ -189,11 +189,13 @@ class VyperRaster(VyperCore):
         valid_idx = []
         valid_regions = []
         for region in self.regions:
-            if region not in self.vdatum.regions:
-                self.log_error('Region {region} not found in VDatum.', ValueError)
-            pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.vdatum.vdatum_version)
-            if pipeline == 'invalid':
-                self.log_info(f'Transformation from {self.in_crs.to_wkt()} to {self.out_crs.to_wkt()} in region {region} was flagged as invalid.  Missing support files?')
+            gframe = self.datum_data.get_geoid_frame(region)
+            geoid_name = self.datum_data.get_geoid_name(region)
+            if region not in self.datum_data.regions:
+                self.log_error('Region {region} not found.', ValueError)
+            pipeline, valid_pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, geoid_name)
+            if not valid_pipeline:
+                self.log_info(f'Pipeline {pipeline} for transformation from {self.in_crs.to_wkt()} to {self.out_crs.to_wkt()} in region {region} was flagged as invalid.  Missing support files?')
                 continue
             elif pipeline:
                 regional_sep = self._get_regional_datum_sep(pipeline)
@@ -253,7 +255,7 @@ class VyperRaster(VyperCore):
                         inv = True
                     elif part.startswith('grids='):
                         junk, grid_file = part.split('=')
-                        grid_path = os.path.join(self.vdatum.vdatum_path, grid_file)
+                        grid_path = os.path.join(self.datum_data.vdatum_path, grid_file)
                 # transform, crop and resample the source grid
                 epsg = self.out_crs.horizontal.to_epsg()
                 ds = gdal.Warp('', grid_path, format = 'MEM', dstSRS = f'EPSG:{epsg}', 
