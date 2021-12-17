@@ -378,10 +378,26 @@ def test_pipeline_retrieval():
     pipe, valid_pipeline = get_transformation_pipeline(cs, cs2, region_name, geoid_name)
     assert valid_pipeline
     assert pipe == f'+proj=pipeline +step +inv +proj=vgridshift grids={region_name}\\tss.gtx +step +proj=vgridshift grids={region_name}\\mllw.gtx'
-    assert is_valid_regional_pipeline(pipe)
+    valid, pipe = is_valid_regional_pipeline(pipe)
+    assert valid
     bad_pipe = pipe.replace('mllw', 'fail')
-    assert not is_valid_regional_pipeline(bad_pipe)
-    
+    valid, pipe = is_valid_regional_pipeline(bad_pipe)
+    assert not valid
+
+
+def test_pipeline_alter_file_extensions():
+    cs = VyperPipelineCRS(gvc.datum_data)
+    region_name = gvc.datum_data.regions[0]
+    cs.set_crs((26914, 'navd88'), regions=[region_name])
+    cs2 = VyperPipelineCRS(gvc.datum_data)
+    cs2.set_crs((26914, 'mllw'), regions=[region_name])
+    geoid_name = gvc.datum_data.get_geoid_name(region_name)
+    pipe, valid_pipeline = get_transformation_pipeline(cs, cs2, region_name, geoid_name)
+    badpipe = pipe.replace('tss.gtx', 'tss.failedext')
+    newpipe, valid_pipeline = get_transformation_pipeline(cs, cs2, region_name, geoid_name)
+    assert valid_pipeline
+    assert pipe == newpipe
+
 
 def split_wkt_remarks(wkt):
     base_wkt = ''

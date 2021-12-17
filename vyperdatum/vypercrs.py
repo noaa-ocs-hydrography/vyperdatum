@@ -55,6 +55,8 @@ frame_to_3dcrs = {CRS.from_epsg(NAD83_2D).name: CRS.from_epsg(NAD83_3D),
                   CRS.from_epsg(ITRF2008_2D).name: CRS.from_epsg(ITRF2008_3D),
                   CRS.from_epsg(ITRF2014_2D).name: CRS.from_epsg(ITRF2014_3D)}
 
+valid_grid_extensions = ['.tiff', '.tif', '.gtx']
+
 
 class CoordinateSystem:
     """
@@ -999,7 +1001,6 @@ def get_transformation_pipeline(in_crs: Union[VyperPipelineCRS, VerticalPipeline
         PROJ pipeline string specifying the vertical transformation between source incrs and outcrs.
         If the pipeline is a no operation None is returned.
         If the pipeline is determined to be invalide for a a region 'invalid' is returned for the pipeline.
-    
     bool
         If the pipeline is considered a valid pipeline
     """
@@ -1029,26 +1030,28 @@ def get_transformation_pipeline(in_crs: Union[VyperPipelineCRS, VerticalPipeline
     pipeline = get_regional_pipeline(in_def_str, out_def_str, region, geoid_name)
     valid_pipeline = True
     if pipeline:
-        valid_pipeline = is_valid_regional_pipeline(pipeline)
+        valid_pipeline, pipeline = is_valid_regional_pipeline(pipeline)
     return pipeline, valid_pipeline
 
 
 def is_valid_regional_pipeline(pipeline: str) -> bool:
     """
-    Confirm all files to perform transformation are available to pyproj.
+    Confirm all files to perform transformation are available to pyproj.  This function also corrects the pipeline
+    for the correct extension that matches the grid as it exists on disk.
 
     Parameters
     ----------
-    pipeline : TYPE
-        DESCRIPTION.
-    available_files : TYPE
-        DESCRIPTION.
+    pipeline
+        pipeline string that we want to validate
 
     Returns
     -------
-    True if all files are available, False if any are missing.
-
+    bool
+        True if the pipeline is valid
+    str
+        corrected pipeline string if we found that the default extension (gtx) was incorrect
     """
+
     parts = pipeline.split()
     grid_list = []
     for part in parts:
@@ -1065,9 +1068,18 @@ def is_valid_regional_pipeline(pipeline: str) -> bool:
             if os.path.exists(full_path):
                 valid = True
                 break
-        if valid == False:
-            break
-    return valid
+        if not valid:  # try with one of the other acceptable extensions
+            cur_grid, cur_ext = os.path.splitext(grid)
+            for valid_ext in valid_grid_extensions:
+                if valid_ext == cur_ext:
+                    continue
+                for path in path_list:
+                    full_path = os.path.normpath(os.path.join(path, cur_grid + valid_ext))
+                    if os.path.exists(full_path):  # this extension matches the actual grid
+                        pipeline = pipeline.replace(grid, cur_grid + valid_ext)  # replace the pipeline with the new extension
+                        valid = True
+                        break
+    return valid, pipeline
 
 
 def crs_is_compound(my_crs: CRS):
