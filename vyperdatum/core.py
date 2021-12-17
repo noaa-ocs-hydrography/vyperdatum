@@ -475,6 +475,8 @@ class DatumData:
         self.uncertainties = {}  # dict of file names to uncertainties for each grid
         self.vdatum_path = ''  # path to the parent vdatum folder
         self.vdatum_version = ''
+        self.extended_region = {}  # dict of region to custom region data from the custom region's config file
+        self.extended_region_lookup = {}  # dict of extended region path to list of regions associated with that path
 
         self._config = {'vdatum_path': ''}  # dict of all the settings
         self.config_path_file = ''  # path to the config file that maintains the settings between runs
@@ -519,6 +521,37 @@ class DatumData:
                 print('WARNING: Unable to set {} in config file {}'.format(ky, self.config_path_file))
         if ky == 'vdatum_path':
             self.vdatum_path = value
+
+    def remove_from_config(self, ky: str):
+        """
+        Drop the given key from the _config attribute.  Use this instead of dealing with _config directly, will set both
+        the _config key/value and the configparser ini file.
+
+        Parameters
+        ----------
+        ky
+            key to remove from the dict
+        """
+
+        try:
+            config = configparser.ConfigParser()
+            config.read(self.config_path_file)
+            for k, v in self._config.items():
+                config['Default'][k] = v
+
+            if ky in self._config:
+                self._config.pop(ky)
+            if ky in config['Default']:
+                config['Default'].pop(ky)
+                with open(self.config_path_file, 'w') as configfile:
+                    config.write(configfile)
+        except:
+            # get a number of exceptions here when reading and writing to the config file in multiprocessing
+            try:
+                if self.parent:
+                    self.parent.log_warning('Unable to remove {} from config file {}'.format(ky, self.config_path_file))
+            except AttributeError:  # logger not initialized yet
+                print('WARNING: Unable to remove {} from config file {}'.format(ky, self.config_path_file))
 
     def _get_stored_vdatum_config(self):
         """
@@ -640,6 +673,40 @@ class DatumData:
         assert external_key.endswith('_path')
         self.set_config(external_key, external_path)
         self.set_other_paths({external_key: external_path})
+        try:
+            if self.parent:
+                self.parent.log_info(f'Added {len(self.extended_region_lookup[external_key])} new region(s) from {external_path}')
+        except AttributeError:  # logger not initialized yet
+            print(f'Added {len(self.extended_region_lookup[external_key])} new regions from {external_path}')
+
+    def remove_external_region_directory(self, external_key: str):
+        """
+        Users add a new external region directory using set_external_region_directory.  To remove this directory from
+        the datum_data class, we need to remove the key from the config file/config data, and also remove any associated
+        regions.
+
+        Parameters
+        ----------
+        external_key
+            key to lookup the folder group, must have a _path at the end of the key
+        """
+
+        if external_key in self._config:
+            self.remove_from_config(external_key)
+        if external_key in self.extended_region_lookup:
+            regions = self.extended_region_lookup.pop(external_key)
+            num_regions = len(regions)
+            for region in regions:
+                self.regions.remove(region)
+                self.polygon_files.pop(region)
+                self.extended_region.pop(region)
+                if region in self.uncertainties:
+                    self.uncertainties.pop(region)
+            try:
+                if self.parent:
+                    self.parent.log_info(f'Removed {num_regions} region(s) associated with {external_key}')
+            except AttributeError:  # logger not initialized yet
+                print(f'Removed {num_regions} region(s) associated with {external_key}')
 
     def set_other_paths(self, config: dict):
         """
@@ -655,6 +722,7 @@ class DatumData:
                     if new_path not in orig_proj_paths:
                         datadir.append_data_dir(new_path)
                     other_grids, other_regions = get_grid_list(new_path)
+                    self.extended_region_lookup[entry] = []
                     for region in other_regions:
                         valid_region = False
                         polygon_file = os.path.join(new_path,region,region + '.gpkg')
@@ -665,6 +733,7 @@ class DatumData:
                                 if 'reference_frame' in new_region_info and 'reference_geoid' in new_region_info:
                                     valid_region = True
                         if valid_region:
+                            self.extended_region_lookup[entry].append(region)
                             if region in self.regions:  # ensure the region is only added once
                                 self.regions.remove(region)
                             self.regions.append(region)
