@@ -21,22 +21,6 @@ class VyperCore:
     distribution, including paths to gtx files and uncertainty per grid.  VyperCore uses this information to provide
     a transformation method to go from source datum to EPSG with a vertical or 3d transformation, depending on
     source datum.
-
-    vc = VyperCore()
-    vc.set_region_by_bounds(-75.79179, 35.80674, -75.3853, 36.01585)
-
-    # choose one of these
-    # a 3d transformation from state plane to NAD83/MLLW
-    vc.set_input_datum(3631)
-    # a vertical transformation from NAD83/ELHeight to NAD83/MLLW
-    vc.set_input_datum('nad83')
-
-    vc.set_output_datum('mllw')
-    x = np.array([898745.505, 898736.854, 898728.203])
-    y = np.array([256015.372, 256003.991, 255992.610])
-    z = np.array([10.5, 11.0, 11.5])
-    newx, newy, newz, newunc = vc.transform_dataset(x, y, z)
-
     """
 
     def __init__(self, vdatum_directory: str = None, logfile: str = None, silent: bool = False):
@@ -637,14 +621,32 @@ class DatumData:
         self.uncertainties = get_vdatum_uncertainties(vdatum_path)
 
         self.vdatum_path = self._config['vdatum_path']
-        
-    def set_other_paths(self, config: str):
+
+    def set_external_region_directory(self, external_path: str, external_key: str = 'external_path'):
+        """
+        Set a new external region directory, a directory that can hold custom region files that are outside the base vdatum
+        folders.  Ensure you use a '*****_path' style key such that the reading other paths method will detect it.
+
+        Parameters
+        ----------
+        external_path
+            path to the directory containing the custom region folders
+        external_key
+            key to lookup the folder group, must have a _path at the end of the key
+        """
+
+        assert external_key.endswith('_path')
+        self.set_config(external_key, external_path)
+        self.set_other_paths({external_key: external_path})
+
+    def set_other_paths(self, config: dict):
         """
         Get other paths (as *_path) from the config and add to proj path. 
         """
+
         self.extended_region = {}
         orig_proj_paths = datadir.get_data_dir()
-        for entry in config:
+        for entry in config.keys():
             if entry.endswith('_path') and entry != 'vdatum_path':
                 new_path = config[entry]
                 if os.path.exists(new_path):
@@ -661,6 +663,8 @@ class DatumData:
                                 if 'reference_frame' in new_region_info and 'reference_geoid' in new_region_info:
                                     valid_region = True
                         if valid_region:
+                            if region in self.regions:  # ensure the region is only added once
+                                self.regions.remove(region)
                             self.regions.append(region)
                             self.polygon_files[region] = polygon_file
                             self.extended_region[region] = new_region_info
@@ -692,6 +696,21 @@ class DatumData:
         self.vdatum_version = vversion
         
     def get_geoid_name(self, region_name: str, vdatum_version: str = None) -> str:
+        """
+        Return the geoid path from the vdatum version lookup matching the given version for the given region
+
+        Parameters
+        ----------
+        region_name
+            name of the region that we want the geoid for
+        vdatum_version
+            vdatum version string for the vdatum version we are interested in
+
+        Returns
+        -------
+        str
+            geoid name, ex: r'core\geoid12b\g2012bu0.gtx'
+        """
         
         if not vdatum_version:
             vdatum_version = self.vdatum_version
@@ -703,6 +722,22 @@ class DatumData:
         return geoid_name
     
     def get_geoid_frame(self, region_name: str, vdatum_version: str = None) -> str:
+        """
+        Return the geoid reference frame from the vdatum version lookup matching the given version for the given region
+
+        Parameters
+        ----------
+        region_name
+            name of the region that we want the geoid for
+        vdatum_version
+            vdatum version string for the vdatum version we are interested in
+
+        Returns
+        -------
+        str
+            reference frame used in the given region, ex: NAD83(2011)
+        """
+
         if not vdatum_version:
             vdatum_version = self.vdatum_version
         try:
@@ -711,6 +746,7 @@ class DatumData:
             geoid_frame = self.extended_region[region_name]['reference_frame']
 
         return geoid_frame
+
 
 def get_grid_list(vdatum_directory: str):
     """
@@ -860,6 +896,7 @@ def read_regional_config(config_path:str) -> dict:
         for key in config_file_section:
             settings[key] = config_file_section[key]
     return settings
+
 
 class StdErrFilter(logging.Filter):
     """
