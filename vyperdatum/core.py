@@ -584,6 +584,7 @@ class DatumData:
         dict
             settings within the file
         """
+
         try:
             config_folder, config_file = os.path.split(self.config_path_file)
             if not os.path.exists(config_folder):
@@ -606,6 +607,7 @@ class DatumData:
         Called when self.settings['vdatum_directory'] is updated.  We find all the grids and polygons in the vdatum
         directory and save the dicts to the attributes in this class.
         """
+
         self.set_config('vdatum_path', vdatum_path)
         if not os.path.exists(self.vdatum_path):
             raise ValueError(f'VDatum is not found at the provided path: {self.vdatum_path}')
@@ -668,6 +670,14 @@ class DatumData:
                             self.regions.append(region)
                             self.polygon_files[region] = polygon_file
                             self.extended_region[region] = new_region_info
+                            if 'uncertainty_tss' in new_region_info:
+                                self.uncertainties[region] = {'tss': new_region_info['uncertainty_tss'],
+                                                              'mhhw': new_region_info['uncertainty_mhhw'],
+                                                              'mhw': new_region_info['uncertainty_mhw'],
+                                                              'mlw': new_region_info['uncertainty_mlw'],
+                                                              'mllw': new_region_info['uncertainty_mllw'],
+                                                              'dtl': new_region_info['uncertainty_dtl'],
+                                                              'mtl': new_region_info['uncertainty_mtl']}
 
     def get_vdatum_version(self):
         """
@@ -675,6 +685,7 @@ class DatumData:
         will be encoded in a new vdatum_vyperversion.txt file that we can read instead so that we don't have to do the
         lengthy check.
         """
+
         if not os.path.exists(self.vdatum_path):
             raise ValueError(f'VDatum is not found at the provided path: {self.vdatum_path}')
         vyperversion_file = os.path.join(self.vdatum_path, 'vdatum_vyperversion.txt')
@@ -871,7 +882,7 @@ def get_vdatum_uncertainties(vdatum_directory: str):
     return grid_dict
 
 
-def read_regional_config(config_path:str) -> dict:
+def read_regional_config(config_path: str) -> dict:
     """
     read the config for the extended datum region and return the information.  All sections in the config
     will be removed so no duplicative keys should exist between sections.
