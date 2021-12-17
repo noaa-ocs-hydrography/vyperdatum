@@ -105,6 +105,7 @@ class VyperRaster(VyperCore):
         int
             integer index in self.layernames for the elevation layer, -1 if it does not exist
         """
+
         check_layer_names = [lname.lower() for lname in self.layernames]
         if 'depth' in check_layer_names:
             depth_idx = check_layer_names.index('depth')
@@ -124,6 +125,7 @@ class VyperRaster(VyperCore):
         int
             integer index in self.layernames for the uncertainty layer, -1 if it does not exist
         """
+
         check_layer_names = [lname.lower() for lname in self.layernames]
         if 'uncertainty' in check_layer_names:
             unc_idx = check_layer_names.index('uncertainty')
@@ -143,6 +145,7 @@ class VyperRaster(VyperCore):
         int
             integer index in self.layernames for the contributor layer, -1 if it does not exist
         """
+
         check_layer_names = [lname.lower() for lname in self.layernames]
         if 'contributor' in check_layer_names:
             cont_idx = check_layer_names.index('contributor')
@@ -228,23 +231,21 @@ class VyperRaster(VyperCore):
         else:
             self.log_error('No valid region found with the specified datum transformation. Unable to perform transformation', ValueError)
 
-            
     def _get_regional_datum_sep(self, pipeline: str) -> np.ndarray:
         """
-        Get a separation raster for a particular regional pipeline using gdal
-        warp.
+        Get a separation raster for a particular regional pipeline using gdal warp.
 
         Parameters
         ----------
-        pipeline : str
-            DESCRIPTION.
+        pipeline
+            PROJ pipeline to be used
 
         Returns
         -------
-        regional_sep
-            DESCRIPTION.
-
+        np.ndarray
+            2d array of sep values
         """
+
         regional_sep = None
         for cmd in pipeline.split(' +step '):
             if cmd.find('vgridshift') >= 0:
@@ -273,7 +274,6 @@ class VyperRaster(VyperCore):
                 else:
                     regional_sep += array
         return regional_sep
-                    
 
     def apply_sep(self, allow_points_outside_coverage: bool = False):
         """
