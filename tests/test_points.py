@@ -5,18 +5,18 @@ from vyperdatum.vdatum_validation import vdatum_answers
 
 gvc = VyperCore()
 data_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
-vdatum_answer = vdatum_answers[gvc.vdatum.vdatum_version]
+vdatum_answer = vdatum_answers[gvc.datum_data.vdatum_version]
 
 
 def test_points_setup():
     # these tests assume you have the vdatum path setup in VyperCore
     # first time, you need to run it with the path to the vdatum folder, vp = VyperPoints('path\to\vdatum')
     vp = VyperPoints()
-    assert os.path.exists(vp.vdatum.vdatum_path)
-    assert vp.vdatum.grid_files
-    assert vp.vdatum.polygon_files
-    assert vp.vdatum.vdatum_version
-    assert vp.vdatum.regions
+    assert os.path.exists(vp.datum_data.vdatum_path)
+    assert vp.datum_data.grid_files
+    assert vp.datum_data.polygon_files
+    assert vp.datum_data.vdatum_version
+    assert vp.datum_data.regions
 
 
 def _transform_dataset(region: str):

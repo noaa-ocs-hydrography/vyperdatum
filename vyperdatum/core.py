@@ -21,28 +21,11 @@ class VyperCore:
     distribution, including paths to gtx files and uncertainty per grid.  VyperCore uses this information to provide
     a transformation method to go from source datum to EPSG with a vertical or 3d transformation, depending on
     source datum.
-
-    vc = VyperCore()
-    vc.set_region_by_bounds(-75.79179, 35.80674, -75.3853, 36.01585)
-
-    # choose one of these
-    # a 3d transformation from state plane to NAD83/MLLW
-    vc.set_input_datum(3631)
-    # a vertical transformation from NAD83/ELHeight to NAD83/MLLW
-    vc.set_input_datum('nad83')
-
-    vc.set_output_datum('mllw')
-    x = np.array([898745.505, 898736.854, 898728.203])
-    y = np.array([256015.372, 256003.991, 255992.610])
-    z = np.array([10.5, 11.0, 11.5])
-    newx, newy, newz, newunc = vc.transform_dataset(x, y, z)
-
     """
 
     def __init__(self, vdatum_directory: str = None, logfile: str = None, silent: bool = False):
-        # if vdatum_directory is provided initialize VdatumData with that path
         self.silent = silent
-        self.vdatum = VdatumData(vdatum_directory=vdatum_directory, parent=self)
+        self.datum_data = DatumData(vdatum_directory=vdatum_directory, parent=self)
 
         self.min_x = None
         self.min_y = None
@@ -54,8 +37,8 @@ class VyperCore:
         self.geographic_max_x = None
         self.geographic_max_y = None
 
-        self.in_crs = VyperPipelineCRS(self.vdatum.vdatum_version)
-        self.out_crs = VyperPipelineCRS(self.vdatum.vdatum_version)
+        self.in_crs = VyperPipelineCRS(self.datum_data)
+        self.out_crs = VyperPipelineCRS(self.datum_data)
 
         self.logger = return_logger(logfile)
         self._regions = []
@@ -138,8 +121,8 @@ class VyperCore:
         # see if the regions intersect with the provided geometries
         intersecting_regions = []
         self._geoid_frame = []
-        for region in self.vdatum.polygon_files:
-            vector = ogr.Open(self.vdatum.polygon_files[region])
+        for region in self.datum_data.polygon_files:
+            vector = ogr.Open(self.datum_data.polygon_files[region])
             layer_count = vector.GetLayerCount()
             for m in range(layer_count):
                 layer = vector.GetLayerByIndex(m)
@@ -149,13 +132,13 @@ class VyperCore:
                     try:
                         feature_name = feature.GetField(0)
                     except AttributeError:
-                        print('WARNING: Unable to read feature name from feature in layer in {}'.format(self.vdatum.polygon_files[region]))
+                        print('WARNING: Unable to read feature name from feature in layer in {}'.format(self.datum_data.polygon_files[region]))
                         continue
                     if feature_name[:15] == 'valid-transform':
                         valid_vdatum_poly = feature.GetGeometryRef()
                         if data_geometry.Intersect(valid_vdatum_poly):
                             intersecting_regions.append(region)
-                            gframe = geoid_frame_lookup[vdatum_geoidlookup[self.vdatum.vdatum_version][region]]
+                            gframe = self.datum_data.get_geoid_frame(region)
                             self._geoid_frame.append(gframe)
                     feature = None
                 layer = None
@@ -348,16 +331,16 @@ class VyperCore:
             if gd_index.size != 1:
                 self.log_error(f'Found {len(gd_index.size)} geoid possibilities in pipeline string', ValueError)
             geoid = geoid_possibilities[gd_index[0]]
-            final_uncertainty += self.vdatum.uncertainties[geoid]
+            final_uncertainty += self.datum_data.uncertainties[geoid]
         if indatum in ['ellipse', 'geoid', 'navd88'] and outdatum not in ['ellipse', 'geoid', 'navd88']:  # include tss uncertainty
-            final_uncertainty += self.vdatum.uncertainties[region]['tss']
+            final_uncertainty += self.datum_data.uncertainties[region]['tss']
         if outdatum not in ['ellipse', 'geoid', 'tss', 'navd88']:
             srch_string = outdatum
             if srch_string == 'noaa chart datum':
                 srch_string = 'mllw'
             elif srch_string == 'noaa chart height':
                 srch_string = 'mhw'
-            final_uncertainty += self.vdatum.uncertainties[region][srch_string]
+            final_uncertainty += self.datum_data.uncertainties[region][srch_string]
 
         return final_uncertainty
 
@@ -423,18 +406,24 @@ class VyperCore:
                 ans_region = None
 
             self.pipelines = []
+            valid_regions = []
             for cnt, region in enumerate(self._regions):
-                gframe = self._geoid_frame[cnt]
+                gframe = self.datum_data.get_geoid_frame(region)
+                geoid_name = self.datum_data.get_geoid_name(region)
                 in_horiz_name = self.in_crs.horizontal.name
                 out_horiz_name = self.out_crs.horizontal.name
                 if in_horiz_name != gframe:  # need to transform these points to use the geoid coordinate system
                     new_x, new_y, new_z = self._transform_to_geoid_frame(x, y, z, override_frame=gframe)
                 else:
                     new_x, new_y, new_z = x, y, z
-                pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, self.vdatum.vdatum_version)
-                if pipeline:  # do the vertical transformation if there is a valid one for this operation
+                pipeline, valid_pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, geoid_name)
+                if not valid_pipeline:
+                    self.log_info(f'Pipeline {pipeline} for transformation from {self.in_crs.to_wkt()} to {self.out_crs.to_wkt()} in region {region} was flagged as invalid.  Missing support files?')
+                    continue
+                elif pipeline:  # do the vertical transformation if there is a valid one for this operation
                     new_x, new_y, new_z = self._run_pipeline(new_x, new_y, pipeline, z=new_z)
                     self.pipelines.append(pipeline)
+                    valid_regions.append(region)
                 if out_horiz_name == in_horiz_name:  # we can use the original xy as the input/output horiz datums are the same
                     new_x, new_y = x, y
                 elif out_horiz_name == gframe:  # we can use the transformed geoid frame xy as the output and gframe datums are the same
@@ -445,7 +434,6 @@ class VyperCore:
                     else:  # special case, if output is to the ellipse, we need to do a 3d transformation to account for vertical differences in ellipses
                         new_x, new_y, diffz = self._transform_to_geoid_frame(x, y, z, override_frame=self.out_crs.horizontal.to_epsg())
                         new_z = new_z - (z - diffz)
-
                 # areas outside the coverage of the vert shift are inf
                 valid_index = ~np.isinf(new_z)
                 ans_x[valid_index] = new_x[valid_index]
@@ -455,15 +443,22 @@ class VyperCore:
                     ans_unc[valid_index] = self._get_output_uncertainty(region)
                 if include_region_index:
                     ans_region[valid_index] = cnt
-            self.log_info(f'transformed {len(ans_z)} points from {self.in_crs.vyperdatum_str} to {self.out_crs.vyperdatum_str}')
+            # update the regions to those that passed
+            if len(valid_regions) > 0:
+                self._regions = valid_regions
+                self.in_crs.update_regions(valid_regions)
+                self.out_crs.update_regions(valid_regions)
+                self.log_info(f'transformed {len(ans_z)} points from {self.in_crs.vyperdatum_str} to {self.out_crs.vyperdatum_str}')
+            else:
+                self.log_error('No valid region found with the specified datum transformation. Unable to perform transformation', ValueError)
             return ans_x, ans_y, np.round(ans_z, 3), ans_unc, ans_region
         else:
             self.log_error('No regions specified, unable to transform points', ValueError)
 
 
-class VdatumData:
+class DatumData:
     """
-    Gets and maintains VDatum information for use with Vyperdatum.
+    Gets and maintains datum information for use with Vyperdatum.
     
     The VDatum path location is stored in a config file which is in the user's directory.  Use configparser to sync
     self._config and the ini file.
@@ -480,6 +475,8 @@ class VdatumData:
         self.uncertainties = {}  # dict of file names to uncertainties for each grid
         self.vdatum_path = ''  # path to the parent vdatum folder
         self.vdatum_version = ''
+        self.extended_region = {}  # dict of region to custom region data from the custom region's config file
+        self.extended_region_lookup = {}  # dict of extended region path to list of regions associated with that path
 
         self._config = {'vdatum_path': ''}  # dict of all the settings
         self.config_path_file = ''  # path to the config file that maintains the settings between runs
@@ -490,6 +487,7 @@ class VdatumData:
         else:
             self.set_vdatum_directory(self.vdatum_path)
         self.get_vdatum_version()
+        self.set_other_paths(self._config)
 
     def set_config(self, ky: str, value: Any):
         """
@@ -523,6 +521,37 @@ class VdatumData:
                 print('WARNING: Unable to set {} in config file {}'.format(ky, self.config_path_file))
         if ky == 'vdatum_path':
             self.vdatum_path = value
+
+    def remove_from_config(self, ky: str):
+        """
+        Drop the given key from the _config attribute.  Use this instead of dealing with _config directly, will set both
+        the _config key/value and the configparser ini file.
+
+        Parameters
+        ----------
+        ky
+            key to remove from the dict
+        """
+
+        try:
+            config = configparser.ConfigParser()
+            config.read(self.config_path_file)
+            for k, v in self._config.items():
+                config['Default'][k] = v
+
+            if ky in self._config:
+                self._config.pop(ky)
+            if ky in config['Default']:
+                config['Default'].pop(ky)
+                with open(self.config_path_file, 'w') as configfile:
+                    config.write(configfile)
+        except:
+            # get a number of exceptions here when reading and writing to the config file in multiprocessing
+            try:
+                if self.parent:
+                    self.parent.log_warning('Unable to remove {} from config file {}'.format(ky, self.config_path_file))
+            except AttributeError:  # logger not initialized yet
+                print('WARNING: Unable to remove {} from config file {}'.format(ky, self.config_path_file))
 
     def _get_stored_vdatum_config(self):
         """
@@ -588,6 +617,7 @@ class VdatumData:
         dict
             settings within the file
         """
+
         try:
             config_folder, config_file = os.path.split(self.config_path_file)
             if not os.path.exists(config_folder):
@@ -610,6 +640,7 @@ class VdatumData:
         Called when self.settings['vdatum_directory'] is updated.  We find all the grids and polygons in the vdatum
         directory and save the dicts to the attributes in this class.
         """
+
         self.set_config('vdatum_path', vdatum_path)
         if not os.path.exists(self.vdatum_path):
             raise ValueError(f'VDatum is not found at the provided path: {self.vdatum_path}')
@@ -620,11 +651,102 @@ class VdatumData:
             datadir.append_data_dir(vdatum_path)
     
         # also want to populate grids and polygons with what we find
-        self.grid_files, self.regions = get_vdatum_grid_list(vdatum_path)
-        self.polygon_files = get_vdatum_region_polygons(vdatum_path)
+        self.grid_files, self.regions = get_grid_list(vdatum_path)
+        self.polygon_files = get_region_polygons(vdatum_path)
         self.uncertainties = get_vdatum_uncertainties(vdatum_path)
 
         self.vdatum_path = self._config['vdatum_path']
+
+    def set_external_region_directory(self, external_path: str, external_key: str = 'external_path'):
+        """
+        Set a new external region directory, a directory that can hold custom region files that are outside the base vdatum
+        folders.  Ensure you use a '*****_path' style key such that the reading other paths method will detect it.
+
+        Parameters
+        ----------
+        external_path
+            path to the directory containing the custom region folders
+        external_key
+            key to lookup the folder group, must have a _path at the end of the key
+        """
+
+        assert external_key.endswith('_path')
+        self.set_config(external_key, external_path)
+        self.set_other_paths({external_key: external_path})
+        try:
+            if self.parent:
+                self.parent.log_info(f'Added {len(self.extended_region_lookup[external_key])} new region(s) from {external_path}')
+        except AttributeError:  # logger not initialized yet
+            print(f'Added {len(self.extended_region_lookup[external_key])} new regions from {external_path}')
+
+    def remove_external_region_directory(self, external_key: str):
+        """
+        Users add a new external region directory using set_external_region_directory.  To remove this directory from
+        the datum_data class, we need to remove the key from the config file/config data, and also remove any associated
+        regions.
+
+        Parameters
+        ----------
+        external_key
+            key to lookup the folder group, must have a _path at the end of the key
+        """
+
+        if external_key in self._config:
+            self.remove_from_config(external_key)
+        if external_key in self.extended_region_lookup:
+            regions = self.extended_region_lookup.pop(external_key)
+            num_regions = len(regions)
+            for region in regions:
+                self.regions.remove(region)
+                self.polygon_files.pop(region)
+                self.extended_region.pop(region)
+                if region in self.uncertainties:
+                    self.uncertainties.pop(region)
+            try:
+                if self.parent:
+                    self.parent.log_info(f'Removed {num_regions} region(s) associated with {external_key}')
+            except AttributeError:  # logger not initialized yet
+                print(f'Removed {num_regions} region(s) associated with {external_key}')
+
+    def set_other_paths(self, config: dict):
+        """
+        Get other paths (as *_path) from the config and add to proj path. 
+        """
+
+        self.extended_region = {}
+        orig_proj_paths = datadir.get_data_dir()
+        for entry in config.keys():
+            if entry.endswith('_path') and entry != 'vdatum_path':
+                new_path = config[entry]
+                if os.path.exists(new_path):
+                    if new_path not in orig_proj_paths:
+                        datadir.append_data_dir(new_path)
+                    other_grids, other_regions = get_grid_list(new_path)
+                    self.extended_region_lookup[entry] = []
+                    for region in other_regions:
+                        valid_region = False
+                        polygon_file = os.path.join(new_path,region,region + '.gpkg')
+                        if os.path.exists(polygon_file):
+                            config_path = os.path.join(new_path,region,region + '.config')
+                            if os.path.exists(polygon_file):
+                                new_region_info = read_regional_config(config_path)
+                                if 'reference_frame' in new_region_info and 'reference_geoid' in new_region_info:
+                                    valid_region = True
+                        if valid_region:
+                            self.extended_region_lookup[entry].append(region)
+                            if region in self.regions:  # ensure the region is only added once
+                                self.regions.remove(region)
+                            self.regions.append(region)
+                            self.polygon_files[region] = polygon_file
+                            self.extended_region[region] = new_region_info
+                            if 'uncertainty_tss' in new_region_info:
+                                self.uncertainties[region] = {'tss': new_region_info['uncertainty_tss'],
+                                                              'mhhw': new_region_info['uncertainty_mhhw'],
+                                                              'mhw': new_region_info['uncertainty_mhw'],
+                                                              'mlw': new_region_info['uncertainty_mlw'],
+                                                              'mllw': new_region_info['uncertainty_mllw'],
+                                                              'dtl': new_region_info['uncertainty_dtl'],
+                                                              'mtl': new_region_info['uncertainty_mtl']}
 
     def get_vdatum_version(self):
         """
@@ -632,6 +754,7 @@ class VdatumData:
         will be encoded in a new vdatum_vyperversion.txt file that we can read instead so that we don't have to do the
         lengthy check.
         """
+
         if not os.path.exists(self.vdatum_path):
             raise ValueError(f'VDatum is not found at the provided path: {self.vdatum_path}')
         vyperversion_file = os.path.join(self.vdatum_path, 'vdatum_vyperversion.txt')
@@ -651,9 +774,61 @@ class VdatumData:
             except AttributeError:  # logger not initialized yet
                 print(f'Generated new version file: {vyperversion_file}')
         self.vdatum_version = vversion
+        
+    def get_geoid_name(self, region_name: str, vdatum_version: str = None) -> str:
+        """
+        Return the geoid path from the vdatum version lookup matching the given version for the given region
+
+        Parameters
+        ----------
+        region_name
+            name of the region that we want the geoid for
+        vdatum_version
+            vdatum version string for the vdatum version we are interested in
+
+        Returns
+        -------
+        str
+            geoid name, ex: r'core\geoid12b\g2012bu0.gtx'
+        """
+        
+        if not vdatum_version:
+            vdatum_version = self.vdatum_version
+        try:
+            geoid_name = vdatum_geoidlookup[vdatum_version][region_name]
+        except KeyError:
+            geoid_name = self.extended_region[region_name]['reference_geoid']
+        
+        return geoid_name
+    
+    def get_geoid_frame(self, region_name: str, vdatum_version: str = None) -> str:
+        """
+        Return the geoid reference frame from the vdatum version lookup matching the given version for the given region
+
+        Parameters
+        ----------
+        region_name
+            name of the region that we want the geoid for
+        vdatum_version
+            vdatum version string for the vdatum version we are interested in
+
+        Returns
+        -------
+        str
+            reference frame used in the given region, ex: NAD83(2011)
+        """
+
+        if not vdatum_version:
+            vdatum_version = self.vdatum_version
+        try:
+            geoid_frame = geoid_frame_lookup[vdatum_geoidlookup[vdatum_version][region_name]]
+        except KeyError:
+            geoid_frame = self.extended_region[region_name]['reference_frame']
+
+        return geoid_frame
 
 
-def get_vdatum_grid_list(vdatum_directory: str):
+def get_grid_list(vdatum_directory: str):
     """
     Search the vdatum directory to find all gtx files
 
@@ -690,14 +865,17 @@ def get_vdatum_grid_list(vdatum_directory: str):
     return grids, regions
 
 
-def get_vdatum_region_polygons(vdatum_directory: str):
+def get_region_polygons(datums_directory: str, extension: str = 'kml') -> dict:
     """"
-    Search the vdatum directory to find all kml files
+    Search the datums directory to find all geometry files.  All datums are assumed to reside in a subfolder.
 
     Parameters
     ----------
-    vdatum_directory
+    datums_directory : str
         absolute folder path to the vdatum directory
+        
+    extension : str
+        the geometry file extension to search for
 
     Returns
     -------
@@ -705,16 +883,16 @@ def get_vdatum_region_polygons(vdatum_directory: str):
         dictionary of {kml name: kml path, ...}
     """
 
-    search_path = os.path.join(vdatum_directory, '*/*.kml')
-    kml_list = glob.glob(search_path)
-    if len(kml_list) == 0:
-        errmsg = f'No kml files found in the provided VDatum directory: {vdatum_directory}'
+    search_path = os.path.join(datums_directory, f'*/*.{extension}')
+    geom_list = glob.glob(search_path)
+    if len(geom_list) == 0:
+        errmsg = f'No {extension} files found in the provided directory: {datums_directory}'
         print(errmsg)
     geom = {}
-    for kml in kml_list:
-        kml_path, kml_file = os.path.split(kml)
-        root_dir, kml_name = os.path.split(kml_path)
-        geom[kml_name] = kml
+    for filename in geom_list:
+        geom_path, geom_file = os.path.split(filename)
+        root_dir, geom_name = os.path.split(geom_path)
+        geom[geom_name] = filename
     return geom
 
 
@@ -735,7 +913,7 @@ def get_vdatum_uncertainties(vdatum_directory: str):
     acc_file = os.path.join(vdatum_directory, 'vdatum_sigma.inf')
 
     # use the polygon search to get a dict of all grids quickly
-    grid_dict = get_vdatum_region_polygons(vdatum_directory)
+    grid_dict = get_region_polygons(vdatum_directory)
     for k in grid_dict.keys():
         grid_dict[k] = {'tss': 0, 'mhhw': 0, 'mhw': 0, 'mlw': 0, 'mllw': 0, 'dtl': 0, 'mtl': 0}
     # add in the geoids we care about
@@ -771,6 +949,33 @@ def get_vdatum_uncertainties(vdatum_directory: str):
                             else:
                                 print(f'No match for vdatum_sigma entry {data_entry}!')
     return grid_dict
+
+
+def read_regional_config(config_path: str) -> dict:
+    """
+    read the config for the extended datum region and return the information.  All sections in the config
+    will be removed so no duplicative keys should exist between sections.
+
+    Parameters
+    ----------
+    config_path : str
+        A config file contining the information for the region.
+
+    Returns
+    -------
+    dict
+        key / value pairs for the region inforamtion.
+
+    """
+    settings = {}
+    config_file = configparser.ConfigParser()
+    config_file.read(config_path)
+    sections = config_file.sections()
+    for section in sections:
+        config_file_section = config_file[section]
+        for key in config_file_section:
+            settings[key] = config_file_section[key]
+    return settings
 
 
 class StdErrFilter(logging.Filter):

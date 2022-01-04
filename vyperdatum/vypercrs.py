@@ -8,12 +8,13 @@ horiz later.  How do we handle these custom vert transformations though?  We hav
 something we can directly use in pyproj.  We have to build our own pipeline from a source custom vert to a source custom
 vert.
 """
+
+import os
 from typing import Union
 from pyproj.crs import CRS, CompoundCRS, VerticalCRS as pyproj_VerticalCRS
-
+import pyproj.datadir
 from vyperdatum.pipeline import get_regional_pipeline, datum_definition
 from vyperdatum.__version__ import __version__
-from vyperdatum.vdatum_validation import vdatum_geoidlookup
 
 
 NAD83_2D = 6318
@@ -53,6 +54,8 @@ geoid_possibilities = ['geoid12b', 'xgeoid16b', 'xgeoid17b', 'xgeoid18b', 'xgeoi
 frame_to_3dcrs = {CRS.from_epsg(NAD83_2D).name: CRS.from_epsg(NAD83_3D),
                   CRS.from_epsg(ITRF2008_2D).name: CRS.from_epsg(ITRF2008_3D),
                   CRS.from_epsg(ITRF2014_2D).name: CRS.from_epsg(ITRF2014_3D)}
+
+valid_grid_extensions = ['.tiff', '.tif', '.gtx']
 
 
 class CoordinateSystem:
@@ -406,11 +409,13 @@ class VerticalCRS:
             vdatversion_start = remarks.find('vdatum=')
             if vdatversion_start != -1:
                 strt = vdatversion_start + len('vdatum=')
-                vdatversion = remarks[strt:]
+                end = remarks.find(',', strt)
+                vdatversion = remarks[strt:end]
             version_start = remarks.find('vyperdatum=')
             if version_start != -1:
                 strt = version_start + len('vyperdatum=')
-                version = remarks[strt:]
+                end = remarks.find(',', strt)
+                version = remarks[strt:end]
             datum_start = remarks.find('base_datum=')
             if datum_start != -1:
                 strt = datum_start + len('base_datum=') + 1
@@ -536,7 +541,7 @@ class VerticalPipelineCRS(VerticalCRS):
                    proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx step proj=vgridshift grids=REGION\\tss.gtx"]]
     """
 
-    def __init__(self, vdatum_version_string: str = '', vert_datum_name: str = '', coordinate_type: str = 'vertical',
+    def __init__(self, datum_data: object = None, vert_datum_name: str = '', coordinate_type: str = 'vertical',
                  coordinate_axis: tuple = ('height',), coordinate_units: str = 'm', horiz_wkt: str = None):
 
         super().__init__()
@@ -549,7 +554,11 @@ class VerticalPipelineCRS(VerticalCRS):
         self.regions = []
         self.pipelines = []
         self.version = ''
-        self.vdatum_version_string = vdatum_version_string
+        self.datum_data = datum_data
+        if datum_data:
+            self.vdatum_version_string = datum_data.vdatum_version
+        else:
+            self.vdatum_version_string = ''
 
     @property
     def pipeline_string(self):
@@ -575,8 +584,7 @@ class VerticalPipelineCRS(VerticalCRS):
     def base_datum(self):
         fmt_datums = '['
         if self.regions:
-            geoids = [vdatum_geoidlookup[self.vdatum_version_string][regi] for regi in self.regions]
-            basedatums = [geoid_frame_lookup[gdat] for gdat in geoids]
+            basedatums = [self.datum_data.get_geoid_frame(regi, self.vdatum_version_string) for regi in self.regions]
             for cnt, ppe in enumerate(basedatums):
                 if cnt >= 1:
                     fmt_datums += ','
@@ -614,7 +622,8 @@ class VerticalPipelineCRS(VerticalCRS):
         self.coordinate_type = self._wkt_search_data(wkt_string, 'CS[')
         self.coordinate_axis = (self._wkt_search_string(wkt_string, 'AXIS['),)
         self.coordinate_units = self._wkt_search_string(wkt_string, 'LENGTHUNIT[')
-        self.regions, self.pipelines, self.vdatum_version_string, self.version, _ = self._wkt_pipeline_remarks(wkt_string)
+        if 'REMARK[' in wkt_string:
+            self.regions, self.pipelines, self.vdatum_version_string, self.version, _ = self._wkt_pipeline_remarks(wkt_string)
 
     def to_pretty_wkt(self):
         wktstr = f'VERTCRS["{self.datum_name}",\n'
@@ -654,8 +663,9 @@ class VyperPipelineCRS:
     and the vypercrs.VerticalPipelineCRS object.
     """
     
-    def __init__(self, vdatum_version_string: str, new_crs: Union[str, int, tuple] = None, regions: [str] = None):
-        self.vdatum_version = vdatum_version_string
+    def __init__(self, datum_data: object, new_crs: Union[str, int, tuple] = None, regions: [str] = None):
+        self.datum_data = datum_data
+        self.vdatum_version = datum_data.vdatum_version
         self._is_valid = False
         self._ccsr = None
         self._vert = None
@@ -712,7 +722,7 @@ class VyperPipelineCRS:
                 if entry.lower() in datum_definition:
                     if entry == 'ellipse' and self._hori:
                         entry = f'{self._hori.name}_ellipse'
-                    tmp_crs = VerticalPipelineCRS(vdatum_version_string=self.vdatum_version, vert_datum_name=entry)
+                    tmp_crs = VerticalPipelineCRS(datum_data=self.datum_data, vert_datum_name=entry)
                     crs_str = tmp_crs.to_wkt()
                 crs = CRS.from_wkt(crs_str)
                 self._set_single(crs)
@@ -780,7 +790,7 @@ class VyperPipelineCRS:
                 self._hori = CRS.from_epsg(ITRF2014_2D)
             else:
                 raise NotImplementedError(f'A 3D coordinate system was provided that is not yet implemented: {crs.to_epsg()}')
-            self._vert = VerticalPipelineCRS(vdatum_version_string=self.vdatum_version,
+            self._vert = VerticalPipelineCRS(datum_data=self.datum_data,
                                              vert_datum_name=f'{self._hori.name}_ellipse').to_crs()
             new_vert = True
         elif crs.is_vertical:                
@@ -790,7 +800,7 @@ class VyperPipelineCRS:
             self._hori = crs
         if new_vert:
             # get the regions from the wkt if available
-            tmp_vert = VerticalPipelineCRS()
+            tmp_vert = VerticalPipelineCRS(datum_data=self.datum_data)
             tmp_vert.from_wkt(self._vert.to_wkt())
             if len(tmp_vert.regions) > 0:
                 self._regions = tmp_vert.regions
@@ -807,7 +817,7 @@ class VyperPipelineCRS:
 
         """
         if self._vert and self._regions:
-            self._vert, self._vyperdatum_str, self._pipeline_str = build_valid_vert_crs(self._vert, self._regions, self.vdatum_version)
+            self._vert, self._vyperdatum_str, self._pipeline_str = build_valid_vert_crs(self._vert, self._regions, self.datum_data)
         if self._hori and self._vert and self._valid_vert():
             compound_name = f'{self._hori.name} + {self._vert.name}'
             self.ccrs = CompoundCRS(compound_name, [self._hori, self._vert])
@@ -880,7 +890,7 @@ class VyperPipelineCRS:
             return None
 
 
-def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str], vdatum_version_string: str) -> (pyproj_VerticalCRS, str, str):
+def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str], datum_data: object) -> (pyproj_VerticalCRS, str, str):
     """
     Add the regions and pipeline to the remarks section of the wkt for the
     provided pyproj VerticalCRS object.
@@ -904,18 +914,18 @@ def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str], vdatum_version
     """
     datum = guess_vertical_datum_from_string(crs.name)
     pipeline = None
-    new_crs = VerticalPipelineCRS()
+    new_crs = VerticalPipelineCRS(datum_data = datum_data)
     new_crs.from_wkt(crs.to_wkt())
     if datum:
         for region in regions:
             if datum == 'ellipse':
                 new_pipeline = '[]'
             else:
-                new_pipeline = get_regional_pipeline('ellipse', datum, region, vdatum_version_string)
+                geoid_name = datum_data.get_geoid_name(region)
+                new_pipeline = get_regional_pipeline('ellipse', datum, region, geoid_name)
             if new_pipeline:
                 new_crs.add_pipeline(new_pipeline, region)
         pipeline = new_crs.pipeline_string
-        new_crs.vdatum_version_string = vdatum_version_string
         if datum == 'geoid':
             geoids = [gd for gd in geoid_possibilities if pipeline.find(gd) != -1]
             if len(geoids) > 1:
@@ -967,7 +977,7 @@ def guess_vertical_datum_from_string(vertical_datum_name: str) -> str:
 
 
 def get_transformation_pipeline(in_crs: Union[VyperPipelineCRS, VerticalPipelineCRS], out_crs: Union[VyperPipelineCRS, VerticalPipelineCRS],
-                                region: str, vdatum_version_string: str):
+                                region: str, geoid_name: str) -> [str, bool]:
     """
     Use the datum name in the input/output crs and the region specified to build the pipeline between the two
     provided CRS.  This means that the datum names of the two crs must be in the datum_definition dictionary.
@@ -982,18 +992,22 @@ def get_transformation_pipeline(in_crs: Union[VyperPipelineCRS, VerticalPipeline
         VerticalPipelineCRS object representing the end point in the transformation
     region
         name of the vdatum folder for the region of interest, ex: NYNJhbr34_8301
-    vdatum_version_string
-        string version number for vdatum, used in the region/geoid lookup
+    geoid_name
+        name of the geoid used in the pipeline
 
     Returns
     -------
     str
-        PROJ pipeline string specifying the vertical transformation between source incrs and outcrs
+        PROJ pipeline string specifying the vertical transformation between source incrs and outcrs.
+        If the pipeline is a no operation None is returned.
+        If the pipeline is determined to be invalide for a a region 'invalid' is returned for the pipeline.
+    bool
+        If the pipeline is considered a valid pipeline
     """
-
-    if type(in_crs) == VyperPipelineCRS:
+    
+    if isinstance(in_crs, VyperPipelineCRS):
         in_def_str = in_crs.vyperdatum_str            
-    elif type(in_crs) == VerticalPipelineCRS:
+    elif isinstance(in_crs, VerticalPipelineCRS):
         in_def_str = in_crs.pipeline_datum_name().lower()
     else:
         raise ValueError(f'In vertical crs datum object type unknown: {type(in_crs)}')
@@ -1003,9 +1017,9 @@ def get_transformation_pipeline(in_crs: Union[VyperPipelineCRS, VerticalPipeline
     if region not in in_crs.regions and in_def_str != 'ellipse':
         raise NotImplementedError(f'Unable to build pipeline, region not in input CRS: {region}')
 
-    if type(out_crs) == VyperPipelineCRS:
+    if isinstance(out_crs, VyperPipelineCRS):
         out_def_str = out_crs.vyperdatum_str
-    elif type(out_crs) == VerticalPipelineCRS:
+    elif isinstance(out_crs, VerticalPipelineCRS):
         out_def_str = out_crs.pipeline_datum_name().lower()
     else:
         raise ValueError(f'Out vertical crs datum object type unknown: {type(out_crs)}')
@@ -1013,8 +1027,59 @@ def get_transformation_pipeline(in_crs: Union[VyperPipelineCRS, VerticalPipeline
         raise NotImplementedError(f'Unable to build pipeline, datum name not in the datum definition dict, {out_def_str} not in {list(datum_definition.keys())}')
     if region not in out_crs.regions and out_def_str != 'ellipse':
         raise NotImplementedError(f'Unable to build pipeline, region not in output CRS: {region}')
+    pipeline = get_regional_pipeline(in_def_str, out_def_str, region, geoid_name)
+    valid_pipeline = True
+    if pipeline:
+        valid_pipeline, pipeline = is_valid_regional_pipeline(pipeline)
+    return pipeline, valid_pipeline
 
-    return get_regional_pipeline(in_def_str, out_def_str, region, vdatum_version_string)
+
+def is_valid_regional_pipeline(pipeline: str) -> bool:
+    """
+    Confirm all files to perform transformation are available to pyproj.  This function also corrects the pipeline
+    for the correct extension that matches the grid as it exists on disk.
+
+    Parameters
+    ----------
+    pipeline
+        pipeline string that we want to validate
+
+    Returns
+    -------
+    bool
+        True if the pipeline is valid
+    str
+        corrected pipeline string if we found that the default extension (gtx) was incorrect
+    """
+
+    parts = pipeline.split()
+    grid_list = []
+    for part in parts:
+        if part.startswith('grids='):
+            prefix, grid = part.split('=')
+            grid_list.append(grid)
+    paths = pyproj.datadir.get_data_dir()
+    path_list = paths.split(';')
+
+    for grid in grid_list:
+        valid = False
+        for path in path_list:
+            full_path = os.path.normpath(os.path.join(path, grid))
+            if os.path.exists(full_path):
+                valid = True
+                break
+        if not valid:  # try with one of the other acceptable extensions
+            cur_grid, cur_ext = os.path.splitext(grid)
+            for valid_ext in valid_grid_extensions:
+                if valid_ext == cur_ext:
+                    continue
+                for path in path_list:
+                    full_path = os.path.normpath(os.path.join(path, cur_grid + valid_ext))
+                    if os.path.exists(full_path):  # this extension matches the actual grid
+                        pipeline = pipeline.replace(grid, cur_grid + valid_ext)  # replace the pipeline with the new extension
+                        valid = True
+                        break
+    return valid, pipeline
 
 
 def crs_is_compound(my_crs: CRS):
@@ -1035,23 +1100,3 @@ def crs_is_compound(my_crs: CRS):
             return True
     return False
 
-
-if __name__ == '__main__':
-    vs = VerticalPipelineCRS(vdatum_version_string='vdatum_4.1.2_20201203', vert_datum_name='NOAA Chart Datum')
-    vs.add_pipeline(
-        "proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx step proj=vgridshift grids=REGION\\tss.gtx",
-        "TXlagmat01_8301")
-    vs.add_pipeline(
-        "proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx step proj=vgridshift grids=REGION\\tss.gtx",
-        "TXlaggal01_8301")
-
-    vstwo = VerticalPipelineCRS(vdatum_version_string='vdatum_4.1.2_20201203', vert_datum_name='NAD83_ellipse')
-    vstwo.add_pipeline(
-        "proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx step proj=vgridshift grids=REGION\\tss.gtx proj=vgridshift grids=regionname\\mllw.gtx",
-        "TXlagmat01_8301")
-    vstwo.add_pipeline(
-        "proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx step proj=vgridshift grids=REGION\\tss.gtx proj=vgridshift grids=regionname\\mllw.gtx",
-        "TXlaggal01_8301")
-
-    print(vs.to_pretty_wkt())
-    print(get_transformation_pipeline(vs, vstwo, "TXlagmat01_8301", 'vdatum_4.1.2_20201203'))

@@ -9,12 +9,12 @@ vc = VyperCore()  # run this once so that the path to the grids is added in pypr
 
 
 def test_get_regional_pipeline_upperlower():
-    pipe = get_regional_pipeline('Ellipse', 'TSS', 'CAORblan01_8301', 'vdatum_4.1.2_20201203')
-    assert pipe == get_regional_pipeline('ellipse', 'tss', 'CAORblan01_8301', 'vdatum_4.1.2_20201203')
+    pipe = get_regional_pipeline('Ellipse', 'TSS', 'CAORblan01_8301', r'core\geoid12b\g2012bu0.gtx')
+    assert pipe == get_regional_pipeline('ellipse', 'tss', 'CAORblan01_8301', r'core\geoid12b\g2012bu0.gtx')
 
 
 def test_get_regional_pipeline_nad83_tss():
-    pipe = get_regional_pipeline('ellipse', 'TSS', 'CAORblan01_8301', 'vdatum_4.1.2_20201203')
+    pipe = get_regional_pipeline('ellipse', 'TSS', 'CAORblan01_8301', r'core\geoid12b\g2012bu0.gtx')
     assert pipe.count('+step +proj') == 1
     assert pipe.count('+step +inv +proj') == 1
     assert pipe.count('gtx') == 2
@@ -24,7 +24,7 @@ def test_get_regional_pipeline_nad83_tss():
 
 
 def test_get_regional_pipeline_tss_nad83():
-    pipe = get_regional_pipeline('tss', 'ellipse', 'CAORblan01_8301', 'vdatum_4.1.2_20201203')
+    pipe = get_regional_pipeline('tss', 'ellipse', 'CAORblan01_8301', r'core\geoid12b\g2012bu0.gtx')
     assert pipe.count('+step +inv +proj') == 1
     assert pipe.count('+step +proj') == 1
     assert pipe.count('gtx') == 2
@@ -34,7 +34,7 @@ def test_get_regional_pipeline_tss_nad83():
 
 
 def test_get_regional_pipeline_mllw():
-    pipe = get_regional_pipeline('ellipse', 'mllw', 'CAORblan01_8301', 'vdatum_4.1.2_20201203')
+    pipe = get_regional_pipeline('ellipse', 'mllw', 'CAORblan01_8301', r'core\geoid12b\g2012bu0.gtx')
     assert pipe.count('+step +proj') == 2
     assert pipe.count('+step +inv +proj') == 1
     assert pipe.count('gtx') == 3
@@ -45,7 +45,7 @@ def test_get_regional_pipeline_mllw():
 
 
 def test_get_regional_pipeline_mhw():
-    pipe = get_regional_pipeline('ellipse', 'mhw', 'CAORblan01_8301', 'vdatum_4.1.2_20201203')
+    pipe = get_regional_pipeline('ellipse', 'mhw', 'CAORblan01_8301', r'core\geoid12b\g2012bu0.gtx')
     assert pipe.count('+step +proj') == 2
     assert pipe.count('+step +inv +proj') == 1
     assert pipe.count('gtx') == 3
@@ -56,7 +56,7 @@ def test_get_regional_pipeline_mhw():
 
 
 def test_get_regional_pipeline_null():
-    pipe = get_regional_pipeline('mllw', 'mllw', 'CAORblan01_8301', 'vdatum_4.1.2_20201203')
+    pipe = get_regional_pipeline('mllw', 'mllw', 'CAORblan01_8301', r'core\geoid12b\g2012bu0.gtx')
     assert pipe is None
 
 

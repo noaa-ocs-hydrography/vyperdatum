@@ -6,18 +6,27 @@ from vyperdatum.vdatum_validation import vdatum_answers
 
 gvc = VyperCore()
 data_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
-vdatum_answer = vdatum_answers[gvc.vdatum.vdatum_version]
+vdatum_answer = vdatum_answers[gvc.datum_data.vdatum_version]
 
 
 def test_core_setup():
     # these tests assume you have the vdatum path setup in VyperCore
     # first time, you need to run it with the path to the vdatum folder, vc = VyperCore('path\to\vdatum')
     vc = VyperCore()
-    assert os.path.exists(vc.vdatum.vdatum_path)
-    assert vc.vdatum.grid_files
-    assert vc.vdatum.polygon_files
-    assert vc.vdatum.vdatum_version
-    assert vc.vdatum.regions
+    assert os.path.exists(vc.datum_data.vdatum_path)
+    assert vc.datum_data.grid_files
+    assert vc.datum_data.polygon_files
+    assert vc.datum_data.vdatum_version
+    assert vc.datum_data.regions
+
+
+def test_read_regional_config():
+    confile = os.path.join(data_folder, 'NBS_NYNJgap01_8301.config')
+    data = read_regional_config(confile)
+    expected_data = {'reference_frame': 'NAD83(2011)', 'reference_geoid': 'core\\geoid12b\\g2012bu0.gtx',
+                     'uncertainty_tss': '0.0', 'uncertainty_mhhw': '0.0', 'uncertainty_mhw': '0.0', 'uncertainty_mlw': '0.0',
+                     'uncertainty_mllw': '0.0', 'uncertainty_dtl': '0.0', 'uncertainty_mtl': '0.0'}
+    assert data == expected_data
 
 
 def test_regions():

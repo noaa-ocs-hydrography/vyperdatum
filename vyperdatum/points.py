@@ -38,7 +38,6 @@ class VyperPoints(VyperCore):
         output_datum
             a string identifier (ex: 'nad83', 'mllw', or a wkt) or an epsg code for the vertical datum
             and optionally (within a tuple)
-        
         x
             longitude of the input data
         y
@@ -109,6 +108,7 @@ def sample_array(min_x: float, max_x: float, min_y: float, max_y: float, samplin
     """
     Build coordinates for a sampled grid using the extents of the main grid.  The new grid will have the same extents,
     but be sampled at sampling_distance.
+
     Parameters
     ----------
     min_x
@@ -123,6 +123,7 @@ def sample_array(min_x: float, max_x: float, min_y: float, max_y: float, samplin
         distance in grid units to sample
     center
         optional, if True returns the sampled grid coordinates at the center of the sampled grid, rather than the edges
+
     Returns
     -------
     np.ndarray
@@ -134,6 +135,7 @@ def sample_array(min_x: float, max_x: float, min_y: float, max_y: float, samplin
     np.array
         1d array of the y values for one column of the grid, i.e. the y range of the grid
     """
+
     # buffer out so that points do not lie on boundaries of bins
     min_x -= sampling_distance
     max_x += sampling_distance
