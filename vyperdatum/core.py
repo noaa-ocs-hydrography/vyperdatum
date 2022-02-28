@@ -1164,11 +1164,11 @@ def vertical_datum_to_wkt(datum_identifier: str, projcrs: int, min_lon: float, m
         except pyproj.exceptions.CRSError:
             raise ValueError(f'vertical_datum_to_wkt: WARNING: unable to resolve HORIZONTAL={projcrs}, VERTICAL={datum_identifier}')
     else:
-            cs = VyperPipelineCRS(vc.datum_data)
-            cs.set_crs('ellipse')
-            cs.set_crs(projcrs)
-            wktstring = cs._vert.to_wkt()
-            if 'VDATUM["ellipse"]' not in wktstring:
-                raise ValueError('datum_to_wkt: expected VDATUM["ellipse"] in datum_identifier=ellipse WKT string, did not find it')
-            wktstring = wktstring.replace('VDATUM["ellipse"]', f'VDATUM["{cs._hori.name} + {cs._vert.name}"]')
-            return wktstring
+        cs = VyperPipelineCRS(vc.datum_data)
+        cs.set_crs('ellipse')
+        cs.set_crs(projcrs)
+        wktstring = cs._vert.to_wkt()
+        if 'VDATUM["ellipse"]' not in wktstring:
+            raise ValueError('datum_to_wkt: expected VDATUM["ellipse"] in datum_identifier=ellipse WKT string, did not find it')
+        wktstring = wktstring.replace('VDATUM["ellipse"]', f'VDATUM["{cs._hori.name} + {cs._vert.name}"]')
+        return wktstring
