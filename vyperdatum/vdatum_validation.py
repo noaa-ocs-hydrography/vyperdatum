@@ -13,7 +13,7 @@ vdatum42_20210603 - basically identical to 412, except that the sigma file has z
 '''
 
 
-def print_formatted_dict(vdatum_grid_dict: dict):
+def _print_formatted_dict(vdatum_grid_dict: dict):
     """
     Used to build the hashes dicts seen below, so you get two entries on one line
 
@@ -725,9 +725,9 @@ vdatum_answers = {'vdatum_4.1.2_20201203': {'north_carolina': {'horiz_epsg': 631
                                                                'y_utm': [26918, np.array([3917198.926, 3917187.768, 3917176.609])],
                                                                'z_nad83': np.array([10.5, 11.0, 11.5]),
                                                                'z_navd88': np.array([49.264, 49.764, 50.264]),
-                                                               'z_mllw': np.array([49.393, 49.893, 50.393]),
+                                                               'z_mllw': np.array([-49.393, -49.893, -50.393]),
                                                                'z_mllw_unc': np.array([0.124, 0.124, 0.124]),
-                                                               'z_mhw': np.array([49.227, 49.727, 50.227])},
+                                                               'z_mhw': np.array([-49.227, -49.727, -50.227])},
                                             'texas': {'horiz_epsg': 6318,
                                                       'x': np.array([-95.63490, -95.63480, -95.63470]),
                                                       'y': np.array([28.38690, 28.38680, 28.38670]),
@@ -737,9 +737,9 @@ vdatum_answers = {'vdatum_4.1.2_20201203': {'north_carolina': {'horiz_epsg': 631
                                                       'y_utm': [26915, np.array([3142886.229, 3142874.930, 3142863.631])],
                                                       'z_nad83': np.array([10.5, 11.0, 11.5]),
                                                       'z_navd88': np.array([36.537, 37.037, 37.537]),
-                                                      'z_mllw': np.array([36.694, 37.194, 37.694]),
+                                                      'z_mllw': np.array([-36.694, -37.194, -37.694]),
                                                       'z_mllw_unc': np.array([0.112, 0.112, 0.112]),
-                                                      'z_mhw': np.array([36.226, 36.726, 37.226])},
+                                                      'z_mhw': np.array([-36.226, -36.726, -37.226])},
                                             'california': {'horiz_epsg': 6318,
                                                            'x': np.array([-122.34990, -122.34980, -122.34970]),
                                                            'y': np.array([35.79190, 35.79180, 35.79170]),
@@ -749,9 +749,9 @@ vdatum_answers = {'vdatum_4.1.2_20201203': {'north_carolina': {'horiz_epsg': 631
                                                            'y_utm': [26910, np.array([3961062.442, 3961051.411, 3961040.379])],
                                                            'z_nad83': np.array([10.5, 11.0, 11.5]),
                                                            'z_navd88': np.array([48.868, 49.368, 49.868]),
-                                                           'z_mllw': np.array([48.826, 49.326, 49.826]),
+                                                           'z_mllw': np.array([-48.826, -49.326, -49.826]),
                                                            'z_mllw_unc': np.array([0.078, 0.078, 0.078]),
-                                                           'z_mhw': np.array([47.436, 47.936, 48.436])},
+                                                           'z_mhw': np.array([-47.436, -47.936, -48.436])},
                                             # getting this answer from the vdatum java app was difficult.  I found I had to:
                                             #  - transform NAD83(2011)/NAD83(2011) -> ITRF2008/ITRF2008
                                             #  - transform ITRF2008/ITRF2008 -> ITRF2008/MLLW
@@ -765,18 +765,18 @@ vdatum_answers = {'vdatum_4.1.2_20201203': {'north_carolina': {'horiz_epsg': 631
                                                                  'y_utm': [26908, np.array([6388227.166, 6388215.823, 6388204.480])],
                                                                  'z_nad83': np.array([10.5, 11.0, 11.5]),
                                                                  'z_navd88': np.array([10.348, 10.848, 11.348]),  # using xgeoid17b
-                                                                 'z_mllw': np.array([11.614, 12.114, 12.614]),  # using IGS08
+                                                                 'z_mllw': np.array([-11.614, -12.114, -12.614]),  # using IGS08
                                                                  'z_mllw_unc': np.array([0.19, 0.19, 0.19]),
-                                                                 'z_mhw': np.array([8.959, 9.459, 9.959])},  # using IGS08
+                                                                 'z_mhw': np.array([-8.959, -9.459, -9.959])},  # using IGS08
                                             'rastertest': {'horiz_epsg': 6348,
                                                            'x': np.array([339664.0, 339664.0, 340864.0]),
                                                            'y': np.array([4692852.0, 4689052.0, 4691652.00]),
                                                            'elev': np.array([-10.61, -21.3, -10.560]),
                                                            'added_unc': np.array([0.196, 0.196, 0.196]),
-                                                           'unc': np.array([1.21, 1.43, 12.316812]),
+                                                           'unc': np.array([1.406, 1.626, 12.513]),
                                                            'cont': np.array([124.0, 214.0, 396.0]),
-                                                           'geoid': np.array([-27.5492, -27.6468, -27.526]),
-                                                           'final_mllw': np.array([-39.7732, -50.591, -39.708])}
+                                                           'geoid': np.array([16.914, 6.314, 17.054]),
+                                                           'final_mllw': np.array([-18.553, -7.991, -18.588])}
                                             },
                   'vdatum_4.2_20210603': {'north_carolina': {'horiz_epsg': 6318,
                                                              'x': np.array([-75.73890, -75.73880, -75.73870]),
@@ -787,9 +787,9 @@ vdatum_answers = {'vdatum_4.1.2_20201203': {'north_carolina': {'horiz_epsg': 631
                                                              'y_utm': [26918, np.array([3917198.926, 3917187.768, 3917176.609])],
                                                              'z_nad83': np.array([10.5, 11.0, 11.5]),
                                                              'z_navd88': np.array([49.264, 49.764, 50.264]),
-                                                             'z_mllw': np.array([49.393, 49.893, 50.393]),
+                                                             'z_mllw': np.array([-49.393, -49.893, -50.393]),
                                                              'z_mllw_unc': np.array([0.074, 0.074, 0.074]),
-                                                             'z_mhw': np.array([49.227, 49.727, 50.227])},
+                                                             'z_mhw': np.array([-49.227, -49.727, -50.227])},
                                           'texas': {'horiz_epsg': 6318,
                                                     'x': np.array([-95.63490, -95.63480, -95.63470]),
                                                     'y': np.array([28.38690, 28.38680, 28.38670]),
@@ -799,9 +799,9 @@ vdatum_answers = {'vdatum_4.1.2_20201203': {'north_carolina': {'horiz_epsg': 631
                                                     'y_utm': [26915, np.array([3142886.229, 3142874.930, 3142863.631])],
                                                     'z_nad83': np.array([10.5, 11.0, 11.5]),
                                                     'z_navd88': np.array([36.537, 37.037, 37.537]),
-                                                    'z_mllw': np.array([36.694, 37.194, 37.694]),
+                                                    'z_mllw': np.array([-36.694, -37.194, -37.694]),
                                                     'z_mllw_unc': np.array([0.062, 0.062, 0.062]),
-                                                    'z_mhw': np.array([36.226, 36.726, 37.226])},
+                                                    'z_mhw': np.array([-36.226, -36.726, -37.226])},
                                           'california': {'horiz_epsg': 6318,
                                                          'x': np.array([-122.34990, -122.34980, -122.34970]),
                                                          'y': np.array([35.79190, 35.79180, 35.79170]),
@@ -811,9 +811,9 @@ vdatum_answers = {'vdatum_4.1.2_20201203': {'north_carolina': {'horiz_epsg': 631
                                                          'y_utm': [26910, np.array([3961062.442, 3961051.411, 3961040.379])],
                                                          'z_nad83': np.array([10.5, 11.0, 11.5]),
                                                          'z_navd88': np.array([48.868, 49.368, 49.868]),
-                                                         'z_mllw': np.array([48.826, 49.326, 49.826]),
+                                                         'z_mllw': np.array([-48.826, -49.326, -49.826]),
                                                          'z_mllw_unc': np.array([0.028, 0.028, 0.028]),
-                                                         'z_mhw': np.array([47.436, 47.936, 48.436])},
+                                                         'z_mhw': np.array([-47.436, -47.936, -48.436])},
                                           # getting this answer from the vdatum java app was difficult.  I found I had to:
                                           #  - transform NAD83(2011)/NAD83(2011) -> ITRF2008/ITRF2008
                                           #  - transform ITRF2008/ITRF2008 -> ITRF2008/MLLW
@@ -827,18 +827,18 @@ vdatum_answers = {'vdatum_4.1.2_20201203': {'north_carolina': {'horiz_epsg': 631
                                                                'y_utm': [26908, np.array([6388227.166, 6388215.823, 6388204.480])],
                                                                'z_nad83': np.array([10.5, 11.0, 11.5]),
                                                                'z_navd88': np.array([10.348, 10.848, 11.348]),  # using xgeoid17b
-                                                               'z_mllw': np.array([11.614, 12.114, 12.614]),  # using IGS08
+                                                               'z_mllw': np.array([-11.614, -12.114, -12.614]),  # using IGS08
                                                                'z_mllw_unc': np.array([0.14, 0.14, 0.14]),
-                                                               'z_mhw': np.array([8.959, 9.459, 9.959])},  # using IGS08
+                                                               'z_mhw': np.array([-8.959, -9.459, -9.959])},  # using IGS08
                                           'rastertest': {'horiz_epsg': 6348,
                                                          'x': np.array([339664.0, 339664.0, 340864.0]),
                                                          'y': np.array([4692852.0, 4689052.0, 4691652.00]),
                                                          'elev': np.array([-10.61, -21.3, -10.560]),
                                                          'added_unc': np.array([0.146, 0.146, 0.146]),
-                                                         'unc': np.array([1.21, 1.43, 12.316812]),
+                                                         'unc': np.array([1.356, 1.576, 12.463]),
                                                          'cont': np.array([124.0, 214.0, 396.0]),
-                                                         'geoid': np.array([-27.5492, -27.6468, -27.526]),
-                                                         'final_mllw': np.array([-39.7732, -50.591, -39.708])}
+                                                         'geoid': np.array([16.914, 6.314, 17.054]),
+                                                         'final_mllw': np.array([-18.553, -7.991, -18.588])}
                                           },
                   'vdatum_4.3_20210928': {'north_carolina': {'horiz_epsg': 6318,
                                                              'x': np.array([-75.73890, -75.73880, -75.73870]),
@@ -849,9 +849,9 @@ vdatum_answers = {'vdatum_4.1.2_20201203': {'north_carolina': {'horiz_epsg': 631
                                                              'y_utm': [26918, np.array([3917198.926, 3917187.768, 3917176.609])],
                                                              'z_nad83': np.array([10.5, 11.0, 11.5]),
                                                              'z_navd88': np.array([49.264, 49.764, 50.264]),
-                                                             'z_mllw': np.array([49.393, 49.893, 50.393]),
+                                                             'z_mllw': np.array([-49.393, -49.893, -50.393]),
                                                              'z_mllw_unc': np.array([0.074, 0.074, 0.074]),
-                                                             'z_mhw': np.array([49.227, 49.727, 50.227])},
+                                                             'z_mhw': np.array([-49.227, -49.727, -50.227])},
                                           'texas': {'horiz_epsg': 6318,
                                                     'x': np.array([-95.63490, -95.63480, -95.63470]),
                                                     'y': np.array([28.38690, 28.38680, 28.38670]),
@@ -861,9 +861,9 @@ vdatum_answers = {'vdatum_4.1.2_20201203': {'north_carolina': {'horiz_epsg': 631
                                                     'y_utm': [26915, np.array([3142886.229, 3142874.930, 3142863.631])],
                                                     'z_nad83': np.array([10.5, 11.0, 11.5]),
                                                     'z_navd88': np.array([36.537, 37.037, 37.537]),
-                                                    'z_mllw': np.array([36.694, 37.194, 37.694]),
+                                                    'z_mllw': np.array([-36.694, -37.194, -37.694]),
                                                     'z_mllw_unc': np.array([0.062, 0.062, 0.062]),
-                                                    'z_mhw': np.array([36.226, 36.726, 37.226])},
+                                                    'z_mhw': np.array([-36.226, -36.726, -37.226])},
                                           'california': {'horiz_epsg': 6318,
                                                          'x': np.array([-122.34990, -122.34980, -122.34970]),
                                                          'y': np.array([35.79190, 35.79180, 35.79170]),
@@ -873,9 +873,9 @@ vdatum_answers = {'vdatum_4.1.2_20201203': {'north_carolina': {'horiz_epsg': 631
                                                          'y_utm': [26910, np.array([3961062.442, 3961051.411, 3961040.379])],
                                                          'z_nad83': np.array([10.5, 11.0, 11.5]),
                                                          'z_navd88': np.array([48.868, 49.368, 49.868]),
-                                                         'z_mllw': np.array([48.826, 49.326, 49.826]),
+                                                         'z_mllw': np.array([-48.826, -49.326, -49.826]),
                                                          'z_mllw_unc': np.array([0.028, 0.028, 0.028]),
-                                                         'z_mhw': np.array([47.436, 47.936, 48.436])},
+                                                         'z_mhw': np.array([-47.436, -47.936, -48.436])},
                                           # getting this answer from the vdatum java app was difficult.  I found I had to:
                                           #  - transform NAD83(2011)/NAD83(2011) -> ITRF2008/ITRF2008
                                           #  - transform ITRF2008/ITRF2008 -> ITRF2008/MLLW
@@ -889,18 +889,18 @@ vdatum_answers = {'vdatum_4.1.2_20201203': {'north_carolina': {'horiz_epsg': 631
                                                                'y_utm': [26908, np.array([6388227.166, 6388215.823, 6388204.480])],
                                                                'z_nad83': np.array([10.5, 11.0, 11.5]),
                                                                'z_navd88': np.array([10.348, 10.848, 11.348]),  # using xgeoid17b
-                                                               'z_mllw': np.array([11.614, 12.114, 12.614]),  # using IGS08
+                                                               'z_mllw': np.array([-11.614, -12.114, -12.614]),  # using IGS08
                                                                'z_mllw_unc': np.array([0.14, 0.14, 0.14]),
-                                                               'z_mhw': np.array([8.959, 9.459, 9.959])},  # using IGS08
+                                                               'z_mhw': np.array([-8.959, -9.459, -9.959])},  # using IGS08
                                           'rastertest': {'horiz_epsg': 6348,
                                                          'x': np.array([339664.0, 339664.0, 340864.0]),
                                                          'y': np.array([4692852.0, 4689052.0, 4691652.00]),
                                                          'elev': np.array([-10.61, -21.3, -10.560]),
                                                          'added_unc': np.array([0.146, 0.146, 0.146]),
-                                                         'unc': np.array([1.21, 1.43, 12.316812]),
+                                                         'unc': np.array([1.356, 1.576, 12.463]),
                                                          'cont': np.array([124.0, 214.0, 396.0]),
-                                                         'geoid': np.array([-27.5492, -27.6468, -27.526]),
-                                                         'final_mllw': np.array([-39.7732, -50.591, -39.708])}
+                                                         'geoid': np.array([16.914, 6.314, 17.054]),
+                                                         'final_mllw': np.array([-18.553, -7.991, -18.588])}
                                           }
                   }
 

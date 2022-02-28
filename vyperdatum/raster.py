@@ -341,7 +341,7 @@ class VyperRaster(VyperCore):
         else:
             flip = -1
 
-        if self.in_crs.is_height == True:
+        if self.in_crs.is_height:
             final_elevation_layer = flip * (elevation_layer + self.raster_vdatum_sep)
         else:
             final_elevation_layer = flip * (elevation_layer - self.raster_vdatum_sep)

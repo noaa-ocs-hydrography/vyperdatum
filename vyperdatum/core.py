@@ -1,6 +1,7 @@
 import os, sys, glob, configparser, hashlib
 from copy import deepcopy
 import numpy as np
+import pyproj.exceptions
 from pyproj import Transformer, datadir, CRS
 from osgeo import gdal, ogr
 from typing import Any, Union
@@ -385,6 +386,7 @@ class VyperCore:
                 self.log_error('Output datum insufficently specified', ValueError)
 
             if z is not None and not self.in_crs.is_height:
+                z = z.copy()  # do not alter the array input
                 z *= -1
             if self.out_crs.is_height:
                 flip = 1
@@ -1122,3 +1124,51 @@ def return_vdatum_version(grid_files: dict, vdatum_path: str, save_path: str = N
     if not myversion:
         raise EnvironmentError(f'Unable to find version for {vdatum_path} in the currently accepted versions: {list(vdatum_hashlookup.keys())}')
     return myversion
+
+
+def vertical_datum_to_wkt(datum_identifier: str, projcrs: int, min_lon: float, min_lat: float, max_lon: float, max_lat: float):
+    """
+    Translate the provided vertical datum identifier to vypercrs wkt string.  Used to build vertical datum wkt string
+    for use in BAG metadata.
+
+    Parameters
+    ----------
+    datum_identifier
+        one of 'mllw', 'mhw', 'waterline', 'ellipse', etc.  See pipeline.datum_definition
+    projcrs
+        projected crs epsg
+    min_lon
+        minimum longitude of the survey
+    min_lat
+        minimum latitude of the survey
+    max_lon
+        maximum longitude of the survey
+    max_lat
+        maximum latitude of the survey
+
+    Returns
+    -------
+    str
+        vypercrs wkt string
+    """
+
+    vc = VyperCore()
+
+    if datum_identifier != 'ellipse':
+        try:
+            if datum_identifier == 'mllw':  # we need to let vyperdatum know this is positive down, do that by giving it the mllw epsg
+                datum_identifier = 5866
+            vc.set_input_datum((projcrs, datum_identifier))
+            vc.set_region_by_bounds(min_lon, min_lat, max_lon, max_lat)
+            return vc.in_crs._vert.to_wkt()
+        except pyproj.exceptions.CRSError:
+            raise ValueError(f'vertical_datum_to_wkt: WARNING: unable to resolve HORIZONTAL={projcrs}, VERTICAL={datum_identifier}')
+    else:
+            cs = VyperPipelineCRS(vc.datum_data)
+            cs.set_crs('ellipse')
+            cs.set_crs(projcrs)
+            wktstring = cs._vert.to_wkt()
+            if 'VDATUM["ellipse"]' not in wktstring:
+                raise ValueError('datum_to_wkt: expected VDATUM["ellipse"] in datum_identifier=ellipse WKT string, did not find it')
+            wktstring = wktstring.replace('VDATUM["ellipse"]', f'VDATUM["{cs._hori.name} + {cs._vert.name}"]')
+            return wktstring

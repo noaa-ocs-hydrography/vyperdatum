@@ -83,7 +83,9 @@ class CoordinateSystem:
         for cnt, ax in enumerate(self.axis):
             if cnt >= 1:
                 axis_string += ','
-            if ax.lower() in ['h', 'height', 'gravity-related height (h)', 'gravity-related height', 'up']:
+            if ax.lower() in ['h', 'height', 'ellipsoid height', 'ellipsoid height (h)']:
+                axis_string += 'AXIS["ellipsoid height (h)",up]'
+            elif ax.lower() in ['gravity-related height (h)', 'gravity-related height']:
                 axis_string += 'AXIS["gravity-related height (H)",up]'
             elif ax.lower() in ['d', 'depth', 'depth (d)']:
                 axis_string += 'AXIS["depth (D)",down]'
@@ -482,7 +484,6 @@ class VerticalDerivedCRS(VerticalCRS):
                  conversion_method: str = '', coordinate_type: str = 'vertical', coordinate_axis: tuple = ('height',),
                  coordinate_units: str = 'm'):
         super().__init__()
-
         self.datum_name = datum_name
         self.base_datum_name = base_datum_name
         self.conversion_name = conversion_name
@@ -541,14 +542,18 @@ class VerticalPipelineCRS(VerticalCRS):
                    proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx step proj=vgridshift grids=REGION\\tss.gtx"]]
     """
 
-    def __init__(self, datum_data: object = None, vert_datum_name: str = '', coordinate_type: str = 'vertical',
-                 coordinate_axis: tuple = ('height',), coordinate_units: str = 'm', horiz_wkt: str = None):
-
+    def __init__(self, datum_data: object = None, vert_datum_name: str = '', coordinate_units: str = 'm', horiz_wkt: str = None):
         super().__init__()
+        if vert_datum_name.find('ellipse') != -1 or not vert_datum_name:
+            self.coordinate_axis = ('ellipsoid height',)
+        elif vert_datum_name.find('geoid') != -1 or vert_datum_name.find('navd88') != -1 or vert_datum_name.find('tss') != -1:
+            self.coordinate_axis = ('gravity-related height',)
+        else:
+            self.coordinate_axis = ('depth',)
+
         self.horiz_wkt = horiz_wkt
         self.datum_name = vert_datum_name
-        self.coordinate_type = coordinate_type
-        self.coordinate_axis = coordinate_axis
+        self.coordinate_type = 'vertical'
         self.coordinate_units = coordinate_units
 
         self.regions = []

@@ -19,11 +19,11 @@ def test_vertical_derived_crs():
     assert cs._base_crs.to_wkt() == 'BASEVERTCRS["nad83",VDATUM["nad83"],ID["EPSG",6319]]'
     assert cs._deriving_conversion.to_wkt() == 'DERIVINGCONVERSION["NAD83(2011) Height to NOAA Mean Lower Low Water",METHOD["VDatum gtx grid transformation", ID["EPSG",1084]]]'
     assert cs._vertical_datum.to_wkt() == 'VDATUM["mllw"]'
-    assert cs._coordinate_system.to_wkt() == 'CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1]'
+    assert cs._coordinate_system.to_wkt() == 'CS[vertical,1],AXIS["ellipsoid height (h)",up],LENGTHUNIT["metre",1]'
 
     expected_out = 'VERTCRS["mllw",BASEVERTCRS["nad83",VDATUM["nad83"],ID["EPSG",6319]],DERIVINGCONVERSION["NAD83(2011) '
     expected_out += 'Height to NOAA Mean Lower Low Water",METHOD["VDatum gtx grid transformation", ID["EPSG",1084]]],'
-    expected_out += 'VDATUM["mllw"],CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1]]'
+    expected_out += 'VDATUM["mllw"],CS[vertical,1],AXIS["ellipsoid height (h)",up],LENGTHUNIT["metre",1]]'
     assert expected_out == cs.to_wkt()
     assert cs.to_crs()
 
@@ -54,10 +54,10 @@ def test_vertical_pipeline_crs():
                                  'proj=pipeline step proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx step proj=vgridshift grids=TXlaggal01_8301\\tss.gtx]'
     assert cs.datum_name == 'NOAA Chart Datum'
     assert cs.coordinate_type == 'vertical'
-    assert cs.coordinate_axis == ('height',)
+    assert cs.coordinate_axis == ('depth',)
     assert cs.coordinate_units == 'm'
 
-    expected_wkt = 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up],LENGTHUNIT["metre",1],'
+    expected_wkt = 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["depth (D)",down],LENGTHUNIT["metre",1],'
     base_wkt, vdatversion, version, base_datum, pipeline_data, regions_data = split_wkt_remarks(cs.to_wkt())
     assert expected_wkt == base_wkt
     assert vdatversion
@@ -148,7 +148,7 @@ def test_vyperpipeline_add_vertcrs_no_pipeline():
     assert not cs.is_valid
     assert cs.to_wkt() is None
     assert cs.vertical is None
-    assert cs._vert.to_wkt() == 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1]]]'
+    assert cs._vert.to_wkt() == 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["depth (D)",down,LENGTHUNIT["metre",1]]]'
 
 
 def test_vyperpipeline_add_vertcrs_with_pipeline():
@@ -159,7 +159,7 @@ def test_vyperpipeline_add_vertcrs_with_pipeline():
     assert not cs.is_valid
     assert cs.to_wkt() is None
 
-    expected_wkt = 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1]],'
+    expected_wkt = 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["depth (D)",down,LENGTHUNIT["metre",1]],'
     base_wkt, vdatversion, version, base_datum, pipeline_data, regions_data = split_wkt_remarks(cs.vertical.to_wkt())
     assert expected_wkt == base_wkt
     assert version == __version__
@@ -180,7 +180,7 @@ def test_vyperpipeline_add_vertcrs_then_pipeline_then_pipeline():
     assert not cs.is_valid
     assert cs.to_wkt() is None
 
-    expected_wkt = 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1]],'
+    expected_wkt = 'VERTCRS["NOAA Chart Datum",VDATUM["NOAA Chart Datum"],CS[vertical,1],AXIS["depth (D)",down,LENGTHUNIT["metre",1]],'
     base_wkt, vdatversion, version, base_datum, pipeline_data, regions_data = split_wkt_remarks(cs.vertical.to_wkt())
     assert expected_wkt == base_wkt
     assert version == __version__
@@ -349,7 +349,7 @@ def test_3d_to_compound():
     cs = VyperPipelineCRS(gvc.datum_data, new_crs=6319, regions=['MENHMAgome23_8301'])
     assert cs.is_valid
 
-    expected_wkt = 'COMPOUNDCRS["NAD83(2011) + NAD83(2011)_ellipse",GEOGCRS["NAD83(2011)",DATUM["NAD83 (National Spatial Reference System 2011)",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],USAGE[SCOPE["Horizontal component of 3D system."],AREA["Puerto Rico - onshore and offshore. United States (USA) onshore and offshore - Alabama; Alaska; Arizona; Arkansas; California; Colorado; Connecticut; Delaware; Florida; Georgia; Idaho; Illinois; Indiana; Iowa; Kansas; Kentucky; Louisiana; Maine; Maryland; Massachusetts; Michigan; Minnesota; Mississippi; Missouri; Montana; Nebraska; Nevada; New Hampshire; New Jersey; New Mexico; New York; North Carolina; North Dakota; Ohio; Oklahoma; Oregon; Pennsylvania; Rhode Island; South Carolina; South Dakota; Tennessee; Texas; Utah; Vermont; Virginia; Washington; West Virginia; Wisconsin; Wyoming. US Virgin Islands - onshore and offshore."],BBOX[14.92,167.65,74.71,-63.88]],ID["EPSG",6318]],VERTCRS["NAD83(2011)_ellipse",VDATUM["NAD83(2011)_ellipse"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1,ID["EPSG",9001]]],'
+    expected_wkt = 'COMPOUNDCRS["NAD83(2011) + NAD83(2011)_ellipse",GEOGCRS["NAD83(2011)",DATUM["NAD83 (National Spatial Reference System 2011)",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],USAGE[SCOPE["Horizontal component of 3D system."],AREA["Puerto Rico - onshore and offshore. United States (USA) onshore and offshore - Alabama; Alaska; Arizona; Arkansas; California; Colorado; Connecticut; Delaware; Florida; Georgia; Idaho; Illinois; Indiana; Iowa; Kansas; Kentucky; Louisiana; Maine; Maryland; Massachusetts; Michigan; Minnesota; Mississippi; Missouri; Montana; Nebraska; Nevada; New Hampshire; New Jersey; New Mexico; New York; North Carolina; North Dakota; Ohio; Oklahoma; Oregon; Pennsylvania; Rhode Island; South Carolina; South Dakota; Tennessee; Texas; Utah; Vermont; Virginia; Washington; West Virginia; Wisconsin; Wyoming. US Virgin Islands - onshore and offshore."],BBOX[14.92,167.65,74.71,-63.88]],ID["EPSG",6318]],VERTCRS["NAD83(2011)_ellipse",VDATUM["NAD83(2011)_ellipse"],CS[vertical,1],AXIS["ellipsoid height (h)",up,LENGTHUNIT["metre",1,ID["EPSG",9001]]],'
     base_wkt, vdatversion, version, base_datum, pipeline_data, regions_data = split_wkt_remarks(cs.to_wkt())
     assert expected_wkt == base_wkt
     assert base_datum == ['NAD83(2011)']
@@ -371,9 +371,9 @@ def test_crs_is_compound():
 def test_pipeline_retrieval():
     cs = VyperPipelineCRS(gvc.datum_data)
     region_name = gvc.datum_data.regions[0]
-    cs.set_crs((26914, 'navd88'), regions = [region_name])
+    cs.set_crs((26914, 'navd88'), regions=[region_name])
     cs2 = VyperPipelineCRS(gvc.datum_data)
-    cs2.set_crs((26914, 'mllw'), regions = [region_name])
+    cs2.set_crs((26914, 'mllw'), regions=[region_name])
     geoid_name = gvc.datum_data.get_geoid_name(region_name)
     pipe, valid_pipeline = get_transformation_pipeline(cs, cs2, region_name, geoid_name)
     assert valid_pipeline

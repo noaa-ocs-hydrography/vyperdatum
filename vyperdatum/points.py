@@ -77,6 +77,9 @@ class VyperPoints(VyperCore):
             self.y = None
             z_sep = z_sep.reshape(xx_sampled.shape)
             if z is not None:
+                if self.in_crs.is_height != self.out_crs.is_height:
+                    z = z.copy()
+                    z *= -1
                 self.z = z_sep[y_bins - 1, x_bins - 1] + z
             else:
                 self.z = z_sep[y_bins - 1, x_bins - 1]

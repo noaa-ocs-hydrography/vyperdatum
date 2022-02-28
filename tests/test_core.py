@@ -325,3 +325,42 @@ def test_transform_dataset_with_log():
     vc.close()
     os.remove(logfile)
     assert not os.path.exists(logfile)
+
+
+def test_datum_to_wkt():
+    ellipse_nad83_wkt = 'VERTCRS["ellipse",VDATUM["NAD83(2011) / UTM zone 10N + ellipse"],CS[vertical,1],AXIS["ellipsoid height (h)",up,LENGTHUNIT["metre",1]]]'
+    assert vertical_datum_to_wkt('ellipse', 6339, -122.47843908633611, 47.78890945494799, -122.47711319986821, 47.789430586674875) == ellipse_nad83_wkt
+    try:  # demonstrate that the wkt string is a valid vertical datum identifier string that vyperdatum can use (it just reads the name basically)
+        vc = VyperCore()
+        vc.set_input_datum((6339, vertical_datum_to_wkt('ellipse', 6339, -122.47843908633611, 47.78890945494799, -122.47711319986821, 47.789430586674875)))
+        vc.set_region_by_bounds(-122.47843908633611, 47.78890945494799, -122.47711319986821, 47.789430586674875)
+        assert vc.in_crs.vertical.name == 'ellipse'
+    except:
+        assert False
+
+    geoid_nad83_wkt = 'VERTCRS["navd88",VDATUM["navd88"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1]]'
+    assert vertical_datum_to_wkt('navd88', 6339, -122.47843908633611, 47.78890945494799, -122.47711319986821, 47.789430586674875).find(geoid_nad83_wkt) != -1
+    try:  # demonstrate that the wkt string is a valid vertical datum identifier string that vyperdatum can use (it just reads the name basically)
+        vc = VyperCore()
+        vc.set_input_datum((6339, vertical_datum_to_wkt('navd88', 6339, -122.47843908633611, 47.78890945494799, -122.47711319986821, 47.789430586674875)))
+        vc.set_region_by_bounds(-122.47843908633611, 47.78890945494799, -122.47711319986821, 47.789430586674875)
+        assert vc.in_crs.vertical.name == 'navd88'
+    except:
+        assert False
+
+    mllw_nad83_wkt = 'VERTCRS["MLLW depth",VDATUM["MLLW depth"],CS[vertical,1],AXIS["depth (D)",down,LENGTHUNIT["metre",1]]'
+    assert vertical_datum_to_wkt('mllw', 6339, -122.47843908633611, 47.78890945494799, -122.47711319986821, 47.789430586674875).find(mllw_nad83_wkt) != -1
+    try:  # demonstrate that the wkt string is a valid vertical datum identifier string that vyperdatum can use (it just reads the name basically)
+        vc = VyperCore()
+        vc.set_input_datum((6339, vertical_datum_to_wkt('mllw', 6339, -122.47843908633611, 47.78890945494799, -122.47711319986821, 47.789430586674875)))
+        vc.set_region_by_bounds(-122.47843908633611, 47.78890945494799, -122.47711319986821, 47.789430586674875)
+        assert vc.in_crs.vertical.name == 'MLLW depth'
+    except:
+        assert False
+
+    # Kluster has a 'waterline' datum option, which doesn't really have any meaning datum wise.  When you pass in a datum definition that does not match
+    #    you get an exception
+    try:
+        vertical_datum_to_wkt('waterline', 6339, -122.47843908633611, 47.78890945494799, -122.47711319986821, 47.789430586674875)
+    except:
+        assert True
