@@ -1,5 +1,6 @@
 import os
 from pyproj import Transformer
+from pytest import approx
 
 from vyperdatum.pipeline import *
 from vyperdatum.core import VyperCore
@@ -20,7 +21,7 @@ def test_get_regional_pipeline_nad83_tss():
     assert pipe.count('gtx') == 2
     transformer = Transformer.from_pipeline(pipe)
     result = transformer.transform(xx=-124.853, yy=41.227, zz=0)
-    assert result == (-124.853, 41.227000000000004, 30.86302107201744)
+    assert result == approx((-124.853, 41.227000000000004, 30.86302107201744), abs = 0.00001)
 
 
 def test_get_regional_pipeline_tss_nad83():
@@ -30,7 +31,7 @@ def test_get_regional_pipeline_tss_nad83():
     assert pipe.count('gtx') == 2
     transformer = Transformer.from_pipeline(pipe)
     result = transformer.transform(xx=-124.853, yy=41.227, zz=0)
-    assert result == (-124.853, 41.227000000000004, -30.86302107201744)
+    assert result == approx((-124.853, 41.227000000000004, -30.86302107201744), abs = 0.00001)
 
 
 def test_get_regional_pipeline_mllw():
@@ -41,7 +42,7 @@ def test_get_regional_pipeline_mllw():
     assert pipe.count('mllw') == 1
     transformer = Transformer.from_pipeline(pipe)
     result = transformer.transform(xx=-124.853, yy=41.227, zz=0)
-    assert result == (-124.853, 41.227000000000004, 31.97132104264427)
+    assert result == approx((-124.853, 41.227000000000004, 31.97132104264427), abs = 0.00001)
 
 
 def test_get_regional_pipeline_mhw():
@@ -52,7 +53,7 @@ def test_get_regional_pipeline_mhw():
     assert pipe.count('mhw') == 1
     transformer = Transformer.from_pipeline(pipe)
     result = transformer.transform(xx=-124.853, yy=41.227, zz=0)
-    assert result == (-124.853, 41.227000000000004, 30.11322104560066)
+    assert result == approx((-124.853, 41.227000000000004, 30.11322104560066), abs = 0.00001)
 
 
 def test_get_regional_pipeline_null():
