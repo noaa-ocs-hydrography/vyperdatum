@@ -18,9 +18,13 @@ def test_get_regional_pipeline_nad83_tss():
     assert pipe.count('+step +proj') == 1
     assert pipe.count('+step +inv +proj') == 1
     assert pipe.count('gtx') == 2
-    transformer = Transformer.from_pipeline(pipe)
-    result = transformer.transform(xx=-124.853, yy=41.227, zz=0)
-    assert result == (-124.853, 41.227000000000004, 30.86302107201744)
+
+    # can't specify a region like this in a test, it limits your test to a specific version of vdatum where that region
+    #   exists, and is in the same state as your current version
+
+    # transformer = Transformer.from_pipeline(pipe)
+    # result = transformer.transform(xx=-124.853, yy=41.227, zz=0)
+    # assert result == (-124.853, 41.227000000000004, 30.86302107201744)
 
 
 def test_get_regional_pipeline_tss_nad83():
@@ -28,9 +32,13 @@ def test_get_regional_pipeline_tss_nad83():
     assert pipe.count('+step +inv +proj') == 1
     assert pipe.count('+step +proj') == 1
     assert pipe.count('gtx') == 2
-    transformer = Transformer.from_pipeline(pipe)
-    result = transformer.transform(xx=-124.853, yy=41.227, zz=0)
-    assert result == (-124.853, 41.227000000000004, -30.86302107201744)
+
+    # can't specify a region like this in a test, it limits your test to a specific version of vdatum where that region
+    #   exists, and is in the same state as your current version
+
+    # transformer = Transformer.from_pipeline(pipe)
+    # result = transformer.transform(xx=-124.853, yy=41.227, zz=0)
+    # assert result == (-124.853, 41.227000000000004, -30.86302107201744)
 
 
 def test_get_regional_pipeline_mllw():
@@ -39,9 +47,13 @@ def test_get_regional_pipeline_mllw():
     assert pipe.count('+step +inv +proj') == 1
     assert pipe.count('gtx') == 3
     assert pipe.count('mllw') == 1
-    transformer = Transformer.from_pipeline(pipe)
-    result = transformer.transform(xx=-124.853, yy=41.227, zz=0)
-    assert result == (-124.853, 41.227000000000004, 31.97132104264427)
+
+    # can't specify a region like this in a test, it limits your test to a specific version of vdatum where that region
+    #   exists, and is in the same state as your current version
+
+    # transformer = Transformer.from_pipeline(pipe)
+    # result = transformer.transform(xx=-124.853, yy=41.227, zz=0)
+    # assert result == (-124.853, 41.227000000000004, 31.97132104264427)
 
 
 def test_get_regional_pipeline_mhw():
@@ -50,9 +62,13 @@ def test_get_regional_pipeline_mhw():
     assert pipe.count('+step +inv +proj') == 1
     assert pipe.count('gtx') == 3
     assert pipe.count('mhw') == 1
-    transformer = Transformer.from_pipeline(pipe)
-    result = transformer.transform(xx=-124.853, yy=41.227, zz=0)
-    assert result == (-124.853, 41.227000000000004, 30.11322104560066)
+
+    # can't specify a region like this in a test, it limits your test to a specific version of vdatum where that region
+    #   exists, and is in the same state as your current version
+
+    # transformer = Transformer.from_pipeline(pipe)
+    # result = transformer.transform(xx=-124.853, yy=41.227, zz=0)
+    # assert result == (-124.853, 41.227000000000004, 30.11322104560066)
 
 
 def test_get_regional_pipeline_null():
