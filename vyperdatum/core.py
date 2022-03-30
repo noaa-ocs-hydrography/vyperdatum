@@ -1152,9 +1152,8 @@ def vertical_datum_to_wkt(datum_identifier: str, projcrs: int, min_lon: float, m
         vypercrs wkt string
     """
 
-    vc = VyperCore()
-
     if datum_identifier != 'ellipse':
+        vc = VyperCore()
         try:
             if datum_identifier == 'mllw':  # we need to let vyperdatum know this is positive down, do that by giving it the mllw epsg
                 datum_identifier = 5866
@@ -1162,13 +1161,25 @@ def vertical_datum_to_wkt(datum_identifier: str, projcrs: int, min_lon: float, m
             vc.set_region_by_bounds(min_lon, min_lat, max_lon, max_lat)
             return vc.in_crs._vert.to_wkt()
         except pyproj.exceptions.CRSError:
-            raise ValueError(f'vertical_datum_to_wkt: WARNING: unable to resolve HORIZONTAL={projcrs}, VERTICAL={datum_identifier}')
+            raise ValueError(f'vertical_datum_to_wkt: ERROR: unable to resolve HORIZONTAL={projcrs}, VERTICAL={datum_identifier}')
     else:
-        cs = VyperPipelineCRS(vc.datum_data)
-        cs.set_crs('ellipse')
-        cs.set_crs(projcrs)
-        wktstring = cs._vert.to_wkt()
-        if 'VDATUM["ellipse"]' not in wktstring:
-            raise ValueError('datum_to_wkt: expected VDATUM["ellipse"] in datum_identifier=ellipse WKT string, did not find it')
-        wktstring = wktstring.replace('VDATUM["ellipse"]', f'VDATUM["{cs._hori.name} + {cs._vert.name}"]')
+        # an ellipsoid vertical datum definition looks something like this
+        # 'VERTCRS["ellipse",VDATUM["NAD83 / UTM zone 17N + ellipse"],CS[vertical,1],AXIS["ellipsoid height (h)",up,LENGTHUNIT["metre",1]]]'
+        # so you don't need to define VDatum version, etc.  Useful for non vdatum havers (some Kluster users), who still want this string
+        # so we skip the vypercore initialization (which requires a vdatum path) and just do the below
+        try:
+            horiz = CRS.from_epsg(projcrs)
+        except pyproj.exceptions.CRSError:
+            raise ValueError(f'vertical_datum_to_wkt: ERROR: unable to resolve HORIZONTAL={projcrs} as integer epsg code')
+        wktstring = 'VERTCRS["ellipse",VDATUM[REPLACEME],CS[vertical,1],AXIS["ellipsoid height (h)",up,LENGTHUNIT["metre",1]]]'
+        wktstring = wktstring.replace('REPLACEME', f'"{horiz.name} + ellipse"')
+
+        # vc = VyperCore()
+        # cs = VyperPipelineCRS(vc.datum_data)
+        # cs.set_crs('ellipse')
+        # cs.set_crs(projcrs)
+        # wktstring = cs._vert.to_wkt()
+        # if 'VDATUM["ellipse"]' not in wktstring:
+        #     raise ValueError('datum_to_wkt: expected VDATUM["ellipse"] in datum_identifier=ellipse WKT string, did not find it')
+        # wktstring = wktstring.replace('VDATUM["ellipse"]', f'VDATUM["{cs._hori.name} + {cs._vert.name}"]')
         return wktstring
