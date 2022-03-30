@@ -573,9 +573,9 @@ class DatumData:
             # get a number of exceptions here when reading and writing to the config file in multiprocessing
             try:
                 if self.parent:
-                    self.parent.log_warning('Unable to read from existing config file {}'.format(self.config_path_file))
+                    self.parent.log_warning('Unable to get stored vdatum config file {}'.format(self.config_path_file))
             except AttributeError:  # logger not initialized yet
-                print('WARNING: Unable to read from existing config file {}'.format(self.config_path_file))
+                print('WARNING: Unable to get stored vdatum config file {}'.format(self.config_path_file))
             
     def _read_from_config_file(self):
         """
@@ -603,6 +603,9 @@ class DatumData:
                     self.parent.log_warning('Unable to read from existing config file {}'.format(self.config_path_file))
             except AttributeError:  # logger not initialized yet
                 print('WARNING: Unable to read from existing config file {}'.format(self.config_path_file))
+        # ensure a vdatum path attribute is in the settings to make the rest of the code work
+        if 'vdatum_path' not in settings:
+            settings['vdatum_path'] = ''
         return settings
 
     def _create_new_config_file(self, default_settings: dict) -> dict:
@@ -770,11 +773,12 @@ class DatumData:
             except AttributeError:  # logger not initialized yet
                 print(f'Performing hash comparison to identify VDatum version, should only run once for a new VDatum directory...')
             vversion = return_vdatum_version(self.grid_files, self.vdatum_path, save_path=vyperversion_file)
-            try:
-                if self.parent:
-                    self.parent.log_info(f'Generated new version file: {vyperversion_file}')
-            except AttributeError:  # logger not initialized yet
-                print(f'Generated new version file: {vyperversion_file}')
+            if vversion:
+                try:
+                    if self.parent:
+                        self.parent.log_info(f'Generated new version file: {vyperversion_file}')
+                except AttributeError:  # logger not initialized yet
+                    print(f'Generated new version file: {vyperversion_file}')
         self.vdatum_version = vversion
         
     def get_geoid_name(self, region_name: str, vdatum_version: str = None) -> str:
@@ -920,36 +924,38 @@ def get_vdatum_uncertainties(vdatum_directory: str):
         grid_dict[k] = {'tss': 0, 'mhhw': 0, 'mhw': 0, 'mlw': 0, 'mllw': 0, 'dtl': 0, 'mtl': 0}
     # add in the geoids we care about
     grid_entries = list(grid_dict.keys())
-
-    with open(acc_file, 'r') as afil:
-        for line in afil.readlines():
-            data = line.split('=')
-            if len(data) == 2:  # a valid line, ex: akglacier.navd88.lmsl=8.0
-                data_entry, val = data
-                sub_data = data_entry.split('.')
-                if len(sub_data) == 3:
-                    region, src, target = sub_data
-                    if region == 'conus':
-                        if src == 'navd88' and target == 'nad83':
-                            grid_dict['geoid12b'] = float(val.lstrip().rstrip()) * 0.01
-                        elif src in geoid_possibilities:
-                            grid_dict[f'{src}'] = float(val.lstrip().rstrip()) * 0.01
-                    else:
-                        match = np.where(np.array([entry.lower().find(region) for entry in grid_entries]) == 0)
-                        if match[0].size:
-                            if len(match[0]) > 1:
-                                raise ValueError(f'Found multiple matches in vdatum_sigma file for entry {data_entry}')
-                            elif match:
-                                grid_key = grid_entries[match[0][0]]
-                                val = val.lstrip().rstrip()
-                                if val == 'n/a':
-                                    val = 0
-                                if src == 'navd88' and target == 'lmsl':
-                                    grid_dict[grid_key]['tss'] = float(val) * 0.01
-                                elif src == 'lmsl':
-                                    grid_dict[grid_key][target] = float(val) * 0.01
-                            else:
-                                print(f'No match for vdatum_sigma entry {data_entry}!')
+    if os.path.exists(acc_file):
+        with open(acc_file, 'r') as afil:
+            for line in afil.readlines():
+                data = line.split('=')
+                if len(data) == 2:  # a valid line, ex: akglacier.navd88.lmsl=8.0
+                    data_entry, val = data
+                    sub_data = data_entry.split('.')
+                    if len(sub_data) == 3:
+                        region, src, target = sub_data
+                        if region == 'conus':
+                            if src == 'navd88' and target == 'nad83':
+                                grid_dict['geoid12b'] = float(val.lstrip().rstrip()) * 0.01
+                            elif src in geoid_possibilities:
+                                grid_dict[f'{src}'] = float(val.lstrip().rstrip()) * 0.01
+                        else:
+                            match = np.where(np.array([entry.lower().find(region) for entry in grid_entries]) == 0)
+                            if match[0].size:
+                                if len(match[0]) > 1:
+                                    raise ValueError(f'Found multiple matches in vdatum_sigma file for entry {data_entry}')
+                                elif match:
+                                    grid_key = grid_entries[match[0][0]]
+                                    val = val.lstrip().rstrip()
+                                    if val == 'n/a':
+                                        val = 0
+                                    if src == 'navd88' and target == 'lmsl':
+                                        grid_dict[grid_key]['tss'] = float(val) * 0.01
+                                    elif src == 'lmsl':
+                                        grid_dict[grid_key][target] = float(val) * 0.01
+                                else:
+                                    print(f'No match for vdatum_sigma entry {data_entry}!')
+    else:
+        print(f'No uncertainty file found at {acc_file}')
     return grid_dict
 
 
@@ -1105,24 +1111,29 @@ def return_vdatum_version(grid_files: dict, vdatum_path: str, save_path: str = N
 
     Returns
     -------
-
+    str
+        vdatum version identifier
     """
+
+    myversion = ''
     hashdict = hash_vdatum_grids(grid_files, vdatum_path)
     acc_file = os.path.join(vdatum_path, 'vdatum_sigma.inf')
-    acc_hash = hash_a_file(acc_file)
-    myversion = ''
-    cpy_vdatum_hashlookup = deepcopy(vdatum_hashlookup)
-    for vdversion, vdhashes in cpy_vdatum_hashlookup.items():
-        sigmahash = vdhashes.pop('vdatum_sigma.inf')
-        if hashdict == vdhashes and acc_hash == sigmahash:
-            myversion = vdversion
-            print('Found {}'.format(myversion))
-            break
-    if myversion and save_path:
-        with open(save_path, 'w') as ofile:
-            ofile.write(myversion)
-    if not myversion:
-        raise EnvironmentError(f'Unable to find version for {vdatum_path} in the currently accepted versions: {list(vdatum_hashlookup.keys())}')
+    if os.path.exists(acc_file):
+        acc_hash = hash_a_file(acc_file)
+        cpy_vdatum_hashlookup = deepcopy(vdatum_hashlookup)
+        for vdversion, vdhashes in cpy_vdatum_hashlookup.items():
+            sigmahash = vdhashes.pop('vdatum_sigma.inf')
+            if hashdict == vdhashes and acc_hash == sigmahash:
+                myversion = vdversion
+                print('Found {}'.format(myversion))
+                break
+        if myversion and save_path:
+            with open(save_path, 'w') as ofile:
+                ofile.write(myversion)
+        if not myversion:
+            raise EnvironmentError(f'Unable to find version for {vdatum_path} in the currently accepted versions: {list(vdatum_hashlookup.keys())}')
+    else:
+        print(f'Unable to find sigma file {acc_file}, no vdatum version found')
     return myversion
 
 
