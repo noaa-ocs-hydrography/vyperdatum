@@ -34,7 +34,9 @@ datum_definition = {
                  '+proj=vgridshift grids=REGION\\mhw.gtx'],
     'noaa chart height': ['+proj=vgridshift grids=GEOID',
                           '+inv +proj=vgridshift grids=REGION\\tss.gtx',
-                          '+proj=vgridshift grids=REGION\\mhw.gtx']
+                          '+proj=vgridshift grids=REGION\\mhw.gtx'],
+    'usace hudson river datum' : ['+proj=vgridshift grids=GEOID',
+                          '+proj=vgridshift grids=REGION\\HudsonRiverDatum.tif'],
     }
 
 
