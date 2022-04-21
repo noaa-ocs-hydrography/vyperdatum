@@ -1066,6 +1066,7 @@ def is_valid_regional_pipeline(pipeline: str) -> bool:
     paths = pyproj.datadir.get_data_dir()
     path_list = paths.split(';')
 
+    valid = False
     for grid in grid_list:
         valid = False
         for path in path_list:

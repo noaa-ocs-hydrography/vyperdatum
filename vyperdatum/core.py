@@ -420,7 +420,7 @@ class VyperCore:
                     new_x, new_y, new_z = x, y, z
                 pipeline, valid_pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, geoid_name)
                 if not valid_pipeline:
-                    self.log_info(f'Pipeline {pipeline} for transformation from {self.in_crs.to_wkt()} to {self.out_crs.to_wkt()} in region {region} was flagged as invalid.  Missing support files?')
+                    self.log_info(f'Pipeline "{pipeline}" for transformation from "{self.in_crs.pipeline_string}" to "{self.out_crs.pipeline_string}" in region "{region}" was flagged as invalid.  Missing support files?')
                     continue
                 elif pipeline:  # do the vertical transformation if there is a valid one for this operation
                     new_x, new_y, new_z = self._run_pipeline(new_x, new_y, pipeline, z=new_z)

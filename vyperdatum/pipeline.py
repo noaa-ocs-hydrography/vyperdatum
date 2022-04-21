@@ -34,7 +34,13 @@ datum_definition = {
                  '+proj=vgridshift grids=REGION\\mhw.gtx'],
     'noaa chart height': ['+proj=vgridshift grids=GEOID',
                           '+inv +proj=vgridshift grids=REGION\\tss.gtx',
-                          '+proj=vgridshift grids=REGION\\mhw.gtx']
+                          '+proj=vgridshift grids=REGION\\mhw.gtx'],
+    'mtl'     : ['+proj=vgridshift grids=GEOID',
+                 '+inv +proj=vgridshift grids=REGION\\tss.gtx',
+                 '+proj=vgridshift grids=REGION\\mtl.gtx'],
+    'dtl'     : ['+proj=vgridshift grids=GEOID',
+                 '+inv +proj=vgridshift grids=REGION\\tss.gtx',
+                 '+proj=vgridshift grids=REGION\\dtl.gtx']
     }
 
 
