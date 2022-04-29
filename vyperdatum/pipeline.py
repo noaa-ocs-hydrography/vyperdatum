@@ -37,6 +37,12 @@ datum_definition = {
                           '+proj=vgridshift grids=REGION\\mhw.gtx'],
     'usace hudson river datum' : ['+proj=vgridshift grids=GEOID',
                           '+proj=vgridshift grids=REGION\\HudsonRiverDatum.tif'],
+    'mtl'     : ['+proj=vgridshift grids=GEOID',
+                 '+inv +proj=vgridshift grids=REGION\\tss.gtx',
+                 '+proj=vgridshift grids=REGION\\mtl.gtx'],
+    'dtl'     : ['+proj=vgridshift grids=GEOID',
+                 '+inv +proj=vgridshift grids=REGION\\tss.gtx',
+                 '+proj=vgridshift grids=REGION\\dtl.gtx']
     }
 
 

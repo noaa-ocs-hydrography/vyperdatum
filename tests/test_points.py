@@ -41,7 +41,7 @@ def _transform_dataset_sampled(region: str):
     # sampled points workflow does not return new xy coordinates, we can't just expand the sampled points to get new xy
     assert vp.x is None
     assert vp.y is None
-    assert vp.z == approx(vdatum_answer[region]['z_mllw'], abs=0.002)
+    assert vp.z == approx(vdatum_answer[region]['z_mllw'], abs=0.005)
     
 
 def test_transform_north_carolina_dataset():
