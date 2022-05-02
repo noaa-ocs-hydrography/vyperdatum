@@ -85,7 +85,7 @@ class CoordinateSystem:
                 axis_string += ','
             if ax.lower() in ['h', 'height', 'ellipsoid height', 'ellipsoid height (h)']:
                 axis_string += 'AXIS["ellipsoid height (h)",up]'
-            elif ax.lower() in ['gravity-related height (h)', 'gravity-related height']:
+            elif ax.lower() in ['gravity-related height (h)', 'gravity-related height', 'up']:
                 axis_string += 'AXIS["gravity-related height (H)",up]'
             elif ax.lower() in ['d', 'depth', 'depth (d)']:
                 axis_string += 'AXIS["depth (D)",down]'
