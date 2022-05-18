@@ -329,6 +329,9 @@ class VyperRaster(VyperCore):
                 uncertainty_layer_idx = len(layernodata)
                 layernodata.append(self.nodatavalue[elevation_layer_idx])
                 had_uncertainty = False
+        else:
+            layernames.append('Uncertainty')
+            layernodata.append(None)
 
         if contributor_layer_idx is not None:
             contributor_layer = self.layers[contributor_layer_idx]
@@ -440,7 +443,18 @@ class VyperRaster(VyperCore):
         layers, layernames, layernodata = self.apply_sep(allow_points_outside_coverage=allow_points_outside_coverage,
                                                          include_uncertainty=include_uncertainty)
         if output_filename:
-            tiffdata = np.concatenate([layer[None, :, :] for layer in layers if layer is not None])
+            final_layers = []
+            remove_layers = []
+            for cnt, lyr in enumerate(layers):
+                if lyr is not None:
+                    final_layers.append(lyr[None, :, :])
+                else:
+                    remove_layers.append(cnt)
+            for lyrnum in remove_layers[::-1]:
+                layers = layers[:lyrnum] + layers[lyrnum + 1:]
+                layernames = layernames[:lyrnum] + layernames[lyrnum + 1:]
+                layernodata = layernodata[:lyrnum] + layernodata[lyrnum + 1:]
+            tiffdata = np.concatenate(final_layers)
             tiffdata = np.round(tiffdata, 3)
             self._write_gdal_geotiff(output_filename, tiffdata, layernames, layernodata)
         end_cnt = perf_counter()
