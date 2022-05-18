@@ -374,14 +374,14 @@ class VyperRaster(VyperCore):
                     z_values = elevation_layer[missing_idx]
                 else:
                     z_values = -elevation_layer[missing_idx]
-                u_values = 3 - 0.06 * z_values
-                u_values[np.where(z_values > 0)] = 3.0
-                if had_uncertainty:
-                    keep_uncert_sub_idx = np.where(u_values < uncertainty_layer[missing_idx])[0]
-                    if len(keep_uncert_sub_idx) > 0:
-                        self.log_info(f'Maintaining {len(keep_uncert_sub_idx)} points from source uncertainty since greater than CATZOC D vertical uncertainty.')
-                        u_values[keep_uncert_sub_idx] = uncertainty_layer[missing_idx[0][keep_uncert_sub_idx], missing_idx[1][keep_uncert_sub_idx]]                
                 if include_uncertainty:
+                    u_values = 3 - 0.06 * z_values
+                    u_values[np.where(z_values > 0)] = 3.0
+                    if had_uncertainty:
+                        keep_uncert_sub_idx = np.where(u_values < uncertainty_layer[missing_idx])[0]
+                        if len(keep_uncert_sub_idx) > 0:
+                            self.log_info(f'Maintaining {len(keep_uncert_sub_idx)} points from source uncertainty since greater than CATZOC D vertical uncertainty.')
+                            u_values[keep_uncert_sub_idx] = uncertainty_layer[missing_idx[0][keep_uncert_sub_idx], missing_idx[1][keep_uncert_sub_idx]]
                     final_uncertainty_layer[missing_idx] = u_values
             else:
                 self.log_info(f'applying nodatavalue to {missing_count} points that are outside of vdatum coverage')
