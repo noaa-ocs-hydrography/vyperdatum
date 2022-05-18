@@ -107,7 +107,9 @@ class VyperRaster(VyperCore):
         """
 
         check_layer_names = [lname.lower() for lname in self.layernames]
-        if 'depth' in check_layer_names:
+        if len(check_layer_names) == 1:
+            depth_idx = 0
+        elif 'depth' in check_layer_names:
             depth_idx = check_layer_names.index('depth')
         elif 'elevation' in check_layer_names:
             depth_idx = check_layer_names.index('elevation')
@@ -275,7 +277,7 @@ class VyperRaster(VyperCore):
                     regional_sep += array
         return regional_sep
 
-    def apply_sep(self, allow_points_outside_coverage: bool = False):
+    def apply_sep(self, allow_points_outside_coverage: bool = False, include_uncertainty: bool = True):
         """
         After getting the datum separation model from vdatum, use this method to apply the separation and added
         separation uncertainty.
@@ -287,6 +289,8 @@ class VyperRaster(VyperCore):
         ----------
         allow_points_outside_coverage
             if True, allows through points outside of vdatum coverage
+        include_uncertainty
+            if True, will include a computed uncertainty band in the output raster/layers
 
         Returns
         -------
@@ -306,7 +310,7 @@ class VyperRaster(VyperCore):
 
         if elevation_layer_idx is None:
             self.log_error('Unable to find elevation layer', ValueError)
-        if uncertainty_layer_idx is None:
+        if (uncertainty_layer_idx is None) and include_uncertainty:
             self.log_info('Unable to find uncertainty layer, uncertainty will be entirely based off of vdatum sep model')
 
         elevation_layer = self.layers[elevation_layer_idx]
@@ -314,16 +318,18 @@ class VyperRaster(VyperCore):
         layernodata = [self.nodatavalue[elevation_layer_idx]]
         uncertainty_layer = None
         contributor_layer = None
-        if uncertainty_layer_idx is not None:
-            uncertainty_layer = self.layers[uncertainty_layer_idx]
-            layernames.append(self.layernames[uncertainty_layer_idx])
-            layernodata.append(self.nodatavalue[uncertainty_layer_idx])
-            had_uncertainty = True
-        else:
-            layernames.append('Uncertainty')
-            uncertainty_layer_idx = len(layernodata)
-            layernodata.append(self.nodatavalue[elevation_layer_idx])
-            had_uncertainty = False
+        if include_uncertainty:
+            if uncertainty_layer_idx is not None:
+                uncertainty_layer = self.layers[uncertainty_layer_idx]
+                layernames.append(self.layernames[uncertainty_layer_idx])
+                layernodata.append(self.nodatavalue[uncertainty_layer_idx])
+                had_uncertainty = True
+            else:
+                layernames.append('Uncertainty')
+                uncertainty_layer_idx = len(layernodata)
+                layernodata.append(self.nodatavalue[elevation_layer_idx])
+                had_uncertainty = False
+
         if contributor_layer_idx is not None:
             contributor_layer = self.layers[contributor_layer_idx]
             layernames.append(self.layernames[contributor_layer_idx])
@@ -347,12 +353,15 @@ class VyperRaster(VyperCore):
             final_elevation_layer = flip * (elevation_layer - self.raster_vdatum_sep)
         final_elevation_layer[elev_nodata_idx] = layernodata[elevation_layer_idx]
 
-        if had_uncertainty:
-            final_uncertainty_layer = uncertainty_layer + self.raster_vdatum_uncertainty
-        else:
-            final_uncertainty_layer = self.raster_vdatum_uncertainty
+        if include_uncertainty:
+            if had_uncertainty:
+                final_uncertainty_layer = uncertainty_layer + self.raster_vdatum_uncertainty
+            else:
+                final_uncertainty_layer = self.raster_vdatum_uncertainty
         
-        final_uncertainty_layer[elev_nodata_idx] = layernodata[uncertainty_layer_idx]
+            final_uncertainty_layer[elev_nodata_idx] = layernodata[uncertainty_layer_idx]
+        else:
+            final_uncertainty_layer = None
 
         if contributor_layer is not None:
             contributor_layer[elev_nodata_idx] = layernodata[contributor_layer_idx]
@@ -372,11 +381,13 @@ class VyperRaster(VyperCore):
                     if len(keep_uncert_sub_idx) > 0:
                         self.log_info(f'Maintaining {len(keep_uncert_sub_idx)} points from source uncertainty since greater than CATZOC D vertical uncertainty.')
                         u_values[keep_uncert_sub_idx] = uncertainty_layer[missing_idx[0][keep_uncert_sub_idx], missing_idx[1][keep_uncert_sub_idx]]                
-                final_uncertainty_layer[missing_idx] = u_values
+                if include_uncertainty:
+                    final_uncertainty_layer[missing_idx] = u_values
             else:
                 self.log_info(f'applying nodatavalue to {missing_count} points that are outside of vdatum coverage')
                 final_elevation_layer[missing_idx] = layernodata[elevation_layer_idx]
-                final_uncertainty_layer[missing_idx] = layernodata[uncertainty_layer_idx]
+                if include_uncertainty:
+                    final_uncertainty_layer[missing_idx] = layernodata[uncertainty_layer_idx]
                 if contributor_layer is not None:
                     contributor_layer[missing_idx] = layernodata[contributor_layer_idx]
 
@@ -384,7 +395,8 @@ class VyperRaster(VyperCore):
         return layers, layernames, layernodata
 
     def transform_raster(self, output_datum: Union[str, int, tuple], input_datum: Union[int, str, tuple] = None,
-                         allow_points_outside_coverage: bool = False, output_filename: str = None):
+                         allow_points_outside_coverage: bool = False, output_filename: str = None,
+                         include_uncertainty: bool = True):
         """
         Main method of this class, contains all the other methods and allows you to transform the source raster to a
         different vertical datum using VDatum.
@@ -399,6 +411,8 @@ class VyperRaster(VyperCore):
             if True, allows through points outside of vdatum coverage
         output_filename
             if provided, writes the new raster to geotiff
+        include_uncertainty
+            if True, will include a computed uncertainty band in the output raster/layers
 
         Returns
         -------
@@ -423,12 +437,10 @@ class VyperRaster(VyperCore):
         start_cnt = perf_counter()
         self.log_info(f'Begin work on {os.path.basename(self.input_file)}')
         self.get_datum_sep()
-        layers, layernames, layernodata = self.apply_sep(allow_points_outside_coverage=allow_points_outside_coverage)
+        layers, layernames, layernodata = self.apply_sep(allow_points_outside_coverage=allow_points_outside_coverage,
+                                                         include_uncertainty=include_uncertainty)
         if output_filename:
-            if layers[2] is not None:  # contributor
-                tiffdata = np.concatenate([layers[0][None, :, :], layers[1][None, :, :], layers[2][None, :, :]])
-            else:
-                tiffdata = np.concatenate([layers[0][None, :, :], layers[1][None, :, :]])
+            tiffdata = np.concatenate([layer[None, :, :] for layer in layers if layer is not None])
             tiffdata = np.round(tiffdata, 3)
             self._write_gdal_geotiff(output_filename, tiffdata, layernames, layernodata)
         end_cnt = perf_counter()
