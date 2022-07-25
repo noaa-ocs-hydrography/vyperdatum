@@ -427,12 +427,9 @@ class VyperCore:
                     new_x, new_y = x, y
                 elif out_horiz_name == gframe:  # we can use the transformed geoid frame xy as the output and gframe datums are the same
                     new_x, new_y = new_x, new_y
-                else:  # we need to get new xy to account for the change in horizontal datum
-                    if self.out_crs.vyperdatum_str != 'ellipse':
-                        new_x, new_y, _ = self._transform_to_geoid_frame(x, y, z, override_frame=self.out_crs.horizontal.to_epsg())
-                    else:  # special case, if output is to the ellipse, we need to do a 3d transformation to account for vertical differences in ellipses
-                        new_x, new_y, diffz = self._transform_to_geoid_frame(x, y, z, override_frame=self.out_crs.horizontal.to_epsg())
-                        new_z = new_z - (z - diffz)
+                else:  # we need to get new xyz to account for the change in datum
+                    new_x, new_y, diffz = self._transform_to_geoid_frame(x, y, z, override_frame=self.out_crs.horizontal.to_epsg())
+                    new_z = new_z - (z - diffz)
                 # areas outside the coverage of the vert shift are inf
                 valid_index = ~np.isinf(new_z)
                 ans_x[valid_index] = new_x[valid_index]
