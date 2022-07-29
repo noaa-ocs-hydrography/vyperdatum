@@ -10,7 +10,383 @@ from vyperdatum.vypercrs import geoid_frame_lookup, geoid_possibilities
 grid_formats = ['.tif', '.tiff', '.gtx']
 
 
-class DatumData:
+class VyperData:
+    """
+    Gets and maintains datum information for use with Vyperdatum.
+
+    The datums directory is stored in a config file which is in the user's directory.  Use configparser to sync
+    self._config and the ini file.
+
+    Optionally, user may provide a datums directory here on initialization to set the datums path the first time
+    """
+
+    def __init__(self, datums_directory: str = None, parent=None):
+        self.parent = parent
+
+        self._config = {'datums_path': ''}  # dict of all the settings
+        self.config_path_file = ''  # path to the config file that maintains the settings between runs
+        self.datums_root_path = ''
+
+        self._get_stored_vyper_config()
+
+        self._system_paths = []
+        if 'known_datum_systems' in self._config:
+            for system in self._config['known_datum_systems']:
+                system_path = self._config['known_datum_systems'][system]
+                if os.path.exists(system_path):
+                    self._system_paths.append(system_path)
+                else:
+                    self.remove_from_config(system, section = 'known_datum_systems')
+        for path in self._config['datums_path']:
+            potential_datums_dirs = next(os.walk(self._config['datums_path']))[1]
+            # check the remaining path(s) and see if any new regions are found
+
+            datums_data_found = self._walk_datums_dir(datums_path)
+
+            ## see if it contains a datums directory by looking for version file, or other bits
+            ## read directory info
+            ## store in object
+            ## add to config
+
+        # get list of vdatum versions in the provided path
+        # build a dictionary of the regions, grid files, and uncertainties
+        # get a list of the extended regions in the provided path
+        # build a dictionary of the regions, grid files, and uncertainties
+        # set the default version of VDatum based on config, or latest if not available in config
+
+        self.regions = []
+        self.grid_files = {}  # dict of file names to file paths for the gtx files
+        self.polygon_files = {}  # dict of file names to file paths for the kml files
+        self.uncertainties = {}  # dict of file names to uncertainties for each grid
+        self.vdatum_path = ''  # path to the parent vdatum folder
+        self.vdatum_version = ''
+        self.extended_region = {}  # dict of region to custom region data from the custom region's config file
+        self.extended_region_lookup = {}  # dict of extended region path to list of regions associated with that path
+
+
+    def _get_stored_vyper_config(self):
+        """
+        Runs on initialization, will read from the ini file.
+        """
+        try:
+            vyperdatum_folder = os.path.join(os.path.expanduser('~'), 'vyperdatum')
+            self.config_path_file = os.path.join(vyperdatum_folder, 'vyperdatum.config')
+            # get the config
+            if os.path.exists(self.config_path_file):
+                self._config = self._read_from_config_file()
+            else:
+                default_datums_path = os.path.join(os.path.splitdrive(sys.executable)[0], '/VDatum')
+                self._config = self._create_new_config_file({'datums_path': default_datums_path})
+        except:
+            # get a number of exceptions here when reading and writing to the config file in multiprocessing
+            try:
+                if self.parent:
+                    self.parent.log_warning('Unable to get stored vdatum config file {}'.format(self.config_path_file))
+            except AttributeError:  # logger not initialized yet
+                print('WARNING: Unable to get stored vdatum config file {}'.format(self.config_path_file))
+
+
+    def _walk_datums_dir(self, datums_path):
+
+        for candidate in potential_datums_dirs:
+            candidate_path = os.path.join(datums_path, candidate)
+            if candidate_path in self._system_paths:
+                pass
+                # make a datum system object
+            elif os.path.exists(os.path.join(candidate_path, 'vdatum_vyperversion.txt')):
+                # make a datum system object and register in config
+                print(f'{candidate} is vdatum dir')
+            elif glob.glob(os.path.join(candidate_path, '*/*.gtx')):
+                # make a datum system object and register in config
+                print(f'{candidate} is new vdatum dir')
+            else:
+                print(f'{candidate} is an extension dir')
+
+
+    def set_config(self, ky: str, value: Any, section = None):
+        """
+        Setter for the _config attribute.  Use this instead of setting _config directly, will set both the _config
+        key/value and the configparser ini file.
+
+        Parameters
+        ----------
+        ky
+            key to set in the dict
+        value
+            value to set in the dict
+        """
+
+        try:
+            if section:
+                self._config[section][ky] = value
+            else:
+                self._config[ky] = value
+            self._write_to_config_file()
+        except:
+            # get a number of exceptions here when reading and writing to the config file in multiprocessing
+            try:
+                if self.parent:
+                    self.parent.log_warning('Unable to set {} in config file {}'.format(ky, self.config_path_file))
+            except AttributeError:  # logger not initialized yet
+                print('WARNING: Unable to set {} in config file {}'.format(ky, self.config_path_file))
+        if ky == 'datums_path':
+            self.datums_path = value
+
+
+    def remove_from_config(self, ky: str, section = None):
+        """
+        Drop the given key from the _config attribute.  Use this instead of dealing with _config directly, will set both
+        the _config key/value and the configparser ini file.
+
+        Parameters
+        ----------
+        ky
+            key to remove from the dict
+        """
+
+        try:
+            if section:
+                if ky in self._config[section]:
+                    self._config[section].pop(ky)
+            else:
+                if ky in self._config:
+                    self._config.pop(ky)
+            self._write_to_config_file()
+        except:
+            # get a number of exceptions here when reading and writing to the config file in multiprocessing
+            try:
+                if self.parent:
+                    self.parent.log_warning('Unable to remove {} from config file {}'.format(ky, self.config_path_file))
+            except AttributeError:  # logger not initialized yet
+                print('WARNING: Unable to remove {} from config file {}'.format(ky, self.config_path_file))
+
+
+    def _read_from_config_file(self):
+        """
+        Read from the generated configparser file path, set the object vdatum settings.
+
+        Returns
+        -------
+        dict
+            dictionary of settings
+        """
+
+        settings = {}
+        try:
+            config_file = configparser.ConfigParser()
+            config_file.read(self.config_path_file)
+            sections = config_file.sections()
+            for section in sections:
+                if section == 'Default':
+                    config_file_section = config_file[section]
+                    for key in config_file_section:
+                        settings[key] = config_file_section[key]
+                else:
+                    settings[section] = config_file[section]
+        except:
+            # get a number of exceptions here when reading and writing to the config file in multiprocessing
+            try:
+                if self.parent:
+                    self.parent.log_warning('Unable to read from existing config file {}'.format(self.config_path_file))
+            except AttributeError:  # logger not initialized yet
+                print('WARNING: Unable to read from existing config file {}'.format(self.config_path_file))
+        # ensure a vdatum path attribute is in the settings to make the rest of the code work
+        if 'datums_path' not in settings:
+            settings['datums_path'] = '[]'
+        return settings
+
+
+    def _write_to_config_file(self):
+        """
+        Write the current config attribute to the config file.
+        """
+        settings = {}
+        settings['Default'] = {}
+        for key in self._config:
+            if type(self._config[key]) == dict:
+                settings[key] = self._config[key]
+            else:
+                settings['Default'][key] = self._config[key]
+        config = configparser.ConfigParser()
+        with open(self.config_path_file, 'w') as configfile:
+            config.write(settings)
+
+
+    def _create_new_config_file(self, default_settings: dict) -> dict:
+        """
+        Create a new configparser file, return the settings and the configparser object
+
+        Parameters
+        ----------
+        default_settings
+            default settings we want to write to the configparser file
+
+        Returns
+        -------
+        dict
+            settings within the file
+        """
+
+        try:
+            config_folder, config_file = os.path.split(self.config_path_file)
+            if not os.path.exists(config_folder):
+                os.mkdir(config_folder)
+            config = configparser.ConfigParser()
+            config['Default'] = default_settings
+            with open(self.config_path_file, 'w') as configfile:
+                config.write(configfile)
+        except:
+            # get a number of exceptions here when reading and writing to the config file in multiprocessing
+            try:
+                if self.parent:
+                    self.parent.log_warning('Unable to create new config file {}'.format(self.config_path_file))
+            except AttributeError:  # logger not initialized yet
+                print('WARNING: Unable to create new config file {}'.format(self.config_path_file))
+        return default_settings
+
+
+class VDatumData:
+    """
+    Get and maintains datum information for use with VDatum regions.
+    """
+
+    def __init__(self, vdatum_directory: str = None, parent=None):
+        self.parent = parent
+
+        self.datums_root_path = ''
+
+        self._config = {'datums_path': ''}  # dict of all the settings
+        self.config_path_file = ''  # path to the config file that maintains the settings between runs
+
+        self._get_stored_vyper_config()
+        if vdatum_directory:  # overwrite the loaded path if you want to change it on initialization
+            self.set_vdatum_directory(vdatum_directory)
+        else:
+            self.set_vdatum_directory(self.vdatum_path)
+        self.get_vdatum_version()
+        self.set_other_paths(self._config)
+
+        # get list of vdatum versions in the provided path
+        # build a dictionary of the regions, grid files, and uncertainties
+        # get a list of the extended regions in the provided path
+        # build a dictionary of the regions, grid files, and uncertainties
+        # set the default version of VDatum based on config, or latest if not available in config
+
+        self.regions = []
+        self.grid_files = {}  # dict of file names to file paths for the gtx files
+        self.polygon_files = {}  # dict of file names to file paths for the kml files
+        self.uncertainties = {}  # dict of file names to uncertainties for each grid
+        self.vdatum_path = ''  # path to the parent vdatum folder
+        self.vdatum_version = ''
+        self.extended_region = {}  # dict of region to custom region data from the custom region's config file
+        self.extended_region_lookup = {}  # dict of extended region path to list of regions associated with that path
+
+    def set_vdatum_directory(self, vdatum_path: str):
+        """
+        Called when self.settings['vdatum_directory'] is updated.  We find all the grids and polygons in the vdatum
+        directory and save the dicts to the attributes in this class.
+        """
+
+        self.set_config('vdatum_path', vdatum_path)
+        if not os.path.exists(self.vdatum_path):
+            raise ValueError(f'VDatum is not found at the provided path: {self.vdatum_path}')
+
+        # special case for vdatum directory, we want to give pyproj the new path if it isn't there already
+        orig_proj_paths = datadir.get_data_dir()
+        if vdatum_path not in orig_proj_paths:
+            datadir.append_data_dir(vdatum_path)
+
+        # also want to populate grids and polygons with what we find
+        self.grid_files, self.regions = get_grid_list(vdatum_path)
+        self.polygon_files = get_region_polygons(vdatum_path)
+        self.uncertainties = get_vdatum_uncertainties(vdatum_path)
+
+        self.vdatum_path = self._config['vdatum_path']
+
+    def get_vdatum_version(self):
+        """
+        Get the current vdatum version that vyperdatum generates on the fly.  If this has been run before, the version
+        will be encoded in a new vdatum_vyperversion.txt file that we can read instead so that we don't have to do the
+        lengthy check.
+        """
+
+        if not os.path.exists(self.vdatum_path):
+            raise ValueError(f'VDatum is not found at the provided path: {self.vdatum_path}')
+        vyperversion_file = os.path.join(self.vdatum_path, 'vdatum_vyperversion.txt')
+        if os.path.exists(vyperversion_file):
+            with open(vyperversion_file, 'r') as vfile:
+                vversion = vfile.read()
+        else:
+            try:
+                if self.parent:
+                    self.parent.log_info \
+                        (f'Performing hash comparison to identify VDatum version, should only run once for a new VDatum directory...')
+            except AttributeError:  # logger not initialized yet
+                print \
+                    (f'Performing hash comparison to identify VDatum version, should only run once for a new VDatum directory...')
+            vversion = return_vdatum_version(self.grid_files, self.vdatum_path, save_path=vyperversion_file)
+            if vversion:
+                try:
+                    if self.parent:
+                        self.parent.log_info(f'Generated new version file: {vyperversion_file}')
+                except AttributeError:  # logger not initialized yet
+                    print(f'Generated new version file: {vyperversion_file}')
+        self.vdatum_version = vversion
+
+    def get_geoid_name(self, region_name: str, vdatum_version: str = None) -> str:
+        """
+        Return the geoid path from the vdatum version lookup matching the given version for the given region
+
+        Parameters
+        ----------
+        region_name
+            name of the region that we want the geoid for
+        vdatum_version
+            vdatum version string for the vdatum version we are interested in
+
+        Returns
+        -------
+        str
+            geoid name, ex: r'core\geoid12b\g2012bu0.gtx'
+        """
+
+        if not vdatum_version:
+            vdatum_version = self.vdatum_version
+        try:
+            geoid_name = vdatum_geoidlookup[vdatum_version][region_name]
+        except KeyError:
+            geoid_name = self.extended_region[region_name]['reference_geoid']
+
+        return geoid_name
+
+    def get_geoid_frame(self, region_name: str, vdatum_version: str = None) -> str:
+        """
+        Return the geoid reference frame from the vdatum version lookup matching the given version for the given region
+
+        Parameters
+        ----------
+        region_name
+            name of the region that we want the geoid for
+        vdatum_version
+            vdatum version string for the vdatum version we are interested in
+
+        Returns
+        -------
+        str
+            reference frame used in the given region, ex: NAD83(2011)
+        """
+
+        if not vdatum_version:
+            vdatum_version = self.vdatum_version
+        try:
+            geoid_frame = geoid_frame_lookup[vdatum_geoidlookup[vdatum_version][region_name]]
+        except KeyError:
+            geoid_frame = self.extended_region[region_name]['reference_frame']
+
+        return geoid_frame
+
+
+class ExternalData:
     """
     Gets and maintains datum information for use with Vyperdatum.
 
@@ -50,179 +426,6 @@ class DatumData:
         self.vdatum_version = ''
         self.extended_region = {}  # dict of region to custom region data from the custom region's config file
         self.extended_region_lookup = {}  # dict of extended region path to list of regions associated with that path
-
-
-
-    def set_config(self, ky: str, value: Any):
-        """
-        Setter for the _config attribute.  Use this instead of setting _config directly, will set both the _config
-        key/value and the configparser ini file.
-
-        Parameters
-        ----------
-        ky
-            key to set in the dict
-        value
-            value to set in the dict
-        """
-
-        try:
-            config = configparser.ConfigParser()
-            config.read(self.config_path_file)
-            for k, v in self._config.items():
-                config['Default'][k] = v
-
-            self._config[ky] = value  # set the class attribute
-            config['Default'][ky] = value  # set the ini matching attribute
-            with open(self.config_path_file, 'w') as configfile:
-                config.write(configfile)
-        except:
-            # get a number of exceptions here when reading and writing to the config file in multiprocessing
-            try:
-                if self.parent:
-                    self.parent.log_warning('Unable to set {} in config file {}'.format(ky, self.config_path_file))
-            except AttributeError:  # logger not initialized yet
-                print('WARNING: Unable to set {} in config file {}'.format(ky, self.config_path_file))
-        if ky == 'vdatum_path':
-            self.vdatum_path = value
-
-    def remove_from_config(self, ky: str):
-        """
-        Drop the given key from the _config attribute.  Use this instead of dealing with _config directly, will set both
-        the _config key/value and the configparser ini file.
-
-        Parameters
-        ----------
-        ky
-            key to remove from the dict
-        """
-
-        try:
-            config = configparser.ConfigParser()
-            config.read(self.config_path_file)
-            for k, v in self._config.items():
-                config['Default'][k] = v
-
-            if ky in self._config:
-                self._config.pop(ky)
-            if ky in config['Default']:
-                config['Default'].pop(ky)
-                with open(self.config_path_file, 'w') as configfile:
-                    config.write(configfile)
-        except:
-            # get a number of exceptions here when reading and writing to the config file in multiprocessing
-            try:
-                if self.parent:
-                    self.parent.log_warning('Unable to remove {} from config file {}'.format(ky, self.config_path_file))
-            except AttributeError:  # logger not initialized yet
-                print('WARNING: Unable to remove {} from config file {}'.format(ky, self.config_path_file))
-
-    def _get_stored_vyper_config(self):
-        """
-        Runs on initialization, will read from the ini file and set the vdatum path, config attribute
-        """
-        try:
-            vyperdatum_folder = os.path.join(os.path.expanduser('~'), 'vyperdatum')
-            self.config_path_file = os.path.join(vyperdatum_folder, 'vdatum.config')
-            # get the config
-            if os.path.exists(self.config_path_file):
-                self._config = self._read_from_config_file()
-            else:
-                default_vdatum_path = os.path.join(os.path.splitdrive(sys.executable)[0], '/VDatum')
-                self._config = self._create_new_config_file({'vdatum_path': default_vdatum_path})
-            self.vdatum_path = self._config['vdatum_path']
-        except:
-            # get a number of exceptions here when reading and writing to the config file in multiprocessing
-            try:
-                if self.parent:
-                    self.parent.log_warning('Unable to get stored vdatum config file {}'.format(self.config_path_file))
-            except AttributeError:  # logger not initialized yet
-                print('WARNING: Unable to get stored vdatum config file {}'.format(self.config_path_file))
-
-    def _read_from_config_file(self):
-        """
-        Read from the generated configparser file path, set the object vdatum settings.
-
-        Returns
-        -------
-        dict
-            dictionary of settings
-        """
-
-        settings = {}
-        try:
-            config_file = configparser.ConfigParser()
-            config_file.read(self.config_path_file)
-            sections = config_file.sections()
-            for section in sections:
-                config_file_section = config_file[section]
-                for key in config_file_section:
-                    settings[key] = config_file_section[key]
-        except:
-            # get a number of exceptions here when reading and writing to the config file in multiprocessing
-            try:
-                if self.parent:
-                    self.parent.log_warning('Unable to read from existing config file {}'.format(self.config_path_file))
-            except AttributeError:  # logger not initialized yet
-                print('WARNING: Unable to read from existing config file {}'.format(self.config_path_file))
-        # ensure a vdatum path attribute is in the settings to make the rest of the code work
-        if 'vdatum_path' not in settings:
-            settings['vdatum_path'] = ''
-        return settings
-
-    def _create_new_config_file(self, default_settings: dict) -> dict:
-        """
-        Create a new configparser file, return the settings and the configparser object
-
-        Parameters
-        ----------
-        default_settings
-            default settings we want to write to the configparser file
-
-        Returns
-        -------
-        dict
-            settings within the file
-        """
-
-        try:
-            config_folder, config_file = os.path.split(self.config_path_file)
-            if not os.path.exists(config_folder):
-                os.mkdir(config_folder)
-            config = configparser.ConfigParser()
-            config['Default'] = default_settings
-            with open(self.config_path_file, 'w') as configfile:
-                config.write(configfile)
-        except:
-            # get a number of exceptions here when reading and writing to the config file in multiprocessing
-            try:
-                if self.parent:
-                    self.parent.log_warning('Unable to create new config file {}'.format(self.config_path_file))
-            except AttributeError:  # logger not initialized yet
-                print('WARNING: Unable to create new config file {}'.format(self.config_path_file))
-        return default_settings
-
-    def set_vdatum_directory(self, vdatum_path: str):
-        """
-        Called when self.settings['vdatum_directory'] is updated.  We find all the grids and polygons in the vdatum
-        directory and save the dicts to the attributes in this class.
-        """
-
-        self.set_config('vdatum_path', vdatum_path)
-        if not os.path.exists(self.vdatum_path):
-            raise ValueError(f'VDatum is not found at the provided path: {self.vdatum_path}')
-
-        # special case for vdatum directory, we want to give pyproj the new path if it isn't there already
-        orig_proj_paths = datadir.get_data_dir()
-        if vdatum_path not in orig_proj_paths:
-            datadir.append_data_dir(vdatum_path)
-
-        # also want to populate grids and polygons with what we find
-        self.grid_files, self.regions = get_grid_list(vdatum_path)
-        self.polygon_files = get_region_polygons(vdatum_path)
-        self.uncertainties = get_vdatum_uncertainties(vdatum_path)
-
-        self.vdatum_path = self._config['vdatum_path']
 
     def set_external_region_directory(self, external_path: str, external_key: str = 'external_path'):
         """
@@ -316,87 +519,6 @@ class DatumData:
                                                               'dtl': new_region_info['uncertainty_dtl'],
                                                               'mtl': new_region_info['uncertainty_mtl']}
 
-    def get_vdatum_version(self):
-        """
-        Get the current vdatum version that vyperdatum generates on the fly.  If this has been run before, the version
-        will be encoded in a new vdatum_vyperversion.txt file that we can read instead so that we don't have to do the
-        lengthy check.
-        """
-
-        if not os.path.exists(self.vdatum_path):
-            raise ValueError(f'VDatum is not found at the provided path: {self.vdatum_path}')
-        vyperversion_file = os.path.join(self.vdatum_path, 'vdatum_vyperversion.txt')
-        if os.path.exists(vyperversion_file):
-            with open(vyperversion_file, 'r') as vfile:
-                vversion = vfile.read()
-        else:
-            try:
-                if self.parent:
-                    self.parent.log_info \
-                        (f'Performing hash comparison to identify VDatum version, should only run once for a new VDatum directory...')
-            except AttributeError:  # logger not initialized yet
-                print \
-                    (f'Performing hash comparison to identify VDatum version, should only run once for a new VDatum directory...')
-            vversion = return_vdatum_version(self.grid_files, self.vdatum_path, save_path=vyperversion_file)
-            if vversion:
-                try:
-                    if self.parent:
-                        self.parent.log_info(f'Generated new version file: {vyperversion_file}')
-                except AttributeError:  # logger not initialized yet
-                    print(f'Generated new version file: {vyperversion_file}')
-        self.vdatum_version = vversion
-
-    def get_geoid_name(self, region_name: str, vdatum_version: str = None) -> str:
-        """
-        Return the geoid path from the vdatum version lookup matching the given version for the given region
-
-        Parameters
-        ----------
-        region_name
-            name of the region that we want the geoid for
-        vdatum_version
-            vdatum version string for the vdatum version we are interested in
-
-        Returns
-        -------
-        str
-            geoid name, ex: r'core\geoid12b\g2012bu0.gtx'
-        """
-
-        if not vdatum_version:
-            vdatum_version = self.vdatum_version
-        try:
-            geoid_name = vdatum_geoidlookup[vdatum_version][region_name]
-        except KeyError:
-            geoid_name = self.extended_region[region_name]['reference_geoid']
-
-        return geoid_name
-
-    def get_geoid_frame(self, region_name: str, vdatum_version: str = None) -> str:
-        """
-        Return the geoid reference frame from the vdatum version lookup matching the given version for the given region
-
-        Parameters
-        ----------
-        region_name
-            name of the region that we want the geoid for
-        vdatum_version
-            vdatum version string for the vdatum version we are interested in
-
-        Returns
-        -------
-        str
-            reference frame used in the given region, ex: NAD83(2011)
-        """
-
-        if not vdatum_version:
-            vdatum_version = self.vdatum_version
-        try:
-            geoid_frame = geoid_frame_lookup[vdatum_geoidlookup[vdatum_version][region_name]]
-        except KeyError:
-            geoid_frame = self.extended_region[region_name]['reference_frame']
-
-        return geoid_frame
 
 
 def get_grid_list(vdatum_directory: str):
