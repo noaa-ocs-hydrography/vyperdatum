@@ -42,7 +42,24 @@ def _transform_dataset_sampled(region: str):
     assert vp.x is None
     assert vp.y is None
     assert vp.z == approx(vdatum_answer[region]['z_mllw'], abs=0.005)
-    
+
+
+def _transform_dataset_sampled_with_nan(region: str):
+    vp = VyperPoints()
+    x = vdatum_answer[region]['x']
+    x[1] = np.nan
+
+    y = vdatum_answer[region]['y']
+    z = vdatum_answer[region]['z_nad83']
+    vp.transform_points((6319, 'ellipse'), 'mllw', x, y, z=z, include_vdatum_uncertainty=False, sample_distance=0.0005)
+
+    # sampled points workflow does not return new xy coordinates, we can't just expand the sampled points to get new xy
+    assert vp.x is None
+    assert vp.y is None
+    assert vp.z[0] == approx(vdatum_answer[region]['z_mllw'][0], abs=0.005)
+    assert np.isnan(vp.z[1])
+    assert vp.z[2] == approx(vdatum_answer[region]['z_mllw'][2], abs=0.005)
+
 
 def test_transform_north_carolina_dataset():
     _transform_dataset('north_carolina')
@@ -73,6 +90,22 @@ def test_transform_california_dataset_sampled():
 
 
 def test_transform_alaska_southeast_dataset_sampled():
+    _transform_dataset_sampled('alaska_southeast')
+
+
+def test_transform_north_carolina_dataset_sampled_nan():
+    _transform_dataset_sampled('north_carolina')
+
+
+def test_transform_texas_dataset_sampled_nan():
+    _transform_dataset_sampled('texas')
+
+
+def test_transform_california_dataset_sampled_nan():
+    _transform_dataset_sampled('california')
+
+
+def test_transform_alaska_southeast_dataset_sampled_nan():
     _transform_dataset_sampled('alaska_southeast')
 
 
