@@ -68,9 +68,11 @@ class VyperPoints(VyperCore):
                                                                           include_vdatum_uncertainty=include_vdatum_uncertainty,
                                                                           include_region_index=include_region_index)
 
+            # handle nans
+            nan_mask = np.logical_and(~np.isnan(x), ~np.isnan(y))
             # bin the raster cell locations to get which sep value applies
-            x_bins = np.digitize(x, x_range)
-            y_bins = np.digitize(y, y_range)
+            x_bins = np.digitize(x[nan_mask], x_range)
+            y_bins = np.digitize(y[nan_mask], y_range)
 
             # no 2d transformation is done with sampling interval, we can't just expand the xy coordinates
             self.x = None
@@ -80,15 +82,24 @@ class VyperPoints(VyperCore):
                 if self.in_crs.is_height != self.out_crs.is_height:
                     z = z.copy()
                     z *= -1
-                self.z = z_sep[y_bins - 1, x_bins - 1] + z
+                newz = z_sep[y_bins - 1, x_bins - 1] + z[nan_mask]
             else:
-                self.z = z_sep[y_bins - 1, x_bins - 1]
+                newz = z_sep[y_bins - 1, x_bins - 1]
+            self.z = np.zeros_like(z)
+            self.z[nan_mask] = newz
+            self.z[~nan_mask] = np.float32(np.nan)
             if include_vdatum_uncertainty:
                 unc_new = unc_new.reshape(xx_sampled.shape)
-                self.unc = unc_new[y_bins - 1, x_bins - 1]
+                unc_new = unc_new[y_bins - 1, x_bins - 1]
+                self.unc = np.zeros(z.shape, dtype=unc_new.dtype)
+                self.unc[nan_mask] = unc_new
+                self.unc[~nan_mask] = np.float32(np.nan)
             if include_region_index:
                 regidx = regidx.reshape(xx_sampled.shape)
-                self.region_index = regidx[y_bins - 1, x_bins - 1]
+                regidx = regidx[y_bins - 1, x_bins - 1]
+                self.region_index = np.zeros(z.shape, dtype=regidx.dtype)
+                self.region_index[nan_mask] = regidx
+                self.region_index[~nan_mask] = -1
 
     def export_to_csv(self, output_file: str, delimiter: str = ' '):
         """
