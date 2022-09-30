@@ -29,12 +29,12 @@ class VyperData:
 
         self._get_stored_vyper_config()
 
-        self._system_paths = []
+        self._datumsystem_paths = []
         if 'known_datum_systems' in self._config:
             for system in self._config['known_datum_systems']:
                 system_path = self._config['known_datum_systems'][system]
                 if os.path.exists(system_path):
-                    self._system_paths.append(system_path)
+                    self._datumsystem_paths.append(system_path)
                 else:
                     self.remove_from_config(system, section = 'known_datum_systems')
         for path in self._config['datums_path']:
