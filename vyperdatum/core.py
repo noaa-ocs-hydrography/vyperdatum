@@ -727,7 +727,14 @@ class DatumData:
                     self.extended_region_lookup[entry] = []
                     for region in other_regions:
                         valid_region = False
-                        polygon_file = os.path.join(new_path,region,region + '.gpkg')
+                        valid_exts = ['.gpkg', '.shp', '.kml']
+                        polygon_file = [os.path.join(new_path,region,region + vext) for vext in valid_exts]
+                        polygon_file = [pf for pf in polygon_file if os.path.exists(pf)]
+                        if polygon_file:
+                            polygon_file = polygon_file[0]
+                        else:
+                            print(f'Unable to find polygon file for region {region} using one of these extensions: {valid_exts}')
+                            continue
                         if os.path.exists(polygon_file):
                             config_path = os.path.join(new_path,region,region + '.config')
                             if os.path.exists(polygon_file):
@@ -741,14 +748,11 @@ class DatumData:
                             self.regions.append(region)
                             self.polygon_files[region] = polygon_file
                             self.extended_region[region] = new_region_info
-                            if 'uncertainty_tss' in new_region_info:
-                                self.uncertainties[region] = {'tss': new_region_info['uncertainty_tss'],
-                                                              'mhhw': new_region_info['uncertainty_mhhw'],
-                                                              'mhw': new_region_info['uncertainty_mhw'],
-                                                              'mlw': new_region_info['uncertainty_mlw'],
-                                                              'mllw': new_region_info['uncertainty_mllw'],
-                                                              'dtl': new_region_info['uncertainty_dtl'],
-                                                              'mtl': new_region_info['uncertainty_mtl']}
+                            self.uncertainties[region] = {}
+                            for ky in new_region_info:
+                                if ky.startswith('uncertainty_'):
+                                    _, datumky = ky.split('_')
+                                    self.uncertainties[region][datumky] = new_region_info[ky]
 
     def get_vdatum_version(self):
         """
