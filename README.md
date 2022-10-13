@@ -142,3 +142,12 @@ From there it is simple to start performing transformations.  Use the following 
               REMARK["vdatum=vdatum_4.1.2_20201203,vyperdatum=0.1.6,base_datum=[NAD83(2011)],
                       regions=[MENHMAgome23_8301],
                       pipelines=[+proj=pipeline +step +proj=vgridshift grids=core\\geoid12b\\g2012bu0.gtx +step +inv +proj=vgridshift grids=MENHMAgome23_8301\\tss.gtx +step +proj=vgridshift grids=MENHMAgome23_8301\\mllw.gtx]"]]]'
+
+- GeoTIFF transformation including custom regions from an external region directory
+
+      from vyperdatum.raster import VyperRaster
+      vr = VyperRaster(r"C:\Users\Downloads\zeroraster.tif", vdatum_directory=r'C:\vdatum\vdatum_all_20220324\vdatum')
+      vr.datum_data.set_external_region_directory(r'C:\Users\Downloads\external_dir')
+
+      output_filename = r"C:\Users\Downloads\newraster2.tif"
+      layers, layernames, layernodata = vr.transform_raster('ellipse', 'lwrp2007', allow_points_outside_coverage=True, output_filename=output_filename)

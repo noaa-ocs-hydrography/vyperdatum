@@ -125,6 +125,7 @@ class VyperCore:
         for region in self.datum_data.polygon_files:
             vector = ogr.Open(self.datum_data.polygon_files[region])
             layer_count = vector.GetLayerCount()
+            found = False
             for m in range(layer_count):
                 layer = vector.GetLayerByIndex(m)
                 feature_count = layer.GetFeatureCount()
@@ -135,14 +136,22 @@ class VyperCore:
                     except AttributeError:
                         print('WARNING: Unable to read feature name from feature in layer in {}'.format(self.datum_data.polygon_files[region]))
                         continue
-                    if feature_name[:15] == 'valid-transform':
-                        valid_vdatum_poly = feature.GetGeometryRef()
-                        if data_geometry.Intersect(valid_vdatum_poly):
-                            intersecting_regions.append(region)
-                            gframe = self.datum_data.get_geoid_frame(region)
-                            self._geoid_frame.append(gframe)
+                    if isinstance(feature_name, str):
+                        if feature_name[:15] == 'valid-transform':
+                            valid_vdatum_poly = feature.GetGeometryRef()
+                            if data_geometry.Intersect(valid_vdatum_poly):
+                                intersecting_regions.append(region)
+                                gframe = self.datum_data.get_geoid_frame(region)
+                                self._geoid_frame.append(gframe)
+                                found = True
                     feature = None
                 layer = None
+            if not found and region in self.datum_data.extended_region:
+                feature = vector.GetLayerByIndex(0).GetFeature(0)
+                if data_geometry.Intersect(feature.GetGeometryRef()):
+                    intersecting_regions.append(region)
+                    gframe = self.datum_data.get_geoid_frame(region)
+                    self._geoid_frame.append(gframe)
             vector = None
         self._regions = intersecting_regions
         self.in_crs.update_regions(intersecting_regions)

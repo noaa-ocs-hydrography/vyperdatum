@@ -3,6 +3,7 @@ import os
 import numpy as np
 from typing import Union
 from osgeo import gdal
+import pyproj
 from pyproj import Transformer, CRS
 from pyproj.exceptions import CRSError
 
@@ -258,7 +259,14 @@ class VyperRaster(VyperCore):
                         inv = True
                     elif part.startswith('grids='):
                         junk, grid_file = part.split('=')
-                        grid_path = os.path.join(self.datum_data.vdatum_path, grid_file)
+                        grid_path = None
+                        proj_directories = pyproj.datadir.get_data_dir().split(';')
+                        for gpth in proj_directories:
+                            newpth = os.path.join(gpth, grid_file)
+                            if os.path.exists(newpth):
+                                grid_path = newpth
+                        if not grid_path:
+                            raise ValueError(f'Unable to find grid {grid_file} in included directories: {proj_directories}')
                 # transform, crop and resample the source grid
                 epsg = self.out_crs.horizontal.to_epsg()
                 ds = gdal.Warp('', grid_path, format = 'MEM', dstSRS = f'EPSG:{epsg}', 
