@@ -946,38 +946,3 @@ def build_valid_vert_crs(crs: pyproj_VerticalCRS, regions: [str], datum_data: ob
         valid_vert_crs = None
     return valid_vert_crs, datum, pipeline
 
-
-def guess_vertical_datum_from_string(vertical_datum_name: str) -> str:
-    """
-    Guess the vyperdatum string name by inspecting the string provided and
-    looking for matches to the datum names.
-
-    Parameters
-    ----------
-    vertical_datum_name : str
-        A string from the datum WKT.
-
-    Raises
-    ------
-    ValueError
-        If more than one match to the datum definition is found to match the
-        string provided.
-
-    Returns
-    -------
-    str
-        The matching vyperdatum string name if there is one, otherwise returns
-        None.
-        
-
-    """
-    guess_list = []
-    for datum in datum_definition:
-        if datum in vertical_datum_name.lower():
-            guess_list.append(datum)
-    if len(guess_list) == 1:
-        return guess_list[0]
-    elif len(guess_list) == 0:
-        return ''
-    else:
-        raise ValueError(f'More than one datum guess found in {vertical_datum_name}')
