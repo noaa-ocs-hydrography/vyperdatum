@@ -1092,21 +1092,3 @@ def is_valid_regional_pipeline(pipeline: str) -> bool:
     return valid, pipeline
 
 
-def crs_is_compound(my_crs: CRS):
-    """
-
-    Parameters
-    ----------
-    my_crs
-
-    Returns
-    -------
-
-    """
-    if len(my_crs.sub_crs_list) == 2:
-        horizcrs = my_crs.sub_crs_list[0]
-        vertcrs = my_crs.sub_crs_list[1]
-        if not horizcrs.is_vertical and vertcrs.is_vertical:
-            return True
-    return False
-
