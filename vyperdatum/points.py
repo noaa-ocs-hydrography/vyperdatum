@@ -61,7 +61,7 @@ class VyperPoints(VyperCore):
                                                                                          include_vdatum_uncertainty=include_vdatum_uncertainty,
                                                                                          include_region_index=include_region_index)
         else:
-            extents = (min(x), min(y), max(x), max(y))
+            extents = (float(np.nanmin(x)), float(np.nanmin(y)), float(np.nanmax(x)), float(np.nanmax(y)))
             self._set_extents(extents)
             xx_sampled, yy_sampled, x_range, y_range = sample_array(self.min_x, self.max_x, self.min_y, self.max_y, sample_distance)
             x_sep, y_sep, z_sep, unc_new, regidx = self.transform_dataset(xx_sampled.ravel(), yy_sampled.ravel(),
@@ -158,6 +158,11 @@ def sample_array(min_x: float, max_x: float, min_y: float, max_y: float, samplin
 
     nx = np.ceil((max_x - min_x) / sampling_distance).astype(int)
     ny = np.ceil((max_y - min_y) / sampling_distance).astype(int)
+    if nx <= 0 or ny <= 0:
+        errmsg = 'sample_array: Unable to sample given latitude/longitude values, calculated bin count overflow on casting as integer:\n' \
+                 f'x_bins = ({max_x} - {min_x}) / {sampling_distance}\ny_bins = ({max_y} - {min_y}) / {sampling_distance}'
+        print(errmsg)
+        raise ValueError(errmsg)
     x_range = np.linspace(min_x, max_x, nx)
     y_range = np.linspace(min_y, max_y, ny)
 
