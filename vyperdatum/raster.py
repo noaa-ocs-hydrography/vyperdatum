@@ -8,8 +8,6 @@ from pyproj import Transformer, CRS
 from pyproj.exceptions import CRSError
 
 from vyperdatum.core import VyperCore
-from vyperdatum.vypercrs import get_transformation_pipeline
-
 
 class VyperRaster(VyperCore):
     """
@@ -199,7 +197,7 @@ class VyperRaster(VyperCore):
             geoid_name = self.datum_data.get_geoid_name(region)
             if region not in self.datum_data.regions:
                 self.log_error('Region {region} not found.', ValueError)
-            pipeline, valid_pipeline = get_transformation_pipeline(self.in_crs, self.out_crs, region, geoid_name)
+            pipeline, valid_pipeline = get_transformation_pipeline(self.in_crs, self.out_crs)
             if not valid_pipeline:
                 self.log_info(f'Pipeline {pipeline} for transformation from {self.in_crs.to_wkt()} to {self.out_crs.to_wkt()} in region {region} was flagged as invalid.  Missing support files?')
                 continue
