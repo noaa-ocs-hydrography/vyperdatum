@@ -1,13 +1,28 @@
+from importlib.metadata import version
+import os
+import pathlib
+import json
+import time
+import logging.config
 from osgeo import gdal
 
-from vyperdatum.__version__ import __version__
+__version__ = version("vyperdatum")
+log_configuration_dict = json.load(
+    open(
+        pathlib.Path(
+            pathlib.Path(__file__).parent, "logging_conf.json"
+        )
+    )
+)
+logging.config.dictConfig(log_configuration_dict)
+logging.Formatter.converter = time.gmtime
 
-version = gdal.VersionInfo()
-major = int(version[0])
-minor = int(version[1:3])
-bug = int(version[3:5])
-if not (major == 3 and minor >= 1):
-    msg = f'The version of GDAL must be >= 3.1.\
-            Version found: {major}.{minor}.{bug}'
-    raise ValueError(msg)
+os.environ.update(PROJ_NETWORK="ON")
+gdal.UseExceptions()
 
+
+# commented out as overwrote the original database
+# (pyproj.datadir) with the update database
+# db_dir = (r"C:\Users\mohammad.ashkezari\Documents"
+#           r"\projects\vyperscratch\datum_files")
+# db = DB(db_dir=db_dir)

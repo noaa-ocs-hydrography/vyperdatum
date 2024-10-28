@@ -1,0 +1,20 @@
+version: 2
+
+conda:
+  environment: docs/environment.yml
+
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "mambaforge-latest"
+
+sphinx:
+  configuration: docs/conf.py
+
+formats:
+   - pdf
+   - epub
+
+submodules:
+  include: all
+  recursive: true
