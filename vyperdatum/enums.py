@@ -23,7 +23,7 @@ class PROJDB(RootEnum):
 
 
 class VDATUM(RootEnum):
-    DIR = r"C:\Users\mohammad.ashkezari\Desktop\vdatum_all_20230907\vdatum"
+    DIR = ""
     # from https://vdatum.noaa.gov/docs/services.html  (accessed on July 16, 2024)
     H_FRAMES = ["NAD27", "NAD83_1986", "NAD83_2011", "NAD83_NSRS2007", "NAD83_MARP00",
                 "NAD83_PACP00", "WGS84_G1674", "ITRF2014", "IGS14", "ITRF2008", "IGS08",

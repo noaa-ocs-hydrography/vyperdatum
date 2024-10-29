@@ -83,7 +83,7 @@ def overlapping_regions(datums_directory: str,
                         lat_min: float,
                         lon_max: float,
                         lat_max: float
-                        ):
+                        ) -> list[str]:
     """
     Return the region names that intersect with the provided bound.
     The input coordinate reference system is expected to be
@@ -99,7 +99,12 @@ def overlapping_regions(datums_directory: str,
         the maximum longitude of the area of interest
     lat_max
         the maximum latitude of the area of interest
+
+    Returns
+    ----------
+    list[str]
     """
+    return ["disabled"]
 
     assert lon_min < lon_max
     assert lat_min < lat_max

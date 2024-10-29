@@ -34,7 +34,6 @@ class DB:
 
         if db_dir != pp.datadir.get_data_dir():
             self.update_db_path()
-
         return
 
     def __str__(self):

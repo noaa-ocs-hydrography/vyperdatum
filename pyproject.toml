@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vyperdatum"
-version = "0.3.4"
+version = "0.3.8"
 authors = [
     {name = "Mohammad Ashkezari", email = "mohammad.ashkezari@noaa.gov"},
 ]
@@ -33,7 +33,7 @@ classifiers = [
 
 
 [tool.setuptools]
-py-modules = ["vyperdatum"]
+packages = ["vyperdatum"]
 
 
 [project.optional-dependencies]

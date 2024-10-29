@@ -20,9 +20,4 @@ logging.Formatter.converter = time.gmtime
 os.environ.update(PROJ_NETWORK="ON")
 gdal.UseExceptions()
 
-
-# commented out as overwrote the original database
-# (pyproj.datadir) with the update database
-# db_dir = (r"C:\Users\mohammad.ashkezari\Documents"
-#           r"\projects\vyperscratch\datum_files")
-# db = DB(db_dir=db_dir)
+# db = DB(db_dir=r"path\to\datum_file")
