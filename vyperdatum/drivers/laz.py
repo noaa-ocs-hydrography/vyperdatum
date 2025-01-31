@@ -4,38 +4,43 @@ from osgeo import gdal
 import laspy
 import numpy as np
 import pyproj as pp
-
+from vyperdatum.drivers.base import Driver
 
 logger = logging.getLogger("root_logger")
 gdal.UseExceptions()
 
 
-class LAZ():
-    def __init__(self, input_file: str) -> None:
+class LAZ(Driver):
+    def __init__(self, input_file: str, invalid_error: bool = True) -> None:
         """
         Parameters
         -----------
         input_file: str
             Path to the input laz file.
+        invalid_error: bool, default True
+            If True, throws an error when the input file has an unexpected format.
 
         Raises
         -------
         FileNotFoundError:
             If the input file is not found.
-        TypeError
-            If the passed LAZ file is not valid.
+        ValueError
+            If the passed input file is not recognized as laz file.
 
         Returns
         -----------
         None
         """
+        super().__init__()
         self.input_file = input_file
         if not os.path.isfile(self.input_file):
             raise FileNotFoundError(f"The input file not found at {input_file}.")
-        if not self.get_points():
+        self.is_laz = self.get_points()
+        if invalid_error and not self.is_laz:
             msg = (f"The following file is not a valid LAZ file: {self.input_file}")
             logger.exception(msg)
             raise TypeError(msg)
+        return
 
     def get_points(self) -> bool:
         """
@@ -57,7 +62,7 @@ class LAZ():
             valid = False
         return valid
 
-    def get_wkt(self) -> str:
+    def wkt(self) -> str:
         """
         Return the LAZ WKT string.
 
@@ -67,10 +72,10 @@ class LAZ():
             WKT associated with file's CRS.
         """
         with laspy.open(self.input_file) as lf:
-            wkt = lf.header.parse_crs().to_wkt()
-        return wkt
+            w = lf.header.parse_crs().to_wkt()
+        return w
 
-    def transform_laz(self, transformer_instance) -> None:
+    def transform(self, transformer_instance, vdatum_check: bool) -> None:
         """
         Apply point transformation on the laz data according to the `transformer_instance`.
 
@@ -84,8 +89,16 @@ class LAZ():
         None
         """
         lf = laspy.read(self.input_file)
-        xx, yy, zz = transformer_instance.transform_points(self.x, self.y, self.z)
+        xx, yy, zz = transformer_instance.transform_points(self.x,
+                                                           self.y,
+                                                           self.z,
+                                                           vdatum_check=vdatum_check
+                                                           )
         lf.x, lf.y, lf.z = xx, yy, zz
         lf.header.add_crs(transformer_instance.crs_to)
         lf.write(self.input_file)
         return
+
+    @property
+    def is_valid(self):
+        return self.is_laz

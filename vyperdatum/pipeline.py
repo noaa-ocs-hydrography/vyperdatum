@@ -104,7 +104,7 @@ class Pipeline():
         if pp.CRS(self.crs_to).is_compound:
             _, s_v = self.split_crs(pp.CRS(self.crs_from))
             h, v = self.split_crs(pp.CRS(self.crs_to))
-            if s_v.upper() == v.upper():
+            if s_v is None or v or None or s_v.upper() == v.upper():
                 return
             va, vc = v.split(":")
             df = DB().query("select concat(horiz_crs_auth_name, ':', horiz_crs_code) hac from"
@@ -329,80 +329,56 @@ class Pipeline():
         self.steps = temp_steps
         return self.steps
 
+    def transformation_steps(self, method: str = "linear") -> Optional[list[str]]:
+        """
+        Return transformation steps the source and target CRSs using an
+        algorithm specified by `method`.
 
-if __name__ == "__main__":
-    # ! Error: noop, Invalid transformation step: EPSG:4326 --> EPSG:9755
-    # crs_from, crs_to = "EPSG:4326", "EPSG:6318"
-
-    # # !? PRVD  >>> Error: incompatible horizontal CRSs
-    # crs_from, crs_to = "EPSG:26919+NOAA:5535", "EPSG:26919+EPSG:6641"
-    # # EPSG:26919+NOAA:5535
-    # # EPSG:6318+NOAA:5535
-    # # EPSG:6318+EPSG:6641
-    # # EPSG:26919+EPSG:6641
-    # # graph: ['EPSG:26919+NOAA:5535', 'EPSG:4269+NOAA:5535', 'EPSG:4269+EPSG:6641', 'EPSG:26919+EPSG:6641']
-
-
-    # # !? NY / CT
-    # crs_from, crs_to = "EPSG:26919", "EPSG:26919+NOAA:5434"
-    # # EPSG:26919
-    # # EPSG:6319
-    # # EPSG:6318+NOAA:5434
-    # # EPSG:26919+NOAA:5434
-    # # linear: ['EPSG:26919', 'EPSG:4269', 'EPSG:6319', 'EPSG:6318+NOAA:5434', 'EPSG:4269+NOAA:5434', 'EPSG:26919+NOAA:5434']
-    # # graph: ['EPSG:26919', 'EPSG:4269', 'EPSG:6319', 'NOAA:8436', 'EPSG:4269+NOAA:5434', 'EPSG:26919+NOAA:5434']
+        Parameters
+        -----------
+        method: str, default 'linear'
+            An algorithm using which the transformation steps are generated.
+            Possible values: 'linear', 'graph'
+        """
+        method = method.lower().strip()
+        if method == "linear":
+            return self.linear_steps()
+        elif method == "graph":
+            return self.graph_steps()
+        else:
+            logger.error("Invalid method name to generate transformation steps.")
+        return None
 
 
-    # # ! should it go to 9755 (or equivalent) first?
-    # crs_from, crs_to = "EPSG:32609", "EPSG:26909"
-    # # linear: ['EPSG:32609', 'EPSG:4979', 'EPSG:4269', 'EPSG:26909'] 
-    # # graph: ['EPSG:32609', 'EPSG:4979', 'EPSG:4269', 'EPSG:26909']
+def nwld_ITRF2020_steps(h0: str, v0: Optional[str], h1: str, v1: Optional[str]):
+    """
+    Generate a general sequence of transformation steps from
+    h0+v0 (crs_from) to h1+v1 (crs_to).
+    """
+    if v0 is None and v1 is None:
+        return [{"crs_from": h0, "crs_to": h1, "v_shift": False}]
 
+    steps = []
+    if pp.CRS(h0).geodetic_crs.to_authority() == ("EPSG", "4326"):
+        steps.append({"crs_from": h0, "crs_to": "EPSG:9755", "v_shift": False})
+        steps.append({"crs_from": "EPSG:9755", "crs_to": "EPSG:6319", "v_shift": False})
+    else:
+        steps.append({"crs_from": h0, "crs_to": "EPSG:6319", "v_shift": False})
+    steps.append({"crs_from": "EPSG:6319", "crs_to": "EPSG:7912", "v_shift": False})
+    steps.append({"crs_from": "EPSG:7912", "crs_to": "EPSG:9989", "v_shift": False})
 
+    if v0 is None:
+        steps.append({"crs_from": "EPSG:9989", "crs_to": f"EPSG:9990+{v1}", "v_shift": True})
+    elif v1 is None:
+        steps.append({"crs_from": f"EPSG:9990+{v0}", "crs_to": "EPSG:9989", "v_shift": True})
+    else:
+        steps.append({"crs_from": f"EPSG:9990+{v0}", "crs_to": f"EPSG:9990+{v1}", "v_shift": True})
 
-    # # ME/ MA
-    # crs_from, crs_to = "EPSG:6348", "EPSG:6348+NOAA:5320"
-    # # EPSG:6348
-    # # EPSG:6319
-    # # EPSG:6318+NOAA:5320
-    # # EPSG:6348+NOAA:5320
-    # # linear: ['EPSG:6348', 'EPSG:6319', 'EPSG:6318+NOAA:5320', 'EPSG:6348+NOAA:5320']
-    # # graph: ['EPSG:6348', 'EPSG:6319', 'NOAA:8322', 'EPSG:6348+NOAA:5320']
-
-    # # ! incompatible horizontal crs
-    # crs_from, crs_to = "EPSG:32618+NOAA:5503", "EPSG:32618+EPSG:5703"
-
-
-    # ! DE / VA / MD  >>  EPSG:9000(+NOAA:5200) >>> EPSG:6318(+NOAA:5200)
-    crs_from, crs_to = "EPSG:6347", "EPSG:6347+NOAA:5200"
-    # EPSG:6347 >>> EPSG:6319                           [NAD83(2011) (geographic 3D)]
-    # EPSG:6319 >>> EPSG:7912                           [ITRF2014 (geographic 3D)]
-    # EPSG:7912 >>> EPSG:9000+NOAA:5543                 [ITRF2014 + MSL (XGEOID20B_CONUSPAC) height]
-    # EPSG:9000+NOAA:5543 >>> EPSG:9000+NOAA:5197       [ITRF2014 + LMSL height]
-    # EPSG:9000+NOAA:5197 >>> EPSG:9000+NOAA:5200       [ITRF2014 + MLLW height]
-    # EPSG:9000(+NOAA:5200) >>> EPSG:6318(+NOAA:5200)       [NAD83(2011) + MLLW height]
-    # EPSG:6318+NOAA:5200 >>> EPSG:6347+NOAA:5200       [NAD83(2011) / UTM 18N + MLLW height]
-    # linear: ['EPSG:6347', 'EPSG:6319', 'EPSG:7912', 'EPSG:9000+NOAA:5200', 'EPSG:6318+NOAA:5200', 'EPSG:6347+NOAA:5200']
-    # graph without _compatiple: ['EPSG:6347', 'EPSG:6319', 'EPSG:4269', 'EPSG:6318+NOAA:5200', 'EPSG:6347+NOAA:5200']
-
-    pipe = Pipeline(crs_from=crs_from,
-                    crs_to=crs_to
-                    )
-    linear_route, graph_route, graph_k_routes= [], [], []
-    try:
-        linear_route = pipe.linear_steps()
-    except Exception as e:
-        print(str(e))   
-    try:
-        graph_route = pipe.graph_steps()
-    except Exception as e:
-        print(str(e))
-    try:
-        graph_k_routes = pipe.k_graph_steps(k=20)
-    except Exception as e:
-        print(str(e))  
-
-    print(f"\n\n{'-'*20} Routes {'-'*20}")
-    print(f"Linear Algorithm: {linear_route}")
-    print(f"Graph Algorithm: {graph_route}")
-    # print(f"Graph k-Route: {graph_k_routes}")
+    steps.append({"crs_from": "EPSG:9990", "crs_to": "EPSG:9000", "v_shift": False})
+    steps.append({"crs_from": "EPSG:9000", "crs_to": "EPSG:6318", "v_shift": False})
+    if pp.CRS(h1).geodetic_crs.to_authority() == ("EPSG", "4326"):
+        steps.append({"crs_from": "EPSG:6318", "crs_to": "EPSG:9755", "v_shift": False})
+        steps.append({"crs_from": "EPSG:9755", "crs_to": h1, "v_shift": False})
+    else:
+        steps.append({"crs_from": "EPSG:6318", "crs_to": h1, "v_shift": False})
+    return steps

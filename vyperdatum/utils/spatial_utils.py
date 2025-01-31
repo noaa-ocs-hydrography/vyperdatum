@@ -104,8 +104,6 @@ def overlapping_regions(datums_directory: str,
     ----------
     list[str]
     """
-    return ["disabled"]
-
     assert lon_min < lon_max
     assert lat_min < lat_max
 

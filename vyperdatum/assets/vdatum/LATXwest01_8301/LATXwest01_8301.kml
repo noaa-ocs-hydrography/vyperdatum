@@ -1,0 +1,475 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+    <Document>
+<name>LATXwest01_8301.kml</name>
+        <Style id="sh_ylw-pushpin">
+            <IconStyle>
+                <scale>1.3</scale>
+                <Icon>
+                    <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+                </Icon>
+                <hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+            </IconStyle>
+            <LineStyle>
+                <color>ff0000ff</color>
+            </LineStyle>
+            <PolyStyle>
+                <color>ff0000ff</color>
+                <fill>0</fill>
+            </PolyStyle>
+        </Style>
+        <Style id="s_ylw-pushpin_hl">
+            <IconStyle>
+                <scale>1.3</scale>
+                <Icon>
+                    <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+                </Icon>
+                <hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+            </IconStyle>
+            <LineStyle>
+                <color>ff00ffff</color>
+                <width>2</width>
+            </LineStyle>
+            <PolyStyle>
+                <color>ff00ffff</color>
+                <fill>0</fill>
+            </PolyStyle>
+        </Style>
+        <Style id="s_ylw-pushpin">
+            <IconStyle>
+                <scale>1.1</scale>
+                <Icon>
+                    <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+                </Icon>
+                <hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+            </IconStyle>
+            <LineStyle>
+                <color>ffff0000</color>
+            </LineStyle>
+            <PolyStyle>
+                <color>ffff0000</color>
+                <fill>0</fill>
+            </PolyStyle>
+        </Style>
+        <StyleMap id="msn_ylw-pushpin">
+            <Pair>
+                <key>normal</key>
+                <styleUrl>#sn_ylw-pushpin0</styleUrl>
+            </Pair>
+            <Pair>
+                <key>highlight</key>
+                <styleUrl>#sh_ylw-pushpin</styleUrl>
+            </Pair>
+        </StyleMap>
+        <Style id="s_ylw-pushpin0">
+            <IconStyle>
+                <scale>1.1</scale>
+                <Icon>
+                    <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+                </Icon>
+                <hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+            </IconStyle>
+            <LineStyle>
+                <color>ff00ffff</color>
+                <width>2</width>
+            </LineStyle>
+            <PolyStyle>
+                <color>ff00ffff</color>
+                <fill>0</fill>
+            </PolyStyle>
+        </Style>
+        <Style id="s_ylw-pushpin_hl0">
+            <IconStyle>
+                <scale>1.3</scale>
+                <Icon>
+                    <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+                </Icon>
+                <hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+            </IconStyle>
+            <LineStyle>
+                <color>ffff0000</color>
+            </LineStyle>
+            <PolyStyle>
+                <color>ffff0000</color>
+                <fill>0</fill>
+            </PolyStyle>
+        </Style>
+        <Style id="sn_ylw-pushpin">
+            <IconStyle>
+                <scale>1.1</scale>
+                <Icon>
+                    <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+                </Icon>
+                <hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+            </IconStyle>
+            <LineStyle>
+                <color>ffffff00</color>
+            </LineStyle>
+            <PolyStyle>
+                <color>ffffff00</color>
+                <fill>0</fill>
+            </PolyStyle>
+        </Style>
+        <StyleMap id="m_ylw-pushpin">
+            <Pair>
+                <key>normal</key>
+                <styleUrl>#s_ylw-pushpin</styleUrl>
+            </Pair>
+            <Pair>
+                <key>highlight</key>
+                <styleUrl>#s_ylw-pushpin_hl0</styleUrl>
+            </Pair>
+        </StyleMap>
+        <Style id="sn_ylw-pushpin0">
+            <IconStyle>
+                <scale>1.1</scale>
+                <Icon>
+                    <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+                </Icon>
+                <hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+            </IconStyle>
+            <LineStyle>
+                <color>ff0000ff</color>
+            </LineStyle>
+            <PolyStyle>
+                <color>ff0000ff</color>
+                <fill>0</fill>
+            </PolyStyle>
+        </Style>
+        <Style id="sh_ylw-pushpin0">
+            <IconStyle>
+                <scale>1.3</scale>
+                <Icon>
+                    <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+                </Icon>
+                <hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+            </IconStyle>
+            <LineStyle>
+                <color>ffffff00</color>
+            </LineStyle>
+            <PolyStyle>
+                <color>ffffff00</color>
+                <fill>0</fill>
+            </PolyStyle>
+        </Style>
+        <StyleMap id="msn_ylw-pushpin0">
+            <Pair>
+                <key>normal</key>
+                <styleUrl>#sn_ylw-pushpin</styleUrl>
+            </Pair>
+            <Pair>
+                <key>highlight</key>
+                <styleUrl>#sh_ylw-pushpin0</styleUrl>
+            </Pair>
+        </StyleMap>
+        <StyleMap id="m_ylw-pushpin0">
+            <Pair>
+                <key>normal</key>
+                <styleUrl>#s_ylw-pushpin0</styleUrl>
+            </Pair>
+            <Pair>
+                <key>highlight</key>
+                <styleUrl>#s_ylw-pushpin_hl</styleUrl>
+            </Pair>
+        </StyleMap>
+        <Folder>
+<name>LATXwest01_8301.kml</name>
+            <open>1</open>
+<Placemark>
+<name>LATXwest01_8301.bnd</name>
+    <description>GTX coverage</description>
+    <styleUrl>#m_ylw-pushpin0</styleUrl>
+    <Polygon>
+        <tessellate>1</tessellate>
+        <outerBoundaryIs>
+            <LinearRing>
+                <coordinates>
+-94.4500000000,28.5400000000,0
+-94.4500000000,30.4060000000,0
+-92.4990000000,30.4060000000,0
+-92.4990000000,28.5400000000,0
+-94.4500000000,28.5400000000,0
+                </coordinates>
+            </LinearRing>
+        </outerBoundaryIs>
+    </Polygon>
+</Placemark>
+<Placemark>
+    <name>valid-transform - LATXwest01_8301.kml</name>
+    <description>valid transform areas, code 0</description>
+    <styleUrl>#m_ylw-pushpin</styleUrl>
+    <Polygon>
+        <tessellate>1</tessellate>
+        <outerBoundaryIs>
+            <LinearRing>
+                <coordinates>
+-94.44,29.538,0
+-94.44,28.55,0
+-94.063491,28.656617,0
+-93.681745,28.742472,0
+-93.294278,28.796967,0
+-92.903518,28.802563,0
+-92.516,28.75,0
+-92.516,29.573,0
+-92.53937,29.57432,0
+-92.54777,29.59509,0
+-92.58382,29.58829,0
+-92.608149,29.587887,0
+-92.62623,29.61009,0
+-92.64424,29.62099,0
+-92.660453,29.60116,0
+-92.7005,29.61335,0
+-92.735087,29.623416,0
+-92.75868,29.6352,0
+-92.75655,29.67453,0
+-92.76982,29.67738,0
+-92.77171,29.6615,0
+-92.77464,29.6389,0
+-92.81412,29.65487,0
+-92.90013,29.69159,0
+-92.93548,29.70757,0
+-92.96414,29.72028,0
+-92.97742,29.73479,0
+-92.99467,29.75414,0
+-92.92646,29.76857,0
+-92.8991,29.76554,0
+-92.8736,29.7751,0
+-92.87759,29.79967,0
+-92.884254,29.796525,0
+-92.88964,29.79462,0
+-92.89876,29.78616,0
+-92.978525,29.77851,0
+-93.0455,29.7813,0
+-93.09156,29.7641,0
+-93.12279,29.76643,0
+-93.25467,29.7989,0
+-93.21312,29.91846,0
+-92.893494,29.890045,0
+-92.89727,29.91864,0
+-92.90547,29.92622,0
+-92.91506,29.92382,0
+-92.93162,29.92017,0
+-92.94112,29.92584,0
+-92.9013,29.93903,0
+-92.90336,29.94704,0
+-92.95964,29.93423,0
+-92.96675,29.93154,0
+-93.1408,29.9939,0
+-93.166451,29.990035,0
+-93.17137,29.98136,0
+-93.18544,29.99748,0
+-93.2135,30.0145,0
+-93.22407,30.02087,0
+-93.233566,30.029789,0
+-93.25806,30.05041,0
+-93.25646,30.05558,0
+-93.26657,30.07002,0
+-93.25918,30.07812,0
+-93.26829,30.08224,0
+-93.28728,30.09111,0
+-93.2965,30.09969,0
+-93.28417,30.09937,0
+-93.276372,30.111411,0
+-93.29353,30.11554,0
+-93.31852,30.10831,0
+-93.30959,30.13362,0
+-93.2416,30.1651,0
+-93.0287,30.3467,0
+-93.114,30.3926,0
+-93.31203,30.22368,0
+-93.3136,30.20052,0
+-93.3664,30.1224,0
+-93.3355,30.08952,0
+-93.35772,30.06374,0
+-93.44786,30.06667,0
+-93.69365,30.06363,0
+-93.70675,30.07642,0
+-93.71828,30.09089,0
+-93.70937,30.10063,0
+-93.69816,30.11101,0
+-93.7122,30.11719,0
+-93.74103,30.08942,0
+-93.72656,30.05577,0
+-93.75015,30.07716,0
+-93.75885,30.06678,0
+-93.73977,30.04466,0
+-93.74585,30.0302,0
+-93.77016,30.03953,0
+-93.822164,30.049934,0
+-93.84102,30.07778,0
+-93.85464,30.07359,0
+-93.83211,30.04278,0
+-93.76744,30.02538,0
+-93.7644,30.01815,0
+-93.822,29.9981,0
+-93.8779,29.9967,0
+-93.9332,30.0079,0
+-94.0144,30.0558,0
+-94.042773,30.122813,0
+-94.074245,30.11684,0
+-94.114,30.0992,0
+-94.0888,30.0583,0
+-93.9955,29.9845,0
+-93.9333,29.9408,0
+-94.0635,29.8145,0
+-94.163556,29.72714,0
+-94.17106,29.72207,0
+-94.301,29.6609,0
+-94.44,29.6,0
+-94.44,29.55201,0
+-94.15743,29.67683,0
+-93.99806,29.79134,0
+-93.99539,29.75871,0
+-93.99596,29.72206,0
+-93.9158,29.75489,0
+-93.87667,29.72683,0
+-93.85034,29.6858,0
+-93.94386,29.69343,0
+-94.03261,29.6921,0
+-94.14159,29.65946,0
+-94.44,29.538,0
+                </coordinates>
+            </LinearRing>
+        </outerBoundaryIs>
+    </Polygon>
+</Placemark>
+<Placemark>
+    <name>masked-out - LATXwest01_8301.kml</name>
+    <description>masked out areas, code 2</description>
+    <styleUrl>#msn_ylw-pushpin</styleUrl>
+    <Polygon>
+        <tessellate>1</tessellate>
+        <outerBoundaryIs>
+            <LinearRing>
+                <coordinates>
+-93.7042,30.0416,0
+-93.629,30.0476,0
+-93.49,30.0496,0
+-93.3933,30.0483,0
+-93.3423,30.051,0
+-93.3484,29.9932,0
+-93.3625,29.965,0
+-93.3846,29.9013,0
+-93.439,29.8858,0
+-93.4544,29.8563,0
+-93.4128,29.8315,0
+-93.3658,29.8046,0
+-93.3685,29.7878,0
+-93.4397,29.7892,0
+-93.5115,29.7798,0
+-93.6954,29.7616,0
+-93.8297,29.712,0
+-93.8431,29.7308,0
+-93.8861,29.7885,0
+-93.8713,29.7979,0
+-93.819,29.8133,0
+-93.7995,29.8234,0
+-93.7733,29.8133,0
+-93.7485,29.8328,0
+-93.721,29.9556,0
+-93.7055,30.0221,0
+-93.7042,30.0416,0
+                </coordinates>
+            </LinearRing>
+        </outerBoundaryIs>
+    </Polygon>
+</Placemark>
+<Placemark>
+    <name>none-tidal - LATXwest01_8301.kml</name>
+    <description>non-tidal areas, code 1</description>
+    <styleUrl>#msn_ylw-pushpin0</styleUrl>
+    <Polygon>
+        <tessellate>1</tessellate>
+        <outerBoundaryIs>
+            <LinearRing>
+                <coordinates>
+-92.21257,29.759593,0
+-92.214136,29.743419,0
+-92.207028,29.737069,0
+-92.204037,29.733266,0
+-92.202769,29.729057,0
+-92.208236,29.712522,0
+-92.204075,29.699735,0
+-92.198881,29.695335,0
+-92.188154,29.674872,0
+-92.189319,29.654398,0
+-92.183662,29.637018,0
+-92.162388,29.596497,0
+-92.159349,29.584847,0
+-92.293069,29.575223,0
+-92.314414,29.574512,0
+-92.31907,29.563778,0
+-92.324679,29.551117,0
+-92.336698,29.573769,0
+-92.384242,29.572184,0
+-92.449582,29.585353,0
+-92.521508,29.622836,0
+-92.560966,29.668939,0
+-92.572734,29.670276,0
+-92.594358,29.68691,0
+-92.615981,29.721841,0
+-92.628457,29.746792,0
+-92.654239,29.778396,0
+-92.671705,29.799188,0
+-92.685101,29.803494,0
+-92.677514,29.744906,0
+-92.748933,29.777323,0
+-92.845678,29.770232,0
+-92.859668,29.778393,0
+-92.860809,29.77611,0
+-92.891586,29.794445,0
+-92.898862,29.789986,0
+-92.907472,29.793531,0
+-92.908992,29.806701,0
+-92.935837,29.817844,0
+-92.923681,29.849755,0
+-92.879304,29.858965,0
+-92.878795,29.86406,0
+-92.850518,29.888179,0
+-92.823819,29.906486,0
+-92.919122,29.892808,0
+-93.190108,29.919654,0
+-93.231642,29.991072,0
+-93.269631,30.037672,0
+-93.27733,30.058202,0
+-93.280817,30.060663,0
+-93.277692,30.071,0
+-93.269759,30.096001,0
+-93.25834,30.10129,0
+-93.248405,30.094081,0
+-92.968761,30.116688,0
+-92.838586,30.108077,0
+-92.715165,30.075798,0
+-92.701645,30.083625,0
+-92.664811,30.091758,0
+-92.64379,30.130295,0
+-92.649362,30.229572,0
+-92.629101,30.272626,0
+-92.545526,30.263508,0
+-92.491329,30.228559,0
+-92.481199,30.169803,0
+-92.507538,30.142958,0
+-92.546033,30.112567,0
+-92.583009,30.089774,0
+-92.614529,30.07632,0
+-92.619308,30.067823,0
+-92.6401,30.047863,0
+-92.672536,30.038714,0
+-92.700814,30.027071,0
+-92.70927,30.019742,0
+-92.668397,30.012346,0
+-92.527969,29.934741,0
+-92.502767,29.939408,0
+-92.33663,29.919654,0
+-92.250522,29.885717,0
+-92.157323,29.797077,0
+-92.193286,29.771245,0
+-92.21257,29.759593,0
+                </coordinates>
+            </LinearRing>
+        </outerBoundaryIs>
+    </Polygon>
+</Placemark>
+        </Folder>
+    </Document>
+</kml>

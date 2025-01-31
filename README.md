@@ -15,7 +15,7 @@ Vyperdatum requires `GDAL` which can be installed from the conda's conda-forge c
 ```bash
 conda create -n vd python=3.11
 conda activate vd
-conda install -c conda-forge gdal=3.8.4
+conda install -c conda-forge proj=9.4 gdal=3.8.4 python-pdal
 pip install vyperdatum
 ```
 Before running vyperdatum, you need to copy NOAA's datum files and the updated `proj.db` into the PROJ data directory [download link will be added here]. This process may get automated in the future. The Proj data directory path can be found here:
@@ -26,7 +26,7 @@ pp.datadir.get_data_dir()
 ```
 
 ## Usage
-Vyperdatum offers a `Transformer` class to handle the transformation of point and raster data. The `Transformer` class applies transformation from `crs_from` to `crs_to` coordinate reference systems. The transformation steps can be prescribed manually or let the `Pipeline` class to infer: 
+Vyperdatum offers a `Transformer` class to handle the transformation of point and raster data. The `Transformer` class applies transformation from `crs_from` to `crs_to` coordinate reference systems. The transformation steps can be prescribed manually or let the `Pipeline` class to infer:
 
 ```python
 from vyperdatum.transformer import Transformer
@@ -37,42 +37,50 @@ crs_to = "EPSG:6346+NOAA:5224"
 tf = Transformer(crs_from=crs_from,
                  crs_to=crs_to,
                  steps=["EPSG:6346", "EPSG:6319", "EPSG:6318+NOAA:5224", "EPSG:6346+NOAA:5224"]
-                 #  steps=Pipeline(crs_from=crs_from, crs_to=crs_to).linear_steps()
-                 #  steps=Pipeline(crs_from=crs_from, crs_to=crs_to).graph_steps()                 
+                 #  steps=Pipeline(crs_from=crs_from, crs_to=crs_to).transformation_steps()
                  )
 ```
 
-Once an instance of the `Transformer` class is created, raster or point transformation methods can be called.
+Once an instance of the `Transformer` class is created, the `transform()` method can be called. Vyperdatum supports all GDAL-supported drivers, variable resolution BAG, LAZ and NPZ point-cloud files.
 
-### raster transform                
+### transform
 ```python                
+tf.transform(input_file=<PATH_TO_INPUT_RASTER_FILE>,
+             output_file=<PATH_TO_OUTPUT_RASTER_FILE>
+             )
+```
+
+You may also, directly call the file-specific transform methods instead of the generic `Transformer.transform()` method:
+
+<details>
+<summary>Click to see pseudo-code examples</summary>
+            
+```python
+# dircet point transformation. x, y, z can be arrays, too.
+x, y, z = 278881.198, 2719890.433, 0
+xt, yt, zt = tf.transform_points(x, y, z, always_xy=True, allow_ballpark=False)
+
+# GDAL-supported raster transform  
 tf.transform_raster(input_file=<PATH_TO_INPUT_RASTER_FILE>,
                     output_file=<PATH_TO_OUTPUT_RASTER_FILE>
                     )
-```
 
-### point transform                
-```python
-# random values
-x, y, z = 278881.198, 2719890.433, 0
-xt, yt, zt = tf.transform_points(x, y, z, always_xy=True, allow_ballpark=False)
-```
+# VRBAG transform
+tf.transform_vrbag(input_file=<PATH_TO_INPUT_VRBAG_FILE>,
+                   output_file=<PATH_TO_OUTPUT_VRBAG_FILE>
+                   )
 
-Vyperdatum `Transformer` class offers a few methods to support file formats that are not supported by GDAL, such as Variable Resolution BAG, and LAZ point cloud data. 
+# LAZ transform
+tf.transform_laz(input_file=<PATH_TO_INPUT_LAZ_FILE>,
+                 output_file=<PATH_TO_OUTPUT_LAZ_FILE>
+                 )
 
-#### VRBAG Transform
-```python
-input_file = "PATH_TO_INPUT_VRBAG.bag"
-output_file = "PATH_TO_OUTPUT_VRBAG.bag"
-tf.transform_vrbag(input_file=input_file, output_file=output_file)
+# NPZ transform
+tf.transform_npz(input_file=<PATH_TO_INPUT_NPZ_FILE>,
+                 output_file=<PATH_TO_OUTPUT_NPZ_FILE>
+                 )
 ```
-
-#### LAZ Transform
-```python
-input_file = "PATH_TO_INPUT_LAZ.laz"
-output_file = "PATH_TO_OUTPUT_LAZ.laz"
-tf.transform_laz(input_file=input_file, output_file=output_file)
-```
+</details>
 
 ## Documentation
 

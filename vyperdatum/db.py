@@ -1,4 +1,5 @@
 import os
+import platform
 import sqlite3
 import logging
 from typing import Optional, Tuple, Union
@@ -14,7 +15,7 @@ logger = logging.getLogger("root_logger")
 class DB:
 
     def __init__(self,
-                 db_dir: Optional[str] = pp.datadir.get_data_dir()
+                 db_dir: Optional[str] = enuPDB.DIR.value
                  ) -> None:
         """
 
@@ -78,8 +79,9 @@ class DB:
             success = False
             if not self.db_dir:
                 raise ValueError("Attribute `.db_dir` not specified.")
-            pp.datadir.set_data_dir(self.db_dir + ";" + pp.datadir.get_data_dir())
-            if pp.datadir.get_data_dir().split(";")[0] != self.db_dir:
+            sep = ";" if platform.system() == "Windows" else ":"
+            pp.datadir.set_data_dir(self.db_dir + sep + pp.datadir.get_data_dir())
+            if pp.datadir.get_data_dir().split(sep)[0] != self.db_dir:
                 raise SystemExit("Unable to set the path to the custom PROJ database.")
             else:
                 success = True

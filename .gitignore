@@ -5,6 +5,7 @@ untrack
 **/venv
 Dockerfile
 vyperdatum.egg-info
+vyperdatum/assets/datums
 
 # Byte-compiled / optimized / DLL files
 **/__pycache__/
@@ -32,7 +33,7 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
-untracked/
+untrack/
 .vscode/
 
 # test

@@ -5,6 +5,7 @@ channels:
 dependencies:
   - python=3.12
   - gdal==3.8.4
+  - python-pdal
   - pip>=20.1
   - pip:
     - sphinx==7.4.7
@@ -20,4 +21,6 @@ dependencies:
     - networkx==3.3
     - vyperdatum @ git+https://github.com/mohammadashkezari-noaa/vyperdatum@main
     - h5py
-    - laspy    
+    - laspy
+    - lxml
+    - requests

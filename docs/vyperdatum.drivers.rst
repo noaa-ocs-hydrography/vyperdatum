@@ -4,6 +4,14 @@ vyperdatum.drivers package
 Submodules
 ----------
 
+vyperdatum.drivers.laz module
+-----------------------------
+
+.. automodule:: vyperdatum.drivers.laz
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 vyperdatum.drivers.npz module
 -----------------------------
 

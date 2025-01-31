@@ -9,4 +9,4 @@ steps = ["EPSG:32617+EPSG:5866", "EPSG:9755", "EPSG:6318", "EPSG:26917+EPSG:5866
 tf = Transformer(crs_from=crs_from, crs_to=crs_to, steps=steps)
 d, f = os.path.split(fname)
 output_file = os.path.join(d, f"transformed_{f}")
-tf.transform_vrbag(input_file=fname, output_file=output_file)
+tf.transform(input_file=fname, output_file=output_file)

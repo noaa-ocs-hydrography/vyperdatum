@@ -1,16 +1,16 @@
 import requests
 import logging
 import time
+import random
 import numpy as np
 import pandas as pd
 from colorama import Fore, Style
 from osgeo import gdal
-from typing import Optional
+from typing import Optional, Union
 import pyproj as pp
 from tqdm import tqdm
 import difflib
 from vyperdatum.enums import VDATUM
-from vyperdatum.utils.raster_utils import raster_metadata
 
 
 logger = logging.getLogger("root_logger")
@@ -115,9 +115,8 @@ def api_region_alias(region: str):
     elif region.startswith("PRVI"):
         api_region = "prvi"
     # Note: not all regions are covered here. For example, I do'nt know what is the Hawaii
-    # region name in vdatum grid directory (or as, sgi, spi, sli, gcnmi, wgom, ...).
-    # why `westcoast` and `chesapeak_delaware` are not considered as part of `contiguous`?.
-    # Needs input from others.
+    # region name is in vdatum grid directory (or as, sgi, spi, sli, gcnmi, wgom, ...).
+    # looks like `westcoast` and `chesapeak_delaware` are not considered as part of `contiguous`?.
     # https://vdatum.noaa.gov/docs/services.html#step140
     return api_region
 
@@ -273,7 +272,7 @@ def sample_raster(source_meta: dict,
 
     Returns
     ----------
-    bool
+    tuple[list, list]
         Returns `n_samples` points from the rasters in form of two lists of [x, y, sampled_value].
     """
     ds_source = gdal.Open(source_meta["path"])
@@ -318,20 +317,24 @@ def sample_raster(source_meta: dict,
     return source_samples, target_samples
 
 
-def vdatum_cross_validate_raster(s_file: str,
-                                 t_file: str,
-                                 n_sample: int,
-                                 tolerance: float = 0.3,
-                                 sampling_band: int = 1,
-                                 region: Optional[str] = None,
-                                 pivot_h_crs: Optional[str] = None,
-                                 s_h_frame: Optional[str] = None,
-                                 s_v_frame: Optional[str] = None,
-                                 s_h_zone: Optional[str] = None,
-                                 t_h_frame: Optional[str] = None,
-                                 t_v_frame: Optional[str] = None,
-                                 t_h_zone: Optional[str] = None
-                                 ):
+def vdatum_cross_validate(s_wkt: str,
+                          t_wkt: str,
+                          n_sample: int,
+                          s_raster_metadata: Optional[dict],
+                          t_raster_metadata: Optional[dict],
+                          s_point_samples: Optional[Union[list, np.ndarray]],
+                          t_point_samples: Optional[Union[list, np.ndarray]],
+                          tolerance: float = 0.3,
+                          raster_sampling_band: int = 1,
+                          region: Optional[str] = None,
+                          pivot_h_crs: Optional[str] = None,
+                          s_h_frame: Optional[str] = None,
+                          s_v_frame: Optional[str] = None,
+                          s_h_zone: Optional[str] = None,
+                          t_h_frame: Optional[str] = None,
+                          t_v_frame: Optional[str] = None,
+                          t_h_zone: Optional[str] = None
+                          ):
     """
     Randomly sample the source raster points and transform them to the
     target CRS using the vdatum API. Verify if the transformed values are
@@ -339,14 +342,28 @@ def vdatum_cross_validate_raster(s_file: str,
 
     Parameters
     ----------
-    s_file: str
-        Absolute path to the source raster file.
-    t_file: str
-        Absolute path to the target (transferred) raster file.
+    s_wkt: str
+        WKT associated with the source data CRS.
+    t_wkt: str
+        WKT associated with the target data CRS.
     n_sample: int
         The number of sample points (coordinates).
-    sampling_band: dict
-        The index of the source band to be sampled (default 1).
+    s_raster_metadata: Optional[dict]
+        Source file metadata. This only applies to raster files; otherwise, None.
+    t_raster_metadata: Optional[dict]
+        Target file metadata. This only applies to raster files; otherwise, None.
+    s_point_samples: Optional[Union[list, numpy.ndarray]]
+        Lists of source sample points in form of [x, y, sampled_value].
+        This parameter only applies to point transformations(not raster); otherwise, None.
+    t_point_samples: Optional[Union[list, numpy.ndarray]]
+        Lists of source sample points in form of [x, y, sampled_value].
+        This parameter only applies to point transformations(not raster); otherwise, None.
+    tolerance: float
+        Maximum elevation deviation [m] between transformations conducted by Vyperdatum
+        compared with Vdatum.
+    raster_sampling_band: dict
+        The index of the source raster file band to be sampled (default 1). Only applies to
+        raster file inputs.
     region: Optional[str]
         Vdatum region name (e.g. ak, as, contiguous, gcnmi, prvi)
         https://vdatum.noaa.gov/docs/services.html#step140
@@ -380,42 +397,55 @@ def vdatum_cross_validate_raster(s_file: str,
     pandas.DataFrame
         Dataframe containing the sampled input, transferred, and vdatum points.
     """
-    source_meta = raster_metadata(s_file)
-    target_meta = raster_metadata(t_file)
+    # source_meta = raster_metadata(s_file)
+    # target_meta = raster_metadata(t_file)
+    # s_wkt = source_meta["wkt"]
+    # t_wkt = target_meta["wkt"]
+
     passed = True
-    if not region:
-        region = "contiguous"
-        if len(source_meta["overlapping_regions"]) != 1:
-            logger.warning("The input is not overlapping with a single region."
-                           f" The overlapping regions: ({source_meta['overlapping_regions']})."
-                           " The Vdatum API region will be set to 'contiguous'.")
-        else:
-            region = api_region_alias(source_meta["overlapping_regions"][0])
+    # if not region:
+    #     region = "contiguous"
+    #     if len(source_meta["overlapping_regions"]) != 1:
+    #         logger.warning("The input is not overlapping with a single region."
+    #                        f" The overlapping regions: ({source_meta['overlapping_regions']})."
+    #                        " The Vdatum API region will be set to 'contiguous'.")
+    #     else:
+    #         region = api_region_alias(source_meta["overlapping_regions"][0])
 
-    source_crs_h, source_crs_v = wkt_to_crs(source_meta["wkt"])
-    source_zone_h = wkt_to_utm(source_meta["wkt"])
-    target_crs_h, target_crs_v = wkt_to_crs(target_meta["wkt"])
-    target_zone_h = wkt_to_utm(target_meta["wkt"])
+    source_crs_h, source_crs_v = wkt_to_crs(s_wkt)
+    source_zone_h = wkt_to_utm(s_wkt)
+    target_crs_h, target_crs_v = wkt_to_crs(t_wkt)
+    target_zone_h = wkt_to_utm(t_wkt)
+    s_h_zone = s_h_zone if s_h_zone else source_zone_h
+    t_h_zone = t_h_zone if t_h_zone else target_zone_h
+    if pivot_h_crs:
+        s_h_zone, t_h_zone = None, None
 
-    api_src_crs_h, api_src_crs_v = api_crs_aliases(source_meta["wkt"])
+    api_src_crs_h, api_src_crs_v = api_crs_aliases(s_wkt)
     source_crs_h = s_h_frame if s_h_frame else api_src_crs_h
     source_crs_v = s_v_frame if s_v_frame else api_src_crs_v
-    api_tgt_crs_h, api_tgt_crs_v = api_crs_aliases(target_meta["wkt"])
+    api_tgt_crs_h, api_tgt_crs_v = api_crs_aliases(t_wkt)
     target_crs_h = t_h_frame if t_h_frame else api_tgt_crs_h
     target_crs_v = t_v_frame if t_v_frame else api_tgt_crs_v
-    print(f"Taking {n_sample} random sample{'s' if n_sample > 1 else ''} "
-          "from the source and transformed rasters ...")
-    source_samples, target_samples = sample_raster(source_meta, target_meta,
-                                                   n_sample, sampling_band,
-                                                   pivot_h_crs=pivot_h_crs)
+
+    if s_raster_metadata and t_raster_metadata:  # in the case of raster file inputs
+        logger.info(f"Taking {n_sample} random sample{'s' if n_sample > 1 else ''} "
+                    "from the source and transformed rasters ...")
+        source_samples, target_samples = sample_raster(s_raster_metadata,
+                                                       t_raster_metadata,
+                                                       n_sample,
+                                                       raster_sampling_band,
+                                                       pivot_h_crs=pivot_h_crs
+                                                       )
+    else:
+        random_idx = random.sample(range(len(s_point_samples)), n_sample)
+        source_samples = [list(s_point_samples[i]) for i in random_idx]
+        target_samples = [list(t_point_samples[i]) for i in random_idx]
+
     vdatum_points, vdatum_resp = [], []
     cross_df = pd.DataFrame({})
-    print("Calling Vdatum API ...")
+    logger.info("Calling Vdatum API ...")
     for p in tqdm(source_samples):
-        s_h_zone = s_h_zone if s_h_zone else source_zone_h
-        t_h_zone = t_h_zone if t_h_zone else target_zone_h
-        if pivot_h_crs:
-            s_h_zone, t_h_zone = None, None
         points, resp = vdatum_transform_point(s_x=p[0], s_y=p[1], s_z=p[2],
                                               region=region,
                                               s_h_frame=s_h_frame or source_crs_h,
