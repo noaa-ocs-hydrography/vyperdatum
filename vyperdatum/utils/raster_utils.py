@@ -6,7 +6,7 @@ import numpy as np
 from typing import Union, Optional
 import pyproj as pp
 from vyperdatum.utils.spatial_utils import overlapping_regions, overlapping_extents
-from vyperdatum.utils.crs_utils import commandline, pipeline_string
+from vyperdatum.utils.crs_utils import commandline, pipeline_string, crs_components
 from vyperdatum.enums import VDATUM
 
 
@@ -61,9 +61,12 @@ def raster_metadata(raster_file: str, verbose: bool = False) -> dict:
         metadata |= {"extent": [x_min, y_min, x_max, y_max]}
         metadata |= {"resolution": [res_x, res_y]}
         metadata |= {"wkt": srs.ExportToWkt()}
+        input_crs = pp.CRS(metadata["wkt"])
+        h_ac, v_ac = crs_components(crs=input_crs, raise_no_auth=False)
+        metadata |= {"h_authcode": h_ac}
+        metadata |= {"v_authcode": v_ac}
         ds = None
 
-        input_crs = pp.CRS(metadata["wkt"])
         if input_crs.is_compound:
             input_horizontal_crs = pp.CRS(input_crs.sub_crs_list[0])
             input_vertical_crs = pp.CRS(input_crs.sub_crs_list[1])
@@ -300,7 +303,35 @@ def crs_to_code_auth(crs: pp.CRS) -> Optional[str]:
     return code_auth
 
 
-def warp(input_file: str,
+def push_pop_at_vshift(pipe: str) -> str:
+    """
+    Sandwich the vgrid_shift operation with push/pop of the horizontal CRS components.
+
+    Parameters
+    ----------
+    pipe: proj pipeline string.
+    """
+    horz_push = " +step +proj=push +v_1 +v_2 "
+    horz_pop = " +step +proj=pop +v_1 +v_2 "
+
+    vgird_delim = "+step +inv +proj=vgridshift"
+    vgrid_splits = pipe.split(vgird_delim)
+    if len(vgrid_splits) != 2:
+        raise ValueError(f"Pipeline split by '{vgird_delim}' must result in "
+                         f"exactly 2 parts but got {len(vgrid_splits)} parts:\n {vgrid_splits}")
+    hydroid_delim = ".tif"
+    hydroid_splits = vgrid_splits[-1].split(hydroid_delim)
+
+    sand_pipe = vgrid_splits[0] + horz_push + vgird_delim + " " + (hydroid_delim + " ").join(hydroid_splits[:-1]) + hydroid_delim + " "
+
+    step_delim = "+step"
+    step_splits = hydroid_splits[-1].split(step_delim)
+
+    sand_pipe += step_splits[0] + horz_pop + step_delim + step_delim.join(step_splits[1:])
+    return sand_pipe
+
+
+def warp0(input_file: str,
          output_file: str,
          apply_vertical: bool,
          crs_from: Union[pp.CRS, str],
@@ -353,7 +384,7 @@ def warp(input_file: str,
         # horizontal CRS MUST be identical for both source and target
 
         #  replace with gdal.Warp() once the nodata fix is online, at PROJ 9.6.0?
-        pipe = pipeline_string(crs_from=crs_from, crs_to=crs_to)
+        pipe = pipeline_string(crs_from=crs_from, crs_to=crs_to, input_metadata=input_metadata)
         stdout, stderr = commandline(command="gdalwarp",
                                      args=["-ct", f'{pipe}',
                                            "-wo", "sample_grid=yes",
@@ -362,13 +393,126 @@ def warp(input_file: str,
                                            "-tr", f"{input_metadata['resolution'][0]}", f"{abs(input_metadata['resolution'][1])}",
                                            "-te", f"{input_metadata['extent'][0]}", f"{input_metadata['extent'][1]}", f"{input_metadata['extent'][2]}", f"{input_metadata['extent'][3]}",
                                            f'{input_file}', f'{output_file}'])
+        #######################################################
 
-        print("ppppppppppppppppppppppp")
-        print(pipe)
-        print(">>>>>>>>>>>>>>>>>>>>>>>")
-        print(stdout)
-        print("eeeeeeeeeeeeeeeeeeeeeee")
-        print(stderr)
+        if isinstance(warp_kwargs.get("srcBands"), list):
+            ds_in = gdal.Open(input_file, gdal.GA_ReadOnly)
+            ds_out = gdal.Open(output_file, gdal.GA_ReadOnly)
+            # combine the vertically transformed bands and
+            # the non-transformed ones into a new raster
+            driver = gdal.GetDriverByName(input_metadata["driver"])
+            mem_path = f"/vsimem/{os.path.splitext(os.path.basename(output_file))[0]}.tiff"
+            ds_temp = driver.Create(mem_path,
+                                    ds_in.RasterXSize,
+                                    ds_in.RasterYSize,
+                                    ds_in.RasterCount,
+                                    gdal.GDT_Float32
+                                    )
+            ds_temp.SetGeoTransform(ds_out.GetGeoTransform())
+            ds_temp.SetProjection(ds_out.GetProjection())
+            for b in range(1, ds_in.RasterCount+1):
+                if b in warp_kwargs.get("srcBands"):
+                    out_shape = ds_out.GetRasterBand(b).ReadAsArray().shape
+                    in_shape = ds_in.GetRasterBand(b).ReadAsArray().shape
+                    if out_shape != in_shape:
+                        logger.error(f"Band {b} dimensions has changed from"
+                                     f"{in_shape} to {out_shape}")
+                    ds_temp.GetRasterBand(b).WriteArray(ds_out.GetRasterBand(b).ReadAsArray())
+                    ds_temp.GetRasterBand(b).SetDescription(ds_out.GetRasterBand(b).GetDescription())
+                    ds_temp.GetRasterBand(b).SetNoDataValue(ds_out.GetRasterBand(b).GetNoDataValue())
+                else:
+                    ds_temp.GetRasterBand(b).WriteArray(ds_in.GetRasterBand(b).ReadAsArray())
+                    ds_temp.GetRasterBand(b).SetDescription(ds_in.GetRasterBand(b).GetDescription())
+                    ds_temp.GetRasterBand(b).SetNoDataValue(ds_in.GetRasterBand(b).GetNoDataValue())
+            ds_in, ds_out = None, None
+            ds_temp.FlushCache()
+            driver.CreateCopy(output_file, ds_temp)
+            ds_temp = None
+            gdal.Unlink(mem_path)
+
+    # preserve_raster_size(input_file=input_file, output_file=output_file)
+
+    if input_metadata["compression"] and input_metadata["driver"].lower() == "gtiff":
+        output_file_copy = str(output_file)+".tmp"
+        os.rename(output_file, output_file_copy)
+        raster_compress(output_file_copy, output_file,
+                        input_metadata["driver"], input_metadata['compression']
+                        )
+        os.remove(output_file_copy)
+
+    return output_file
+
+def warp(input_file: str,
+         output_file: str,
+         apply_vertical: bool,
+         crs_from: Union[pp.CRS, str],
+         crs_to: Union[pp.CRS, str],
+         input_metadata: dict,
+         warp_kwargs: Optional[dict] = None
+         ):
+    """
+    A gdal-warp wrapper to transform an NBS raster (GTiff) file with 3 bands:
+    Elevation, Uncertainty, and Contributors.
+
+    Parameters
+    ----------
+    input_file: str
+        Path to the input raster file (gdal supported).
+    output_file: str
+        Path to the transformed raster file.
+    apply_vertical: bool
+        Apply GDAL vertical shift.
+    crs_from: pyproj.crs.CRS or input used to create one
+        Projection of input data.
+    crs_to: pyproj.crs.CRS or input used to create one
+        Projection of output data.
+    input_metadata: dict
+        Dictionary containing metadata generated by vyperdatum.raster_utils.raster_metadata()
+    warp_kwargs: dict
+        gdal kwargs.
+
+    Returns
+    --------
+    str:
+        Absolute path to the transformed file.
+    """
+    if isinstance(crs_from, pp.CRS):
+        crs_from = crs_to_code_auth(crs_from)
+    if isinstance(crs_to, pp.CRS):
+        crs_to = crs_to_code_auth(crs_to)
+
+    pipe = pipeline_string(crs_from=crs_from, crs_to=crs_to)
+    if not apply_vertical:
+        # gdal.Warp(destNameOrDestDS=output_file,
+        #           srcDSOrSrcDSTab=input_file,
+        #           dstSRS=crs_to,
+        #           srcSRS=crs_from,
+        #           # xRes=input_metadata["resolution"][0],
+        #           # yRes=abs(input_metadata["resolution"][1]),
+        #           # outputBounds=input_metadata["extent"],
+        #           **(warp_kwargs or {})
+        #           )
+
+        stdout, stderr = commandline(command="gdalwarp",
+                                     args=["-ct", f'{pipe}',
+                                           "-wo", "sample_grid=yes",
+                                           "-wo", "sample_steps=all",
+                                        #    "-wo", "apply_vertical_shift=yes",
+                                        #    "-tr", f"{input_metadata['resolution'][0]}", f"{abs(input_metadata['resolution'][1])}",
+                                        #    "-te", f"{input_metadata['extent'][0]}", f"{input_metadata['extent'][1]}", f"{input_metadata['extent'][2]}", f"{input_metadata['extent'][3]}",
+                                           f'{input_file}', f'{output_file}'])        
+    else:
+        # horizontal CRS MUST be identical for both source and target
+
+        #  replace with gdal.Warp() once the nodata fix is online, at PROJ 9.6.0?
+        stdout, stderr = commandline(command="gdalwarp",
+                                     args=["-ct", f'{pipe}',
+                                           "-wo", "sample_grid=yes",
+                                           "-wo", "sample_steps=all",
+                                           "-wo", "apply_vertical_shift=yes",
+                                           "-tr", f"{input_metadata['resolution'][0]}", f"{abs(input_metadata['resolution'][1])}",
+                                           "-te", f"{input_metadata['extent'][0]}", f"{input_metadata['extent'][1]}", f"{input_metadata['extent'][2]}", f"{input_metadata['extent'][3]}",
+                                           f'{input_file}', f'{output_file}'])
         #######################################################
 
         if isinstance(warp_kwargs.get("srcBands"), list):

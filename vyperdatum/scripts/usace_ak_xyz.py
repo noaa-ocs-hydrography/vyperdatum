@@ -3,6 +3,8 @@ import glob
 import pathlib
 import pandas as pd
 from vyperdatum.transformer import Transformer
+import geopandas as gpd
+from shapely.geometry import Point
 
 
 def get_skiprows(fname: str):
@@ -14,18 +16,22 @@ def get_skiprows(fname: str):
                 return ln
     return None
 
+
 if __name__ == "__main__":
     files = glob.glob(r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\point\USACE\PBA\Original\**\*.XYZ", recursive=True)
 
+    # steps = [
+    #         {"crs_from": "ESRI:102445", "crs_to": "EPSG:6319"},
+    #         {"crs_from": "EPSG:6319", "crs_to": "EPSG:7912"},
+    #         {"crs_from": "EPSG:7912", "crs_to": "EPSG:9989"},
+    #         {"crs_from": "EPSG:9990+NOAA:98", "crs_to": "EPSG:9990+NOAA:5537"},
+    #         {"crs_from": "EPSG:9989", "crs_to": "EPSG:7912"},
+    #         {"crs_from": "EPSG:7912", "crs_to": "EPSG:6319"},
+    #         {"crs_from": "EPSG:6319", "crs_to": "EPSG:6337"},
+    #         # {"crs_from": "EPSG:6319", "crs_to": "ESRI:102445"},
+    #         ]
     steps = [
-            {"crs_from": "ESRI:102445", "crs_to": "EPSG:6319"},
-            {"crs_from": "EPSG:6319", "crs_to": "EPSG:7912"},
-            {"crs_from": "EPSG:7912", "crs_to": "EPSG:9989"},
-            {"crs_from": "EPSG:9990+NOAA:98", "crs_to": "EPSG:9990+NOAA:5537"},
-            {"crs_from": "EPSG:9989", "crs_to": "EPSG:7912"},
-            {"crs_from": "EPSG:7912", "crs_to": "EPSG:6319"},
-            {"crs_from": "EPSG:6319", "crs_to": "EPSG:6337"},
-            # {"crs_from": "EPSG:6319", "crs_to": "ESRI:102445"},
+            {"crs_from": "ESRI:102445", "crs_to": "EPSG:6337"}
             ]
 
     for i, input_file in enumerate(files[:]):
@@ -43,6 +49,9 @@ if __name__ == "__main__":
                                          vdatum_check=False)
         output_file = input_file.replace("Original", "Manual")
         pathlib.Path(os.path.split(output_file)[0]).mkdir(parents=True, exist_ok=True)
-        pd.DataFrame({"x": xt, "y": yt, "z": zt}).to_csv(output_file+".csv", index=False)
-        # df.to_csv(output_file+"_input.csv", index=False)
-        # print(f'\n{"*"*50} {i+1}/{len(files)} Completed {"*"*50}\n')
+        csv_fname = output_file+".csv"
+        tdf = pd.DataFrame({"x": xt, "y": yt, "z": zt})
+        # tdf.to_csv(csv_fname, index=False)
+        tdf['geometry'] = tdf.apply(lambda row: Point(row['x'], row['y'], row['z']), axis=1)
+        gdf = gpd.GeoDataFrame(tdf, geometry='geometry', crs=f'{steps[-1]["crs_to"]}')
+        gdf.to_file(f'{output_file.replace("XYZ", "gpkg")}', driver="GPKG")

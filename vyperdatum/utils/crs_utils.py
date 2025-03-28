@@ -284,42 +284,6 @@ def commandline(command: str,
     return sout, serr
 
 
-def pipeline_string(crs_from: str, crs_to) -> Optional[str]:
-    """
-    Extract PROJ pipeline string from the output of projinfo utility.
-
-    Parameters
-    -----------
-    crs_from: str
-        Source CRS in auth:code format.
-    crs_to: str
-        Target CRS in auth:code format.
-
-    Returns
-    --------
-    Optional[str]
-    """
-    out, err = commandline(command="projinfo",
-                           args=["-s", crs_from, "-t", crs_to,
-                                 "--spatial-test", "intersects",
-                                 "--hide-ballpark"])
-    if not out:
-        raise ValueError(f"Potential error in getting projinfo output: {err}")
-
-    start = out.find("+proj=pipeline")
-    if start == -1:
-        logger.error("`PROJ string:` not found in the projinfo output")
-        return None
-
-    splits = out[start:].splitlines(keepends=False)
-    pipe = ""
-    for split in splits:
-        if len(split.strip()) == 0:
-            break
-        pipe += split
-    return pipe
-
-
 def validate_transform_steps_dict(steps: Optional[list[dict]]) -> bool:
     """
     Check if all transformation steps can be successfully instantiated by PROJ.
@@ -418,7 +382,7 @@ def commandline(command: str,
     return sout, serr
 
 
-def pipeline_string(crs_from: str, crs_to) -> Optional[str]:
+def pipeline_string(crs_from: str, crs_to, input_metadata=None) -> Optional[str]:
     """
     Extract PROJ pipeline string from the output of projinfo utility.
 
@@ -428,15 +392,20 @@ def pipeline_string(crs_from: str, crs_to) -> Optional[str]:
         Source CRS in auth:code format.
     crs_to: str
         Target CRS in auth:code format.
+    input_metadata: dict
+        Input raster metadata object.
 
     Returns
     --------
     Optional[str]
     """
-    out, err = commandline(command="projinfo",
-                           args=["-s", crs_from, "-t", crs_to,
-                                 "--spatial-test", "intersects",
-                                 "--hide-ballpark"])
+    args = ["-s", crs_from, "-t", crs_to,
+            "--spatial-test", "intersects",
+            "--hide-ballpark"]
+    if input_metadata:
+        bbox = [str(v) for v in input_metadata["geo_extent"]]
+        args += ["--bbox", ",".join(bbox)]
+    out, err = commandline(command="projinfo", args=args)
     if not out:
         raise ValueError(f"Potential error in getting projinfo output: {err}")
 

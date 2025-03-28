@@ -73,6 +73,8 @@ def get_tiff_files(parent_dir: str, extention: str) -> list:
 if __name__ == "__main__":
     parent_dir = r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\PBB\Original"
     files = get_tiff_files(parent_dir, extention=".tif")
+    
+    files = [r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\PBB\Original\FL1813-TB-N\FL1813-TB-N_US4FL2DJ_ellipsoidal_dem.tif"]
     crs_from = "EPSG:6346"
     crs_to = "EPSG:6346+NOAA:98"
     for i, input_file in enumerate(files[:1]):
