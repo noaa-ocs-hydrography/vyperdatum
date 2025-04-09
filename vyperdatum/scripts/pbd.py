@@ -22,27 +22,14 @@ def transform_with_vyperdatum_navd88(input_file, zone):
     if zone == "16N":
         crs_from = "EPSG:6345+EPSG:5703"
         crs_to = "EPSG:6345+NOAA:93"
-        steps = [
-                    {"crs_from": "EPSG:6345+EPSG:5703", "crs_to": "EPSG:6318+EPSG:5703", "v_shift": False},
-                    {"crs_from": "EPSG:6318+EPSG:5703", "crs_to": "EPSG:6318+NOAA:93", "v_shift": True},
-                    {"crs_from": "EPSG:6318+NOAA:93", "crs_to": "EPSG:6345+NOAA:93", "v_shift": False}
-                ]
+        # crs_from = "EPSG:2251+EPSG:5703"
+        # crs_to = "EPSG:2251+NOAA:93"
     elif zone == "17N":
         crs_from = "EPSG:6346+EPSG:5703"
         crs_to = "EPSG:6346+NOAA:93"
-        steps = [
-                    {"crs_from": "EPSG:6346+EPSG:5703", "crs_to": "EPSG:6318+EPSG:5703", "v_shift": False},
-                    {"crs_from": "EPSG:6318+EPSG:5703", "crs_to": "EPSG:6318+NOAA:93", "v_shift": True},
-                    {"crs_from": "EPSG:6318+NOAA:93", "crs_to": "EPSG:6346+NOAA:93", "v_shift": False}
-                ]
     elif zone == "18N":
         crs_from = "EPSG:6347+EPSG:5703"
         crs_to = "EPSG:6347+NOAA:93"
-        steps = [
-                    {"crs_from": "EPSG:6347+EPSG:5703", "crs_to": "EPSG:6318+EPSG:5703", "v_shift": False},
-                    {"crs_from": "EPSG:6318+EPSG:5703", "crs_to": "EPSG:6318+NOAA:93", "v_shift": True},
-                    {"crs_from": "EPSG:6318+NOAA:93", "crs_to": "EPSG:6347+NOAA:93", "v_shift": False}
-                ]
     tf = Transformer(crs_from=crs_from,
                      crs_to=crs_to,
                     #  steps=steps
@@ -222,10 +209,11 @@ def transform_with_concat_pipe(input_file, output_file,
 
 
 if __name__ == "__main__":
-    # files = glob.glob(r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\PBD\Original\NAVD88\**\*.tif", recursive=True)
-    files = glob.glob(r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\PBD\Original\IGLD85\**\*.tif", recursive=True)
+    # files = glob.glob(r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\PBD\Original\NAVD88\16N\**\*.tif", recursive=True)
+    files = glob.glob(r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\PBD\Original\NAVD88\**\*.tif", recursive=True)
+    # files = glob.glob(r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\PBD\Original\IGLD85\**\*.tif", recursive=True)
 
-    files = [r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\PBD\Original\NAVD88\17N\usace2018_niagara_dem_Job1145328\usace2018_niagara_dem_J1145328_000_001.tif"]
+    # files = [r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\PBD\Original\NAVD88\17N\usace2018_niagara_dem_Job1145328\usace2018_niagara_dem_J1145328_000_001.tif"]
 
     for i, input_file in enumerate(files[:]):
         try:

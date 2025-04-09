@@ -26,20 +26,35 @@ pp.datadir.get_data_dir()
 ```
 
 ## Usage
-Vyperdatum offers a `Transformer` class to handle the transformation of point and raster data. The `Transformer` class applies transformation from `crs_from` to `crs_to` coordinate reference systems. The transformation steps can be prescribed manually or let the `Pipeline` class to infer:
+Vyperdatum offers a `Transformer` class to handle the transformation of point and raster data. The `Transformer` class applies transformation from `crs_from` to `crs_to` coordinate reference system. By default the transformation steps will be determined automatically:
 
 ```python
 from vyperdatum.transformer import Transformer
-from vyperdatum.pipeline import Pipeline
 
-crs_from = "EPSG:6346"
-crs_to = "EPSG:6346+NOAA:5224"
+crs_from = "EPSG:6346"            # NAD83(2011) 17N
+crs_to = "EPSG:6346+NOAA:98"      # NAD83(2011) 17N + MLLW
 tf = Transformer(crs_from=crs_from,
                  crs_to=crs_to,
-                 steps=["EPSG:6346", "EPSG:6319", "EPSG:6318+NOAA:5224", "EPSG:6346+NOAA:5224"]
-                 #  steps=Pipeline(crs_from=crs_from, crs_to=crs_to).transformation_steps()
                  )
 ```
+
+Alternatively, you may manually prescribe the transformation steps:
+
+```python
+from vyperdatum.transformer import Transformer
+
+crs_from = "EPSG:6346"            # NAD83(2011) 17N
+crs_to = "EPSG:6346+NOAA:98"      # NAD83(2011) 17N + MLLW
+steps = [{"crs_from": "EPSG:6346", "crs_to": "EPSG:6318", "v_shift": False},
+         {"crs_from": "EPSG:6319", "crs_to": "EPSG:6318+NOAA:98", "v_shift": True},
+         {"crs_from": "EPSG:6318", "crs_to": "EPSG:6346", "v_shift": False}
+         ]
+tf = Transformer(crs_from=crs_from,
+                 crs_to=crs_to,
+                 steps=steps
+                 )
+```
+
 
 Once an instance of the `Transformer` class is created, the `transform()` method can be called. Vyperdatum supports all GDAL-supported drivers, variable resolution BAG, LAZ and NPZ point-cloud files.
 

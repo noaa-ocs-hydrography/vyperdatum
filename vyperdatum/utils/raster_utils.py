@@ -1,6 +1,7 @@
 import os
 import pathlib
 import logging
+import json
 from osgeo import gdal
 import numpy as np
 from typing import Union, Optional
@@ -50,7 +51,7 @@ def raster_metadata(raster_file: str, verbose: bool = False) -> dict:
         # metadata |= {"band_stats": [band_stats(ds.GetRasterBand(i+1).ReadAsArray())
         #                             for i in range(ds.RasterCount)]}
         metadata |= {"compression": ds.GetMetadata("IMAGE_STRUCTURE").get("COMPRESSION", None)}
-        metadata |= {"vertical_datum_wkt": gdal_metadata.get("VERTICALDATUMWKT", None)} #Input Vertical Datum WKT (Xipe)
+        metadata |= {"Vyperdatum_Metadata": json.loads(gdal_metadata.get("Vyperdatum_Metadata", "{}"))}
         metadata |= {"coordinate_epoch": srs.GetCoordinateEpoch()}
         geot = ds.GetGeoTransform()
         res_x, res_y = geot[1], geot[5]
