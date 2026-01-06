@@ -75,7 +75,7 @@ class LAZ(Driver):
             w = lf.header.parse_crs().to_wkt()
         return w
 
-    def transform(self, transformer_instance, vdatum_check: bool) -> None:
+    def transform(self, transformer_instance, vdatum_check: bool) -> bool:
         """
         Apply point transformation on the laz data according to the `transformer_instance`.
 
@@ -86,18 +86,19 @@ class LAZ(Driver):
 
         Returns
         -----------
-        None
+        bool:
+            True if successful, otherwise False.
         """
         lf = laspy.read(self.input_file)
-        xx, yy, zz = transformer_instance.transform_points(self.x,
-                                                           self.y,
-                                                           self.z,
-                                                           vdatum_check=vdatum_check
-                                                           )
+        success, xx, yy, zz = transformer_instance.transform_points(self.x,
+                                                                    self.y,
+                                                                    self.z,
+                                                                    vdatum_check=vdatum_check
+                                                                    )
         lf.x, lf.y, lf.z = xx, yy, zz
         lf.header.add_crs(transformer_instance.crs_to)
         lf.write(self.input_file)
-        return
+        return success
 
     @property
     def is_valid(self):

@@ -22,11 +22,11 @@ if __name__ == "__main__":
     tf = Transformer(crs_from=steps[0]["crs_from"],
                      crs_to=steps[-1]["crs_to"],
                      steps=steps)
-    xt, yt, zt = tf.transform_points(x, y, z,
-                                     always_xy=True,
-                                     allow_ballpark=False,
-                                     only_best=True,
-                                     vdatum_check=False)
+    success, xt, yt, zt = tf.transform_points(x, y, z,
+                                        always_xy=True,
+                                        allow_ballpark=False,
+                                        only_best=True,
+                                        vdatum_check=False)
     df["x_t"], df["y_t"] = xt, yt
     df["z_t"] = zt
     df.to_csv(output_file, index=False)

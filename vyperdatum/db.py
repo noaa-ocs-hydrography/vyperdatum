@@ -39,7 +39,7 @@ class DB:
 
     def __str__(self):
         return (f"db_dir: {self.db_dir}\ndb_file_path: {self.db_file_path}"
-                "\nproj.datadir: {pp.datadir.get_data_dir()}"
+                f"\nproj.datadir: {pp.datadir.get_data_dir()}"
                 )
 
     def __repr__(self):

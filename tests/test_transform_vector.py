@@ -20,7 +20,18 @@ def test_transform_vector_Hudson():
     input_file = r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\vector\Modeling_Tile_Scheme_20240320.gpkg"
     transformed_file = (str(pathlib.Path(input_file).with_stem("_transformed_"
                                                                + pathlib.Path(input_file).stem)))
-    T = Transformer(crs_from=vector_wkt(input_file),
-                    crs_to=f"{pp.CRS(vector_wkt(input_file)).to_2d().to_string()}+NOAA:5502"
-                    )
+
+
+
+    T = Transformer(crs_from="EPSG:6318",
+                    crs_to="EPSG:6318+NOAA:98",
+                    )                                                           
+    # T = Transformer(crs_from=vector_wkt(input_file),
+    #                 crs_to=f"{pp.CRS(vector_wkt(input_file)).to_2d().to_string()}+NOAA:98"
+    #                 )
     assert T.transform_vector(input_file=input_file, output_file=transformed_file), "Hudson river vector transformation failed"
+
+
+
+
+test_transform_vector_Hudson()

@@ -18,6 +18,7 @@ from io import BytesIO
 from lxml import etree
 from tqdm.auto import tqdm
 from osgeo import gdal
+from pyproj.enums import WktVersion
 from vyperdatum.utils.raster_utils import raster_metadata
 from vyperdatum.enums import VRBAG as vrb_enum
 
@@ -108,7 +109,7 @@ def base_grid_point_transform(fname: str,
             y = np.append(y, [_y])
             z = np.append(z, vr_elev[i, j])
 
-    _, _, zz = tf.transform_points(x, y, z)
+    _, _, _, zz = tf.transform_points(x, y, z)
     zz = np.where(z == nodata_value, z, zz)
     zz = zz.reshape(vr_elev_shape)
 
@@ -171,25 +172,46 @@ def get_subgrid_points(fname: str, i: int, j: int) -> tuple[list[int], list[floa
         Starting index of subgrid.
         x, y, z coordinates of the subgrid points.
     """
-    ds_gdal = gdal.Open(fname)
-    geot = ds_gdal.GetGeoTransform()
-    bag = h5py.File(fname)
-    root = bag["BAG_root"]
-    vr_meta = root["varres_metadata"]
-    vr_ref = root["varres_refinements"][0]
+    try:
+        er = "00"
 
-    start = vr_meta[i, j][0]
-    dim_x, dim_y = vr_meta[i, j][1], vr_meta[i, j][2]
-    res_x, res_y = vr_meta[i, j][3], vr_meta[i, j][4]
-    sw_corner_x, sw_corner_y = vr_meta[i, j][5], vr_meta[i, j][6]
-    cell_x, cell_y = index_to_xy(i, j, geot, x_offset=sw_corner_x, y_offset=sw_corner_y)
+        ds_gdal = gdal.Open(fname)
+        er = "01"
+        geot = ds_gdal.GetGeoTransform()
+        er = "02"
+        bag = h5py.File(fname)
+        er = "03"
+        root = bag["BAG_root"]
+        er = "04"
+        vr_meta = root["varres_metadata"]
+        er = "05"
+        vr_ref = root["varres_refinements"][0]
 
-    x = np.array([cell_x + (i - i // dim_x) * res_x for i in range(dim_x*dim_y)])
-    y = np.array([cell_y + (i // dim_x) * res_y for i in range(dim_x*dim_y)])
-    z = np.array([vr[0] for vr in vr_ref[start:start+(dim_x*dim_y)]])
-    
-    ds_gdal = None
-    bag.close()
+        er = "06"
+        start = vr_meta[i, j][0]
+        dim_x, dim_y = vr_meta[i, j][1], vr_meta[i, j][2]
+        res_x, res_y = vr_meta[i, j][3], vr_meta[i, j][4]
+        sw_corner_x, sw_corner_y = vr_meta[i, j][5], vr_meta[i, j][6]
+        cell_x, cell_y = index_to_xy(i, j, geot, x_offset=sw_corner_x, y_offset=sw_corner_y)
+
+        er = "07"
+
+        x = np.array([cell_x + (i - i // dim_x) * res_x for i in range(dim_x*dim_y)])
+        y = np.array([cell_y + (i // dim_x) * res_y for i in range(dim_x*dim_y)])
+        z = np.array([vr[0] for vr in vr_ref[start:start+(dim_x*dim_y)]])
+        
+        er = "08"
+        
+        ds_gdal = None
+        bag.close()
+    except Exception as e:
+        print("SSSSSSSSSSSSSSSSSSSSSS")
+        print(er)
+        logger.exception(f"Unexpected exception in get_subgrid_points for subgrid {i}, {j}: {e}")
+        f = open("error.txt", "a")
+        f.write(f"Unexpected exception in get_subgrid_points for subgrid {i}, {j}: {e}\n")
+        f.close()
+        start, x, y, z = None, None, None, None
     return start, x, y, z
 
 
@@ -223,15 +245,13 @@ def single_subgrid_point_transform(fname: str,
     """
     try:
         start, x, y, z = get_subgrid_points(fname, i, j)
-        _, _, zz = tf.transform_points(x, y, z)
+        _, _, _, zz = tf.transform_points(x, y, z)
         zz = np.where(z == nodata_value, z, zz)
     except Exception as e:
         logger.exception(f"Unexpected exception in single_subgrid_point_transform for subgrid {i}, {j}: {e}")
-
         f = open("error.txt", "a")
         f.write(f"Unexpected exception in single_subgrid_point_transform for subgrid {i}, {j}: {e}\n")
         f.close()
-
         start, zz = None, None
 
     return start, zz
@@ -266,11 +286,12 @@ def subgrid_point_transform(fname: str,
             start = vr_meta[i, j][0]
             if start == vrb_enum.NO_REF_INDEX.value:
                 continue
-            # if i != 1 or j != 117:
-            #     continue
             ii.append(i)
             jj.append(j)
     bag.close()
+
+    ii = ii[:3]
+    jj = jj[:3]
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futureObjs = executor.map(single_subgrid_point_transform,
                                   [fname] * len(ii),
@@ -282,6 +303,14 @@ def subgrid_point_transform(fname: str,
             if fo[0] is not None:
                 start_indices.append(fo[0])
                 transformed_refs.append(fo[1])
+
+
+    # for i in tqdm(range(len(ii))):    
+    #     s, z = single_subgrid_point_transform(fname, ii[i], jj[i], tf, vrb_enum.NDV_REF.value)
+    #     if s is not None:
+    #         start_indices.append(s)
+    #         transformed_refs.append(z)
+    # # print(start_indices, transformed_refs)    
     return start_indices, transformed_refs
 
 
@@ -492,7 +521,9 @@ def change_corner_points_and_wkt(fname: str,
     gco = ".//{" + root.nsmap['gco'] + "}"
     root.find(f"{gml}coordinates").text = new_points
     root.findall(f"{gco}CharacterString")[6].text = wkt_h
+    root.findall(f"{gco}CharacterString")[7].text = "WKT"
     root.findall(f"{gco}CharacterString")[8].text = wkt_v
+    root.findall(f"{gco}CharacterString")[9].text = "WKT"
     # tree.write(xml_fname)
     # xml = etree.tostring(root, pretty_print=True).decode("ascii")
     xmet = etree.tostring(root).decode()
@@ -534,7 +565,7 @@ def update_vr_refinements(fname: str,
     ----------
     None
     """
-
+    print("\nUpdating varres_refinements layer...\n")
     bag = h5py.File(fname, "r+")
     root = bag.require_group("/BAG_root")
     vr_ref = root["varres_refinements"]
@@ -564,18 +595,24 @@ def update_vr_refinements(fname: str,
     update_vr_elevation(fname=fname, arr=zt)
     # update xml
     x1, y1, x2, y2 = corner_points(fname=fname)
-    y1, x1, _ = tf.transform_points(y1, x1, 0, always_xy=False, allow_ballpark=False)
-    y2, x2, _ = tf.transform_points(y2, x2, 0, always_xy=False, allow_ballpark=False)
+    # _, y1, x1, _ = tf.transform_points([y1], [x1], [0], always_xy=False, allow_ballpark=False)
+    # _, y2, x2, _ = tf.transform_points([y2], [x2], [0], always_xy=False, allow_ballpark=False)
+
+    _, x1, y1, _ = tf.transform_points([y1], [x1], [0], always_xy=False, allow_ballpark=False)
+    _, x2, y2, _ = tf.transform_points([y2], [x2], [0], always_xy=False, allow_ballpark=False)
+
+
+    # using old WKT1_GDAL for compatibility with older GDAL/QGIS
     if tf.crs_to.is_compound:
-        wkt_h = tf.crs_to.sub_crs_list[0].to_wkt()
-        wkt_v = tf.crs_to.sub_crs_list[1].to_wkt()
+        wkt_h = tf.crs_to.sub_crs_list[0].to_wkt(version=WktVersion.WKT1_GDAL)
+        wkt_v = tf.crs_to.sub_crs_list[1].to_wkt(version=WktVersion.WKT1_GDAL)
     else:
-        wkt_h = tf.crs_to.to_wkt()
+        wkt_h = tf.crs_to.to_wkt(version=WktVersion.WKT1_GDAL)
         wkt_v = ""
     wkt_h = wkt_h if wkt_h else ""
     wkt_v = wkt_v if wkt_v else ""
     change_corner_points_and_wkt(fname=fname,
-                                 new_points=f"{x1},{y1} {x2},{y2}",
+                                 new_points=f"{x1[0]},{y1[0]} {x2[0]},{y2[0]}",
                                  wkt_h=wkt_h,
                                  wkt_v=wkt_v
                                  )
@@ -587,7 +624,7 @@ def transform(fname: str,
               vdatum_check: bool = True,
               point_transformation: bool = True,
               **kwargs
-              ):
+              ) -> bool:
     """
     Transform vrbag according to the `tf` Transformer object.
     When `point_transformation` is True, point transformation is applied, otherwise
@@ -625,28 +662,35 @@ def transform(fname: str,
 
     Returns
     ----------
-    None
+    bool:
+        True if successful, otherwise False.
     """
-    if not is_vr(fname=fname):
-        msg = (f"The following file is not a valid variable resolution bag file: {fname}")
-        logger.exception(msg)
-        raise TypeError(msg)
-    if not point_transformation and "rasters_dir" not in kwargs.keys():
-        msg = ("For raster transformation approach, you must pass `rasters_dir` parameter"
-               " to the `transform_vr` function.")
-        logger.exception(msg)
-        raise KeyError(msg)
-    tic = time.time()
-    if point_transformation:
-        index, zt = subgrid_point_transform(fname, tf=tf)
-    else:
-        index, zt = subgrid_raster_transform(fname=fname,
-                                             rasters_dir=kwargs["rasters_dir"],
-                                             tf=tf
-                                             )
-    update_vr_refinements(fname=fname, index=index, arr=zt, tf=tf)
-    logger.info(f"VRBAG transformation processing time: {time.time() - tic:.2f}", )
-    return
+    try:
+        success = False
+        if not is_vr(fname=fname):
+            msg = (f"The following file is not a valid variable resolution bag file: {fname}")
+            logger.exception(msg)
+            raise TypeError(msg)
+        if not point_transformation and "rasters_dir" not in kwargs.keys():
+            msg = ("For raster transformation approach, you must pass `rasters_dir` parameter"
+                   " to the `transform_vr` function.")
+            logger.exception(msg)
+            raise KeyError(msg)
+        tic = time.time()
+        if point_transformation:
+            index, zt = subgrid_point_transform(fname, tf=tf)
+        else:
+            index, zt = subgrid_raster_transform(fname=fname,
+                                                 rasters_dir=kwargs["rasters_dir"],
+                                                 tf=tf
+                                                 )
+        update_vr_refinements(fname=fname, index=index, arr=zt, tf=tf)
+        logger.info(f"VRBAG transformation processing time: {time.time() - tic:.2f}", )
+        success = True
+    except Exception as e:
+        logger.exception(f"Unexpected exception in transform_vr: {e}")
+        return False
+    return success
 
 
 def wkt(fname: str) -> str:

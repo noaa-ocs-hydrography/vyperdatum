@@ -22,6 +22,10 @@ def transform_with_vyperdatum_navd88(input_file, zone):
     if zone == "16N":
         crs_from = "EPSG:6345+EPSG:5703"
         crs_to = "EPSG:6345+NOAA:93"
+
+        crs_from = "EPSG:26916+EPSG:5703"
+        crs_to = "EPSG:26916+NOAA:93"
+
         # crs_from = "EPSG:2251+EPSG:5703"
         # crs_to = "EPSG:2251+NOAA:93"
     elif zone == "17N":
@@ -206,14 +210,18 @@ def transform_with_concat_pipe(input_file, output_file,
     return
 
 
-
+import sys
+input_file = r"C:\Users\mohammad.ashkezari\Desktop\Fuse_Test\raster\Original\ny\ny2018_ont_dem_J1145472_004_003.tif"
+transform_with_vyperdatum_navd88(input_file, "18N")
+sys.exit()
 
 if __name__ == "__main__":
     # files = glob.glob(r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\PBD\Original\NAVD88\16N\**\*.tif", recursive=True)
-    files = glob.glob(r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\PBD\Original\NAVD88\**\*.tif", recursive=True)
+    # files = glob.glob(r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\PBD\Original\NAVD88\**\*.tif", recursive=True)
     # files = glob.glob(r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\PBD\Original\IGLD85\**\*.tif", recursive=True)
 
-    # files = [r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\PBD\Original\NAVD88\17N\usace2018_niagara_dem_Job1145328\usace2018_niagara_dem_J1145328_000_001.tif"]
+    files = glob.glob(r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\PBD\Original\NAVD88\16N\usace2009_isle_roy_dem_Job1201041\*.tif", recursive=True)
+    # files = [r"C:\Users\mohammad.ashkezari\Desktop\Fuse_Test\raster\Original\ny\ny2018_ont_dem_J1145472_005_003.tif"]
 
     for i, input_file in enumerate(files[:]):
         try:

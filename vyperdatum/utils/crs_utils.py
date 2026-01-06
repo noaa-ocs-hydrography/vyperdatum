@@ -30,14 +30,28 @@ def crs_components(crs: pp.CRS, raise_no_auth: bool = True) -> Tuple[str, Option
     h, v = None, None
     if crs.is_compound:
         try:
-            h = ":".join(pp.CRS(crs.sub_crs_list[0]).to_authority())
+            sub_h = pp.CRS(crs.sub_crs_list[0])
+            # if sub_h.is_bound:
+            #     sub_h = sub_h.source_crs
+            h = ":".join(sub_h.to_authority())
         except:
-            h = "UnknownAuthorityCode"
+            if sub_h.is_bound:
+                h = "BOUNDCRS"
+            else:
+                h = "UnknownAuthorityCode"
         try:
-            v = ":".join(pp.CRS(crs.sub_crs_list[1]).to_authority())
+            sub_v = pp.CRS(crs.sub_crs_list[1])
+            # if sub_v.is_bound:
+            #     sub_v = sub_v.source_crs
+            v = ":".join(sub_v.to_authority())
         except:
-            v = "UnknownAuthorityCode"
+            if sub_v.is_bound:
+                v = "BOUNDCRS"
+            else:
+                v = "UnknownAuthorityCode"
     else:
+        # if crs.is_bound:
+        #     crs = crs.source_crs
         ac = crs.to_authority(min_confidence=100)
         if not ac and raise_no_auth:
             raise ValueError(f"Unable to produce authority name and code for this crs:\n{crs}")
@@ -350,37 +364,64 @@ def validate_transform_steps_dict(steps: Optional[list[dict]]) -> bool:
             approve = False
     return approve
 
-
-def commandline(command: str,
-                args: Optional[list[str]] = None) -> tuple[Optional[dict], Optional[str]]:
+def multiple_geodetic_crs(steps: Optional[list[dict]]) -> bool:
     """
-    Spawn a new process to run a commandline utility and capture its output.
+    Check if there are more than one geodetic crs in the pipeline.
 
     Parameters
-    -----------
-    command: str
-        The name of command (utility) to run. Example: `projinfo`
-    args: Optional[list[str]]
-        Optional arguments.
+    ---------
+    steps: Optional[list[dict]]
+        List of dict objects containing crs_from/to in form of `authority:code`
+        representing the CRSs involved in a transformation pipeline.
+
 
     Returns
     --------
-    stdout: Optional[dict], std_err: Optional[str]
-        standard output and error.
+    bool:
+        `False` if all horizontal CRSs in the pipeline share the same geodetic CRS, otherwise return `True`.
     """
-    try:
-        sout, serr = dict({}), None
-        resp = subprocess.run([command, *args],
-                              stderr=subprocess.PIPE,
-                              stdout=subprocess.PIPE
-                              )
-        sout = resp.stdout.decode() if resp.stdout else None
-        serr = resp.stderr.decode() if resp.stderr else None
-    except Exception as e:
-        logger.exception(str(e))
-        sout, serr = dict({}), None
-    return sout, serr
+    geodetics = []
+    for step in steps:
+        h = step["crs_from"].split("+")[0]
+        geodetics.append(":".join(pp.CRS(pp.CRS(h).geodetic_crs.to_2d()).to_authority()))
+        h = step["crs_to"].split("+")[0]
+        geodetics.append(":".join(pp.CRS(pp.CRS(h).geodetic_crs.to_2d()).to_authority()))
+    return len(set(geodetics)) != 1
 
+def multiple_projections(steps: Optional[list[dict]]) -> bool:
+    """
+    Check if there are more than one projection types in the pipeline.
+
+    Parameters
+    ---------
+    steps: Optional[list[dict]]
+        List of dict objects containing crs_from/to in form of `authority:code`
+        representing the CRSs involved in a transformation pipeline.
+
+
+    Returns
+    --------
+    bool:
+        `False` if all projected CRSs use the same projection, otherwise return `True`.
+    """
+    def _projection_type(c: pp.CRS) -> str:
+        lower_name = c.name.lower()
+        spcs_keywords = ["state plane", "spcs", "fips", "stateplane"]
+        if "utm" in lower_name:
+            return "utm"
+        elif any(s in lower_name for s in spcs_keywords):    
+            return "spcs"
+        else:
+            return "others"
+    projs = []
+    for step in steps:
+        c = pp.CRS(step["crs_from"].split("+")[0])
+        if c.is_projected:
+            projs.append(_projection_type(c))
+        c = pp.CRS(step["crs_to"].split("+")[0])
+        if c.is_projected:
+            projs.append(_projection_type(c))
+    return len(set(projs)) > 1
 
 def pipeline_string(crs_from: str, crs_to, input_metadata=None) -> Optional[str]:
     """

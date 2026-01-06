@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vyperdatum"
-version = "0.3.18"
+version = "0.3.39"
 authors = [
     {name = "Mohammad Ashkezari", email = "mohammad.ashkezari@noaa.gov"},
 ]
@@ -16,8 +16,10 @@ requires-python = ">=3.8"
 keywords = ["bathymetry", "datum", "NOAA", "NBS"]
 dependencies = [
     "numpy",
+    "pyarrow",
     "pyproj",
     "pandas",
+    "geopandas",
     "tqdm",
     "colorama",
     "pydantic",
@@ -25,7 +27,8 @@ dependencies = [
     "h5py",
     "lxml",
     "requests",
-    "laspy"
+    "laspy",
+    "shapely"
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",

@@ -14,7 +14,7 @@ logger = logging.getLogger("root_logger")
 
 def datums_missing(datums_dir: str):
     """
-    Rerturn True if the datums directory in the assets dir is empty or missing.
+    Rerturn True if the datum directory in the assets dir is empty or missing.
     """
     return not (os.path.isdir(datums_dir) and len(os.listdir(datums_dir)) > 0)
 

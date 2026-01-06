@@ -187,13 +187,14 @@ if __name__ == "__main__":
     files = glob.glob(r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\NC\Original\**\*.tif", recursive=True)
     files = glob.glob(r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\RSD\MD\Original\**\*.tif", recursive=True)
     files = [r"C:\Users\mohammad.ashkezari\Desktop\test\Original\clip_NC.tif"]
+    files = glob.glob(r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\RSD\VA\Original\*.tif", recursive=True)
 
 
 
     crs_from = "EPSG:6347"
     crs_to = "EPSG:6347+NOAA:98"
 
-    files = [r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\NC\Original\VA1803-TB-C_BLK-01\VA1803-TB-C_BLK-01_US4VA1FD_ellipsoidal_dem_b1.tif"]
+    # files = [r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\NC\Original\VA1803-TB-C_BLK-01\VA1803-TB-C_BLK-01_US4VA1FD_ellipsoidal_dem_b1.tif"]
 
     for i, input_file in enumerate(files[:]):
         print(f"{i+1}/{len(files)}: {input_file}")

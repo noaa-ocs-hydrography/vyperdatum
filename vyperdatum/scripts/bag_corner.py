@@ -13,7 +13,7 @@ def transform_w(p):
                      crs_to=crs_to,
                      steps=["EPSG:32617", "EPSG:9755", "EPSG:6318", "EPSG:26917"]
                      )
-    y, x, z = tf.transform_points(p[1], p[0], 0, always_xy=False, allow_ballpark=False)
+    success, y, x, z = tf.transform_points(p[1], p[0], 0, always_xy=False, allow_ballpark=False)
     return f"{x},{y}"
 
 
@@ -24,7 +24,7 @@ def transform_h(p):
                      crs_to=crs_to,
                      steps=["EPSG:32619", "EPSG:9755", "EPSG:6318", "EPSG:6348"]
                      )
-    y, x, z = tf.transform_points(p[1], p[0], 0, always_xy=False, allow_ballpark=False)
+    success, y, x, z = tf.transform_points(p[1], p[0], 0, always_xy=False, allow_ballpark=False)
     return f"{x},{y}"
 
 

@@ -4,6 +4,8 @@ import pyproj as pp
 from vyperdatum.transformer import Transformer
 from vyperdatum.drivers.npz import NPZ
 from vyperdatum.drivers.laz import LAZ
+from vyperdatum.drivers.gparq import GeoParquet
+
 
 
 # def test_6349_to_6319():
@@ -36,18 +38,31 @@ from vyperdatum.drivers.laz import LAZ
 #     assert isinstance(wkt, str), f"unexpected wkt type in npz file: {fname}"
 
 
-def test_transform_npz():
-    fname = r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\point\npz\W00405_MB_1m_MLLW_1of4_transformed.bruty.npz"
+def test_transform_gparq():
+    fname = r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\point\geoparquet\South_Locust_Point_&_Masonville_&_Ferry_Bar_&_Fairfield_2023_Elevation_MLLW_3ftx3ft.parquet"
     d, f = os.path.split(fname)
     output_file = os.path.join(d, f"transformed_{f}")
-    crs_from = "EPSG:26919"
-    crs_to = "EPSG:26919+NOAA:5434"
-    steps = ["EPSG:26919", "EPSG:6319", "EPSG:6318+NOAA:5434", "EPSG:26919+NOAA:5434"]
-    tf = Transformer(crs_from=crs_from, crs_to=crs_to, steps=steps)
+    crs_from = "EPSG:6347+NOAA:98"
+    crs_to = "EPSG:6347+EPSG:5703"
+    tf = Transformer(crs_from=crs_from, crs_to=crs_to)
     tf.transform(input_file=fname, output_file=output_file)
-    npz = NPZ(output_file)
-    auth_code = "+".join([":".join(pp.CRS(s).to_authority()) for s in pp.CRS(npz.wkt()).sub_crs_list])
-    assert auth_code == crs_to, f"Incorrect WKT in the transformed npz file: {output_file}"
+    gp = GeoParquet(output_file)
+    auth_code = "+".join([":".join(pp.CRS(s).to_authority()) for s in pp.CRS(gp.wkt()).sub_crs_list])
+    assert auth_code == crs_to, f"Incorrect WKT in the transformed geoparquet file: {output_file}"
+
+
+# def test_transform_npz():
+#     fname = r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\point\npz\W00405_MB_1m_MLLW_1of4_transformed.bruty.npz"
+#     d, f = os.path.split(fname)
+#     output_file = os.path.join(d, f"transformed_{f}")
+#     crs_from = "EPSG:26919"
+#     crs_to = "EPSG:26919+NOAA:5434"
+#     steps = ["EPSG:26919", "EPSG:6319", "EPSG:6318+NOAA:5434", "EPSG:26919+NOAA:5434"]
+#     tf = Transformer(crs_from=crs_from, crs_to=crs_to, steps=steps)
+#     tf.transform(input_file=fname, output_file=output_file)
+#     npz = NPZ(output_file)
+#     auth_code = "+".join([":".join(pp.CRS(s).to_authority()) for s in pp.CRS(npz.wkt()).sub_crs_list])
+#     assert auth_code == crs_to, f"Incorrect WKT in the transformed npz file: {output_file}"
 
 
 # def test_transform_laz():

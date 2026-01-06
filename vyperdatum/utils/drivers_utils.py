@@ -33,7 +33,7 @@ def vrbag_pre_transformation_checks(file_path: str,
         Returns True if all checks pass, otherwise False.
     """
     passed = True
-    if ~isinstance(source_crs, pp.CRS):
+    if not isinstance(source_crs, pp.CRS):
         source_crs = pp.CRS(source_crs)
     source_auth = auth_code(source_crs)
     file_auth = auth_code(pp.CRS(vrbag.wkt(fname=file_path)))
@@ -67,7 +67,7 @@ def vrbag_post_transformation_checks(file_path: str,
     bool
         Returns True if all checks pass, otherwise False.
     """
-    if ~isinstance(target_crs, pp.CRS):
+    if not isinstance(target_crs, pp.CRS):
         target_crs = pp.CRS(target_crs)
     passed = True
     target_auth = auth_code(target_crs)
@@ -103,7 +103,7 @@ def laz_pre_transformation_checks(file_path: str,
         Returns True if all checks pass, otherwise False.
     """
     passed = True
-    if ~isinstance(source_crs, pp.CRS):
+    if not isinstance(source_crs, pp.CRS):
         source_crs = pp.CRS(source_crs)
     source_auth = auth_code(source_crs)
     laz = LAZ(input_file=file_path)
@@ -135,7 +135,7 @@ def laz_post_transformation_checks(file_path: str,
     bool
         Returns True if all checks pass, otherwise False.
     """
-    if ~isinstance(target_crs, pp.CRS):
+    if not isinstance(target_crs, pp.CRS):
         target_crs = pp.CRS(target_crs)
     passed = True
     target_auth = auth_code(target_crs)
@@ -169,7 +169,7 @@ def npz_pre_transformation_checks(file_path: str,
         Returns True if all checks pass, otherwise False.
     """
     passed = True
-    if ~isinstance(source_crs, pp.CRS):
+    if not isinstance(source_crs, pp.CRS):
         source_crs = pp.CRS(source_crs)
     source_auth = auth_code(source_crs)
     nz = NPZ(input_file=file_path)
@@ -201,7 +201,7 @@ def npz_post_transformation_checks(file_path: str,
     bool
         Returns True if all checks pass, otherwise False.
     """
-    if ~isinstance(target_crs, pp.CRS):
+    if not isinstance(target_crs, pp.CRS):
         target_crs = pp.CRS(target_crs)
     passed = True
     target_auth = auth_code(target_crs)
@@ -235,7 +235,7 @@ def pdal_pre_transformation_checks(file_path: str,
         Returns True if all checks pass, otherwise False.
     """
     passed = True
-    if ~isinstance(source_crs, pp.CRS):
+    if not isinstance(source_crs, pp.CRS):
         source_crs = pp.CRS(source_crs)
     source_auth = auth_code(source_crs)
     pdl = PDAL(input_file=file_path, output_file="")
@@ -267,7 +267,7 @@ def pdal_post_transformation_checks(file_path: str,
     bool
         Returns True if all checks pass, otherwise False.
     """
-    if ~isinstance(target_crs, pp.CRS):
+    if not isinstance(target_crs, pp.CRS):
         target_crs = pp.CRS(target_crs)
     passed = True
     target_auth = auth_code(target_crs)

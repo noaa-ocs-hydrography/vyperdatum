@@ -1,4 +1,3 @@
-import warnings
 import numpy as np
 import pathlib
 from collections import Counter
@@ -141,7 +140,7 @@ class NPZ(Driver):
         mmu = self.content["minmax"][:, 3]
         return mmx, mmy, mmz, mmu
 
-    def transform(self, transformer_instance, vdatum_check: bool) -> None:
+    def transform(self, transformer_instance, vdatum_check: bool) -> bool:
         """
         Apply point transformation on npz data according to the `transformer_instance`.
 
@@ -152,16 +151,18 @@ class NPZ(Driver):
 
         Returns
         -----------
-        None
+        bool:
+            True if successful, otherwise False.
         """
         x, y, z, u = self.xyzu()
-        xx, yy, zz = transformer_instance.transform_points(x, y, z, vdatum_check=vdatum_check)
+        success, xx, yy, zz = transformer_instance.transform_points(x, y, z,
+                                                                    vdatum_check=vdatum_check)
         target_wkt = transformer_instance.crs_to.to_wkt()
         data = np.zeros([len(x), 4], dtype=np.float64)
         data[:, 0], data[:, 1], data[:, 2], data[:, 3] = xx, yy, zz, u
         minmax = np.array([np.min(data, 0), np.max(data, 0)])
         np.savez(self.input_file, wkt=np.array(target_wkt), data=data, minmax=minmax)
-        return
+        return success
 
     @property
     def is_valid(self):

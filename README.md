@@ -7,6 +7,20 @@
 
 ## Vyperdatum
 
+Vyperdatum is a NOAA OCS/NBS toolkit for performing high-accuracy vertical datum transformations using NOAA’s separation grids within the modern PROJ/GDAL ecosystem. It provides a high-level `Transformer` interface that builds PROJ pipelines from a source CRS (`crs_from`) to a target CRS (`crs_to`), and applies them consistently to point cloud and raster formats (e.g. GeoTIFF, BAG, VRBAG, LAZ, NPZ, and GeoParquet).
+
+The goal of Vyperdatum is to make it easy to transform coastal and hydrographic data between tidal, orthometric, and ellipsoidal vertical datums (for example, NAD83(2011) ellipsoid heights to MLLW or NAVD88) while preserving full coordinate reference system metadata so that transformations are transparent and reproducible.
+
+Typical use cases include:
+
+- Normalizing hydrographic surveys to charting datums for ENC/RNC and bathymetric products  
+- Building seamless coastal DEMs and bathymetric mosaics from surveys referenced to different vertical frames  
+- Preparing inputs for coastal flood, storm surge, and inundation models that require a specific vertical datum  
+- Converting between ellipsoidal, orthometric, and tidal datums for coastal GNSS/GNSS-tide workflows  
+
+Under the hood, Vyperdatum uses a PROJ database augmented with NOAA grids and metadata. Transformation steps can be inferred automatically from `crs_from`/`crs_to`, or prescribed explicitly when you need fine-grained control over the pipeline. NOAA’s grid files and the updated `proj.db` are not bundled with the package; instead, you download them separately and point the `VYPER_GRIDS` environment variable at their location.
+
+
 **Vyperdatum** [definition] 
 
 ## Installation
@@ -18,12 +32,7 @@ conda activate vd
 conda install -c conda-forge proj=9.4 gdal=3.8.4 python-pdal
 pip install vyperdatum
 ```
-Before running vyperdatum, you need to copy NOAA's datum files and the updated `proj.db` into the PROJ data directory [download link will be added here]. This process may get automated in the future. The Proj data directory path can be found here:
-
-```python
-import pyproj as pp
-pp.datadir.get_data_dir()
-```
+Before running vyperdatum, you need to download NOAA's datum files and the updated `proj.db` [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15184045.svg)](https://doi.org/10.5281/zenodo.15184045). Once downloaded, create a persistent environment variable `VYPER_GRIDS` to hold the path to directory where the downloaded grids and `proj.db` are located. 
 
 ## Usage
 Vyperdatum offers a `Transformer` class to handle the transformation of point and raster data. The `Transformer` class applies transformation from `crs_from` to `crs_to` coordinate reference system. By default the transformation steps will be determined automatically:

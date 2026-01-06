@@ -18,7 +18,7 @@ def get_skiprows(fname: str):
 
 
 if __name__ == "__main__":
-    files = glob.glob(r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\point\USACE\PBA\Original\**\*.XYZ", recursive=True)
+    files = glob.glob(r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\point\USACE\PBA\UTM9N\Original\**\*.XYZ", recursive=True)
 
     # steps = [
     #         {"crs_from": "ESRI:102445", "crs_to": "EPSG:6319"},
@@ -31,8 +31,10 @@ if __name__ == "__main__":
     #         # {"crs_from": "EPSG:6319", "crs_to": "ESRI:102445"},
     #         ]
     steps = [
-            {"crs_from": "ESRI:102445", "crs_to": "EPSG:6337"}
+            # {"crs_from": "ESRI:102445", "crs_to": "EPSG:6337"}  # UTM Zone 8N
+            {"crs_from": "ESRI:102445", "crs_to": "EPSG:6338"}  # UTM Zone 9N
             ]
+    
 
     for i, input_file in enumerate(files[:]):
         print(f"{i+1}/{len(files)}: {input_file}")
@@ -42,11 +44,11 @@ if __name__ == "__main__":
                          crs_to=steps[-1]["crs_to"],
                          steps=steps
                          )
-        xt, yt, zt = tf.transform_points(x, y, z,
-                                         always_xy=True,
-                                         allow_ballpark=False,
-                                         only_best=True,
-                                         vdatum_check=False)
+        success, xt, yt, zt = tf.transform_points(x, y, z,
+                                                always_xy=True,
+                                                allow_ballpark=False,
+                                                only_best=True,
+                                                vdatum_check=False)
         output_file = input_file.replace("Original", "Manual")
         pathlib.Path(os.path.split(output_file)[0]).mkdir(parents=True, exist_ok=True)
         csv_fname = output_file+".csv"

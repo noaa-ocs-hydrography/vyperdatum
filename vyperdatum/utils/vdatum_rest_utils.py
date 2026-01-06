@@ -104,6 +104,8 @@ def api_region_alias(vdatum_regions: list[str]):
     ------------
     str
     """
+    if not vdatum_regions:
+        return "contiguous"
     api_region = set()
     for region in vdatum_regions:
         if region.startswith("AK"):
@@ -410,7 +412,8 @@ def vdatum_cross_validate(s_wkt: str,
 
     passed = True
     if not region:
-        region = api_region_alias(s_raster_metadata["overlapping_regions"])
+        overlapping_regions = t_raster_metadata.get("overlapping_regions") if s_raster_metadata else None
+        region = api_region_alias(overlapping_regions)
         # if len(s_raster_metadata["overlapping_regions"]) != 1:
         #     logger.warning("The input is not overlapping with a single region."
         #                    f" The overlapping regions: ({s_raster_metadata['overlapping_regions']})."

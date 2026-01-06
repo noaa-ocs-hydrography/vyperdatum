@@ -6,6 +6,7 @@ from vyperdatum.utils.raster_utils import raster_metadata, update_raster_wkt
 from vyperdatum.utils.vdatum_rest_utils import vdatum_cross_validate
 from osgeo import gdal
 import re
+import glob
 
 
 def get_tiff_files(parent_dir: str, extention: str) -> list:
@@ -90,11 +91,6 @@ def transform_with_concat_pipe(input_file, output_file):
 
 
 
-
-
-
-
-
 if __name__ == "__main__":
     parent_dir = r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\RSD\Alaska\Original"
     files = get_tiff_files(parent_dir, extention=".tif")
@@ -104,8 +100,13 @@ if __name__ == "__main__":
     crs_from = "EPSG:6338+EPSG:5703"
     # crs_to = "EPSG:6338+NOAA:98"
     crs_to = "EPSG:6338+NOAA:55" # to match Vdatum
-    steps = None
 
+
+    files = glob.glob(r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\ALK\Original\**\*.tif", recursive=True)
+    crs_from = "EPSG:6337+EPSG:5703"
+    crs_to = "EPSG:6337+NOAA:98"
+
+    steps = None
 
     for i, input_file in enumerate(files[:]):
         print(f"{i+1}/{len(files)}: {input_file}")
