@@ -1,11 +1,18 @@
 import os
+import re
+import sys
+import io
 import pathlib
 import logging
 import json
+import math
 import tempfile
-from osgeo import gdal
+from pathlib import Path
+from importlib.metadata import version
+from osgeo import gdal, osr, ogr
 import numpy as np
-from typing import Union, Optional
+import subprocess
+from typing import Union, Optional, Tuple
 import pyproj as pp
 from vyperdatum.utils.spatial_utils import overlapping_regions, overlapping_extents
 from vyperdatum.utils.crs_utils import commandline, pipeline_string, crs_components
@@ -443,7 +450,7 @@ def update_raster_wkt(input_file: str, wkt: str) -> None:
     wkt: str
         New WKT to update the raster file.    
     """
-    if not os.path.exists(input_file):
+    if gdal.VSIStatL(input_file) is None:
         err_msg = f"Trying to update WKT, but the input raster file {input_file} does not exist."
         logger.error(err_msg)
         raise FileNotFoundError(err_msg)
@@ -483,7 +490,7 @@ def update_raster_wkt(input_file: str, wkt: str) -> None:
         out = None
         ds = None
 
-        os.replace(tmp_out, input_file)
+        gdal.Rename(tmp_out, input_file)
         return
 
     # Other drivers: try in-place, else fall back to copy-on-write via Translate
@@ -504,89 +511,134 @@ def update_raster_wkt(input_file: str, wkt: str) -> None:
     return
 
 
-def overwrite_with_original(input_file: str,
-                            output_file: str,
-                            elevation_band: int = None
-                            ) -> None:
+def overwrite_with_original(input_file: str, output_file: str) -> None:
     """
-    Overwrite the non-elevation bands in the output file with
-    the original input file band arrays. Currently, we assume that the elevation
-    band is the first band in the input file. The other bands are assumed to be
-    the same as the input file.
-
-    Parameters
-    ----------
-    input_file: str
-        Absolute path to the input raster file.
-    output_file: str
-        Absolute path to the output raster file.
-    elevation_band: int, optional
-        The index of the elevation band in the input file. If not provided,
-        the the index of a band named 'elevation' or 'dem' will be used. Raise exception,
-        If no such band name is found.
-
-    Raises
-    ----------
-    ValueError:
-        If the elevation band is not found.
-
+    Overwrite the non-elevation bands in the output file with the original input
+    file band arrays. If an uncertainty band exists, it will be masked so that
+    uncertainty is only present where elevation is valid (not NoData).
     """
     ds_in = gdal.Open(input_file, gdal.GA_ReadOnly)
+    if ds_in is None:
+        raise ValueError(f"Failed to open input_file: {input_file}")
+
     if ds_in.RasterCount < 2:
+        ds_in = None
         return
+
+    elevation_band, uncertainty_band = None, None
+    for i in range(1, ds_in.RasterCount + 1):
+        band = ds_in.GetRasterBand(i)
+        desc = (band.GetDescription() or "").strip().lower()
+        if desc in ["elevation", "dem"]:
+            elevation_band = i
+        if desc in ["uncertainty", "tvu"]:
+            uncertainty_band = i
+
     if elevation_band is None:
-        band_count = ds_in.RasterCount
-        for i in range(1, band_count + 1):
-            band = ds_in.GetRasterBand(i)
-            if band.GetDescription().lower() in ["elevation", "dem"]:
-                elevation_band = i
-                break
-    if elevation_band is None:
-        raise ValueError("No elevation band found in the input raster file. "
-                         "Please provide the index of the elevation band.")
+        ds_in = None
+        raise ValueError(
+            "No elevation band found in the input raster file. "
+            "Please provide the index of the elevation band."
+        )
+
     ds_out = gdal.Open(output_file, gdal.GA_ReadOnly)
+    if ds_out is None:
+        ds_in = None
+        raise ValueError(f"Failed to open output_file: {output_file}")
+
     input_metadata = raster_metadata(input_file)
-    # combine the vertically transformed bands and
-    # the non-transformed ones into a new raster
     driver = gdal.GetDriverByName(input_metadata["driver"])
+
     mem_path = f"/vsimem/{os.path.splitext(os.path.basename(output_file))[0]}.tiff"
-    ds_temp = driver.Create(mem_path,
-                            ds_in.RasterXSize,
-                            ds_in.RasterYSize,
-                            ds_in.RasterCount,
-                            gdal.GDT_Float32
-                            )
+    ds_temp = driver.Create(
+        mem_path,
+        ds_in.RasterXSize,
+        ds_in.RasterYSize,
+        ds_in.RasterCount,
+        gdal.GDT_Float32
+    )
     ds_temp.SetGeoTransform(ds_out.GetGeoTransform())
     ds_temp.SetProjection(ds_out.GetProjection())
-    for b in range(1, ds_in.RasterCount+1):
-        if b == elevation_band:
-            out_shape = ds_out.GetRasterBand(b).ReadAsArray().shape
-            in_shape = ds_in.GetRasterBand(b).ReadAsArray().shape
-            if out_shape != in_shape:
-                logger.error(f"Band {b} dimensions has changed from"
-                             f"{in_shape} to {out_shape}")
-            ds_temp.GetRasterBand(b).SetDescription(ds_out.GetRasterBand(b).GetDescription())
-            ds_temp.GetRasterBand(b).SetNoDataValue(ds_out.GetRasterBand(b).GetNoDataValue())
-            ds_temp.GetRasterBand(b).WriteArray(ds_out.GetRasterBand(b).ReadAsArray())
+
+    # --- Read elevation (from ds_out) once and build a validity mask ---
+    elev_out_band = ds_out.GetRasterBand(elevation_band)
+    elev_arr = elev_out_band.ReadAsArray()
+    elev_nodata = elev_out_band.GetNoDataValue()
+
+    if elev_nodata is None:
+        # Fall back: treat non-finite as invalid
+        valid_elev = np.isfinite(elev_arr)
+    else:
+        if np.isnan(elev_nodata):
+            valid_elev = ~np.isnan(elev_arr)
         else:
-            ds_temp.GetRasterBand(b).SetDescription(ds_in.GetRasterBand(b).GetDescription())
-            # ds_temp.GetRasterBand(b).SetNoDataValue(ds_in.GetRasterBand(b).GetNoDataValue())
-            ds_temp.GetRasterBand(b).WriteArray(ds_in.GetRasterBand(b).ReadAsArray())
+            valid_elev = (elev_arr != elev_nodata) & np.isfinite(elev_arr)
+
+    # --- Write all bands; mask uncertainty where elevation is invalid ---
+    for b in range(1, ds_in.RasterCount + 1):
+        out_band = ds_temp.GetRasterBand(b)
+
+        if b == elevation_band:
+            # Write transformed elevation from ds_out
+            out_band.SetDescription("Elevation")
+            if elev_nodata is not None:
+                out_band.SetNoDataValue(float(elev_nodata))
+            out_band.WriteArray(elev_arr.astype(np.float32, copy=False))
+
+        elif uncertainty_band is not None and b == uncertainty_band:
+            in_unc_band = ds_in.GetRasterBand(b)
+            unc_arr = in_unc_band.ReadAsArray().astype(np.float32, copy=False)
+
+            # Choose an output NoData for uncertainty
+            unc_nodata_in = in_unc_band.GetNoDataValue()
+            if unc_nodata_in is not None:
+                unc_nodata_out = float(unc_nodata_in)
+            elif elev_nodata is not None and np.isfinite(elev_nodata):
+                unc_nodata_out = float(elev_nodata)
+            else:
+                unc_nodata_out = input_metadata["band_no_data"][0]
+
+            # Mask uncertainty wherever elevation is NoData
+            unc_masked = np.array(unc_arr, copy=True)
+            unc_masked[~valid_elev] = unc_nodata_out
+
+            out_band.SetDescription("Uncertainty")
+            out_band.SetNoDataValue(unc_nodata_out)
+            out_band.WriteArray(unc_masked)
+
+        else:
+            # Copy any other non-elevation bands from the input (mask at no elevation points)
+            in_band = ds_in.GetRasterBand(b)
+            arr = in_band.ReadAsArray()
+            if elev_nodata is not None and np.isfinite(elev_nodata):
+                unc_nodata_out = float(elev_nodata)
+            else:
+                unc_nodata_out = input_metadata["band_no_data"][0]
+            arr_masked = np.array(arr, copy=True)
+            arr_masked[~valid_elev] = unc_nodata_out
+            out_band.SetDescription(in_band.GetDescription())
+            nd = in_band.GetNoDataValue()
+            if nd is not None:
+                out_band.SetNoDataValue(float(nd))
+            out_band.WriteArray(arr_masked.astype(np.float32, copy=False))
+
     ds_in, ds_out = None, None
     ds_temp.FlushCache()
-    driver.CreateCopy(output_file, ds_temp)
 
     cop = ["COMPRESS=DEFLATE"]
     if input_metadata["driver"].lower() == "gtiff":
         cop.extend(["TILED=YES"])
 
-    gdal.Translate(output_file, ds_temp, format=input_metadata["driver"],
-                   outputType=gdal.GDT_Float32,
-                   creationOptions=cop)     
+    gdal.Translate(
+        output_file,
+        ds_temp,
+        format=input_metadata["driver"],
+        outputType=gdal.GDT_Float32,
+        creationOptions=cop
+    )
 
     ds_temp = None
     gdal.Unlink(mem_path)
-    return
 
 
 def update_stats(input_file):
@@ -714,7 +766,7 @@ def apply_nbs_band_standards(input_file: str) -> None:
     Parameters:
         input_file (str): Path to the raster file.
     """
-    if not os.path.exists(input_file):
+    if gdal.VSIStatL(input_file) is None:
         err_msg = f"Raster file {input_file} does not exist."
         logger.error(err_msg)
         raise FileNotFoundError(err_msg)
@@ -722,7 +774,411 @@ def apply_nbs_band_standards(input_file: str) -> None:
     if ds.GetDriver().ShortName.lower() != "gtiff":
         return
     
-    apply_nbs_bandnames(input_file)
+    # apply_nbs_bandnames(input_file)
     add_uncertainty_band(input_file)
     update_stats(input_file)
+    return
+
+
+def create_cutline_from_grid(grid_path: str,
+                             output_cutline: str,
+                             input_extent=None,
+                             input_wkt: str = None):
+    """
+    Create a cutline polygon from a GTG grid's valid (non-nodata) area,
+    restricted to the vicinity of `input_extent` (bbox) when provided.
+    This version supports rasters that span multiple subgrids by unioning 
+    all overlapping valid areas.
+    """
+    _logger = globals().get("logger", None)
+
+    def _log(level: str, msg: str):
+        if _logger is not None:
+            getattr(_logger, level)(msg)
+        else:
+            print(f"{level.upper()}: {msg}")
+
+    def _inv_geotransform(gt):
+        inv = gdal.InvGeoTransform(gt)
+        if isinstance(inv, tuple) and len(inv) == 2 and isinstance(inv[0], (bool, int)):
+            ok, inv_gt = inv
+            if not ok:
+                raise RuntimeError("gdal.InvGeoTransform failed")
+            return tuple(inv_gt)
+        if isinstance(inv, (tuple, list)) and len(inv) == 6:
+            return tuple(inv)
+        raise RuntimeError(f"Unexpected gdal.InvGeoTransform return: {type(inv)} {inv}")
+
+    def _ds_extent(ds):
+        gt = ds.GetGeoTransform()
+        x0, px_w, _, y0, _, px_h = gt
+        w, h = ds.RasterXSize, ds.RasterYSize
+        xmin = x0
+        xmax = x0 + px_w * w
+        ymax = y0
+        ymin = y0 + px_h * h
+        if xmin > xmax:
+            xmin, xmax = xmax, xmin
+        if ymin > ymax:
+            ymin, ymax = ymax, ymin
+        return (xmin, ymin, xmax, ymax)
+
+    def _bbox_intersection(a, b):
+        ax0, ay0, ax1, ay1 = a
+        bx0, by0, bx1, by1 = b
+        ix0 = max(ax0, bx0)
+        iy0 = max(ay0, by0)
+        ix1 = min(ax1, bx1)
+        iy1 = min(ay1, by1)
+        if ix0 >= ix1 or iy0 >= iy1:
+            return None
+        return (ix0, iy0, ix1, iy1)
+
+    def _bbox_to_srcwin(ds, bbox, pad_pixels=3):
+        ds_ext = _ds_extent(ds)
+        bb = _bbox_intersection(bbox, ds_ext)
+        if bb is None:
+            return None
+        xmin, ymin, xmax, ymax = bb
+
+        inv_gt = _inv_geotransform(ds.GetGeoTransform())
+
+        px0, py0 = gdal.ApplyGeoTransform(inv_gt, xmin, ymax)
+        px1, py1 = gdal.ApplyGeoTransform(inv_gt, xmax, ymin)
+
+        col0 = int(math.floor(min(px0, px1))) - pad_pixels
+        col1 = int(math.ceil(max(px0, px1))) + pad_pixels
+        row0 = int(math.floor(min(py0, py1))) - pad_pixels
+        row1 = int(math.ceil(max(py0, py1))) + pad_pixels
+
+        col0 = max(0, min(col0, ds.RasterXSize))
+        col1 = max(0, min(col1, ds.RasterXSize))
+        row0 = max(0, min(row0, ds.RasterYSize))
+        row1 = max(0, min(row1, ds.RasterYSize))
+
+        xsize = col1 - col0
+        ysize = row1 - row0
+        if xsize <= 0 or ysize <= 0:
+            return None
+        return (col0, row0, xsize, ysize)
+
+    def _srs_from_wkt(wkt: str):
+        srs = osr.SpatialReference()
+        srs.ImportFromWkt(wkt)
+        try:
+            srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        except Exception:
+            pass
+        return srs
+
+    def _reproject_bbox(bbox, src_srs, dst_srs):
+        xmin, ymin, xmax, ymax = bbox
+        ct = osr.CoordinateTransformation(src_srs, dst_srs)
+        pts = [
+            ct.TransformPoint(xmin, ymin),
+            ct.TransformPoint(xmin, ymax),
+            ct.TransformPoint(xmax, ymin),
+            ct.TransformPoint(xmax, ymax),
+        ]
+        xs = [p[0] for p in pts]
+        ys = [p[1] for p in pts]
+        return (min(xs), min(ys), max(xs), max(ys))
+
+    try:
+        gdal.UseExceptions()
+        ogr.UseExceptions()
+
+        overlap_pct = None
+        container = gdal.Open(grid_path)
+        if container is None:
+            _log("error", f"Could not open grid: {grid_path}")
+            return None, None
+
+        candidates = []
+        subdatasets = container.GetSubDatasets() or []
+        if subdatasets:
+            _log("info", f"GTG file detected with {len(subdatasets)} subgrids")
+            for idx, (name, desc) in enumerate(subdatasets):
+                ds = gdal.Open(name)
+                if ds is None:
+                    continue
+                ext = _ds_extent(ds)
+                candidates.append((idx, name, desc, ds, ext))
+        else:
+            ds = container
+            ext = _ds_extent(ds)
+            candidates.append((0, grid_path, "", ds, ext))
+
+        if not candidates:
+            _log("error", "No readable subdatasets found in grid.")
+            return None, None
+
+        grid_wkt = candidates[0][3].GetProjection()
+        grid_srs = _srs_from_wkt(grid_wkt) if grid_wkt else None
+
+        bbox_grid = None
+        if input_extent is not None:
+            bbox_in = tuple(float(x) for x in input_extent)
+            if input_wkt and grid_srs:
+                in_srs = _srs_from_wkt(input_wkt)
+                bbox_grid = _reproject_bbox(bbox_in, in_srs, grid_srs)
+            else:
+                bbox_grid = bbox_in
+
+        # Identify all subgrids that overlap our raster bounding box
+        overlapping_cands = []
+        if bbox_grid is not None:
+            for cand in candidates:
+                idx, name, desc, ds, ext = cand
+                inter = _bbox_intersection(bbox_grid, ext)
+                if inter is not None:
+                    overlapping_cands.append((cand, inter))
+            if not overlapping_cands:
+                _log("error", f"Input bbox does not overlap any subgrids. bbox={bbox_grid}")
+                return None, None
+        else:
+            overlapping_cands = [(cand, cand[4]) for cand in candidates]
+
+        _log("info", f"Found {len(overlapping_cands)} overlapping subgrid(s). Processing union...")
+
+        union_geom = None
+        total_valid = 0
+        total_cells = 0
+
+        # Iterate and union every valid overlapping geometry
+        for cand, target_bbox in overlapping_cands:
+            idx, name, desc, grid_ds, grid_ext = cand
+            srcwin = _bbox_to_srcwin(grid_ds, target_bbox, pad_pixels=5)
+            if srcwin is None:
+                continue
+
+            xoff, yoff, xsize, ysize = srcwin
+            cropped = gdal.Translate("", grid_ds, format="MEM", srcWin=[xoff, yoff, xsize, ysize])
+            if cropped is None:
+                continue
+
+            band = cropped.GetRasterBand(1)
+            nodata = band.GetNoDataValue()
+            arr = band.ReadAsArray()
+            if arr is None:
+                continue
+            if nodata is None:
+                nodata = -32768.0
+
+            valid_mask = (~np.isnan(arr)) & (~np.isclose(arr.astype("float64"), float(nodata)))
+            v_count = int(valid_mask.sum())
+            t_count = int(valid_mask.size)
+            total_valid += v_count
+            total_cells += t_count
+
+            if v_count == 0:
+                continue
+
+            mem = gdal.GetDriverByName("MEM")
+            mask_ds = mem.Create("", xsize, ysize, 1, gdal.GDT_Byte)
+            mask_ds.SetGeoTransform(cropped.GetGeoTransform())
+            if grid_wkt:
+                mask_ds.SetProjection(grid_wkt)
+            mask_band = mask_ds.GetRasterBand(1)
+            mask_band.WriteArray(valid_mask.astype("uint8"))
+            mask_band.FlushCache()
+
+            vmem_drv = ogr.GetDriverByName("MEM")
+            vmem_ds = vmem_drv.CreateDataSource(f"mem_cutline_{idx}")
+            srs = _srs_from_wkt(grid_wkt) if grid_wkt else None
+            vmem_lyr = vmem_ds.CreateLayer("cutline", srs=srs, geom_type=ogr.wkbPolygon)
+            vmem_lyr.CreateField(ogr.FieldDefn("DN", ogr.OFTInteger))
+
+            gdal.Polygonize(mask_band, mask_band, vmem_lyr, 0, ["8CONNECTED=8"])
+            vmem_lyr.SetAttributeFilter("DN = 1")
+
+            # Merge the subgrid geometry into the master union
+            for f in vmem_lyr:
+                g = f.GetGeometryRef()
+                if g is not None:
+                    g2 = g.Clone()
+                    union_geom = g2 if union_geom is None else union_geom.Union(g2)
+
+        if union_geom is None:
+            _log("error", "Failed to build union geometry from subgrids.")
+            return None, None
+
+        overlap_pct = (total_valid / total_cells * 100.0) if total_cells > 0 else 0.0
+        _log("info", f"Valid cells (combined): {total_valid} / {total_cells} ({overlap_pct:.2f}%)")
+
+        if srs and srs.IsGeographic():
+            tol = 0.0005
+        else:
+            tol = 50.0
+        try:
+            union_geom = union_geom.Simplify(tol)
+        except Exception:
+            pass
+
+        ext = os.path.splitext(output_cutline)[1].lower()
+        if ext == ".gpkg":
+            drv_name = "GPKG"
+        elif ext == ".shp":
+            drv_name = "ESRI Shapefile"
+        elif ext in (".json", ".geojson"):
+            drv_name = "GeoJSON"
+        else:
+            output_cutline = os.path.splitext(output_cutline)[0] + ".gpkg"
+            drv_name = "GPKG"
+            _log("warning", f"Unrecognized cutline extension; writing GeoPackage instead: {output_cutline}")
+
+        out_drv = ogr.GetDriverByName(drv_name)
+        if out_drv is None:
+            _log("error", f"OGR driver not available: {drv_name}")
+            return None, None
+        if gdal.VSIStatL(output_cutline) is not None:
+            out_drv.DeleteDataSource(output_cutline)
+
+        if drv_name == "GeoJSON":
+            gdal.SetConfigOption("GDAL_GEOJSON_WRITE_CRS", "YES")
+
+        out_ds = out_drv.CreateDataSource(output_cutline)
+        out_lyr = out_ds.CreateLayer("cutline", srs=srs, geom_type=ogr.wkbPolygon)
+        out_lyr.CreateField(ogr.FieldDefn("DN", ogr.OFTInteger))
+
+        feat = ogr.Feature(out_lyr.GetLayerDefn())
+        feat.SetField("DN", 1)
+        feat.SetGeometry(union_geom)
+        out_lyr.CreateFeature(feat)
+        feat = None
+        out_ds = None
+
+        _log("info", f"Cutline written: {output_cutline}")
+        return output_cutline, overlap_pct
+
+    except Exception as e:
+        _log("exception", f"Error creating cutline from grid: {e}")
+        return None, None
+
+
+def create_cutline_file(v_shift: bool,
+                        grid_files: list[str],
+                        cutline_path: str,
+                        input_metadata: dict) -> Optional[str]:
+    """
+    Create a cutline file from the provided grid files if vertical shift is applied.
+    Otherwise, return None.
+
+    TODO: what if more than one NWLD grids are involved?
+    """
+    if v_shift and grid_files:
+        grid_file = None
+        # Use the first NOAA grid file (or we could merge multiple grids)
+        for gf in grid_files:
+            if (gf.lower().find("nwld") != -1) or (gf.lower().find("underkeel_hydroid") != -1):
+                grid_file = gf
+                break
+        if grid_file is None:
+            return None, None
+        if not os.path.isabs(grid_file):
+            vyper_grids = os.environ.get("VYPER_GRIDS", "")
+
+            for base_dir in [vyper_grids]:
+                potential_path = os.path.join(base_dir, grid_file)
+                if os.path.exists(potential_path):
+                    grid_file = potential_path
+                    break
+
+        if os.path.exists(grid_file):
+            cutline_path, overlap_pct = create_cutline_from_grid(grid_file, cutline_path,
+                                                                 input_extent=input_metadata["extent"],
+                                                                 input_wkt=input_metadata["wkt"],
+                                                                 )
+            if cutline_path:
+                logger.info(f"Using cutline from grid: {cutline_path} for grid: {grid_file}")
+        else:
+            logger.warning(f"Grid file not found: {grid_file}")
+    else:
+        cutline_path = None
+    return cutline_path, overlap_pct
+
+
+def clip_raster_to_cutline(input_path: str, cutline_path: str, output_path: str) -> Optional[str]:
+    """
+    Clips a raster to a cutline while preserving original resolution and metadata.
+    This creates a pre-masked file where all data points are guaranteed to be 
+    within the grid's valid area for the subsequent transformation.
+    """
+    try:
+        # Get original metadata to ensure we match resolution and nodata
+        ds_in = gdal.Open(input_path, gdal.GA_ReadOnly)
+        if ds_in is None:
+            return None
+
+        # Get input NoData and GeoTransform
+        gt = ds_in.GetGeoTransform()
+        x_res, y_res = abs(gt[1]), abs(gt[5])
+        band = ds_in.GetRasterBand(1)
+        nodata = band.GetNoDataValue() if band.GetNoDataValue() is not None else -9999.0
+
+        # Use gdal.Warp to clip. We DO NOT change the CRS yet.
+        # This keeps the math local and simple.
+        warp_options = gdal.WarpOptions(
+            format="GTiff",
+            cutlineDSName=cutline_path,
+            cropToCutline=True,  # Shrink the file extent to the grid overlap
+            srcNodata=nodata,
+            dstNodata=nodata,
+            xRes=x_res,
+            yRes=y_res,
+            resampleAlg="near",
+            creationOptions=["COMPRESS=DEFLATE", "TILED=YES"]
+        )
+
+        # Run the clip
+        ds_out = gdal.Warp(output_path, ds_in, options=warp_options)
+
+        if ds_out:
+            # Transfer metadata tags (like Vyperdatum_Metadata)
+            ds_out.SetMetadata(ds_in.GetMetadata())
+            ds_out.FlushCache()
+            ds_out = None
+            ds_in = None
+            return output_path
+
+        return None
+    except Exception as e:
+        logging.error(f"Error in clip_raster_to_cutline: {e}")
+        return None
+
+
+def add_vyper_tag(raster_file: str, pipe: str, crs_to: pp.CRS, steps: list) -> None:
+    """
+    Add a Vyperdatum tag to the raster file to indicate it has been processed.
+    """
+    ds = gdal.Open(raster_file, gdal.GA_Update)
+    if ds is None:
+        logger.error(f"Failed to open {raster_file} to add Vyperdatum tag.")
+        return
+
+    # pipe = re.sub(r"\s{2,}", " ", pipe).strip()
+    to_wkt = crs_to.to_wkt()
+    # to_wkt = re.sub(r"\s{2,}", " ", to_wkt).strip()
+    buffer = io.StringIO()
+    sys.stdout = buffer
+    pp.show_versions()
+    sys.stdout = sys.__stdout__
+    pyproj_versions = buffer.getvalue()
+    # pyproj_versions = re.sub(r"\s{2,}", " ", buffer.getvalue()).strip()
+    crs_h, crs_v = crs_utils.crs_components(crs_to, raise_no_auth=False)
+
+    vyper_meta = {"description": ("This file is the output of a transformation pipeline "
+                                  "executed using Vyperdatum software by NOAA's OCS, NBS branch."),
+                  "vyperdatum_version": version("vyperdatum"),
+                  "steps": steps,
+                  "proj_pipeline": pipe,
+                  "wkt": to_wkt,
+                  "crs_horizontal": crs_h if crs_h else "",
+                  "crs_vertical": crs_v if crs_v else "",
+                  "pyproj_versions": pyproj_versions,
+                  }
+    vyper_meta = json.dumps(vyper_meta)
+    ds.SetMetadataItem("Vyperdatum_Metadata", vyper_meta)    
+    ds.FlushCache()
+    ds = None
     return
