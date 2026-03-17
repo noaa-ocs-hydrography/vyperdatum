@@ -2,7 +2,7 @@
 <br/>
 
 [![PyPI version](https://badge.fury.io/py/vyperdatum.svg)](https://badge.fury.io/py/vyperdatum)
-[![DOI](https://zenodo.org/badge/785898982.svg)](https://zenodo.org/doi/10.5281/zenodo.13345073)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18893503.svg)](https://doi.org/10.5281/zenodo.18893503)
 [![Read the Docs](https://readthedocs.org/projects/vyperdatum/badge/?version=latest)](https://vyperdatum.readthedocs.io/en/latest/)
 
 ## Vyperdatum
