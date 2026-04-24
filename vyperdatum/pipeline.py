@@ -6,7 +6,7 @@ import pyproj as pp
 import networkx as nx
 from tqdm import tqdm
 from vyperdatum.db import DB
-from vyperdatum.utils.crs_utils import validate_transform_steps, auth_code
+from vyperdatum.utils.crs_utils import validate_transform_steps, auth_code, vertical_axis_direction, flip_vertical_vaxis, get_meter_vcrs
 
 logger = logging.getLogger("root_logger")
 
@@ -400,15 +400,42 @@ def nwld_NAD832011_steps(h0: str, v0: Optional[str], h1: str, v1: Optional[str])
         steps.append({"crs_from": "EPSG:9755", "crs_to": "EPSG:6318", "v_shift": False})
     elif h0 not in NAD83_geo:
         steps.append({"crs_from": h0, "crs_to": ":".join(pp.CRS(h0).geodetic_crs.to_authority()), "v_shift": False})
+    
+    # Registry limitation: if input vert was in ft, change to m first, before any vertical shift ops
+    v0_meter = get_meter_vcrs(v0)
+    if v0_meter and v0_meter != v0:
+        steps.append({"crs_from": f"EPSG:6318+{v0}", "crs_to": f"EPSG:6318+{v0_meter}", "v_shift": False})
+        v0 = v0_meter
 
     # vertical shift step
+    # The flip_vertical_vaxis operations below are due to the current limitation of our proj.db
+    # to conduct depth-based vertical transforms.
     if (v0 is None or v1 is None) or v0.strip().lower() != v1.strip().lower():
         if v0 is None:
-            steps.append({"crs_from": "EPSG:6319", "crs_to": f"EPSG:6318+{v1}", "v_shift": True})
+            if vertical_axis_direction(v1) == "down":
+                steps.append({"crs_from": "EPSG:6319", "crs_to": f"EPSG:6318+{flip_vertical_vaxis(v1)}", "v_shift": True})
+                steps.append({"crs_from": f"EPSG:6318+{flip_vertical_vaxis(v1)}", "crs_to": f"EPSG:6318+{v1}", "v_shift": True})
+            else:  
+                steps.append({"crs_from": "EPSG:6319", "crs_to": f"EPSG:6318+{v1}", "v_shift": True})
         elif v1 is None:
-            steps.append({"crs_from": f"EPSG:6318+{v0}", "crs_to": "EPSG:6319", "v_shift": True})
+            if vertical_axis_direction(v0) == "down":
+                steps.append({"crs_from": f"EPSG:6318+{v0}", "crs_to": f"EPSG:6318+{flip_vertical_vaxis(v0)}", "v_shift": True})
+                steps.append({"crs_from": f"EPSG:6318+{flip_vertical_vaxis(v0)}", "crs_to": "EPSG:6319", "v_shift": True})
+            else:
+                steps.append({"crs_from": f"EPSG:6318+{v0}", "crs_to": "EPSG:6319", "v_shift": True})
         else:
-            steps.append({"crs_from": f"EPSG:6318+{v0}", "crs_to": f"EPSG:6318+{v1}", "v_shift": True})
+            if vertical_axis_direction(v0) == "down" and vertical_axis_direction(v1) == "up":
+                steps.append({"crs_from": f"EPSG:6318+{v0}", "crs_to": f"EPSG:6318+{flip_vertical_vaxis(v0)}", "v_shift": True})
+                steps.append({"crs_from": f"EPSG:6318+{flip_vertical_vaxis(v0)}", "crs_to": f"EPSG:6318+{v1}", "v_shift": True})
+            elif vertical_axis_direction(v0) == "up" and vertical_axis_direction(v1) == "down":
+                steps.append({"crs_from": f"EPSG:6318+{v0}", "crs_to": f"EPSG:6318+{flip_vertical_vaxis(v1)}", "v_shift": True})
+                steps.append({"crs_from": f"EPSG:6318+{flip_vertical_vaxis(v1)}", "crs_to": f"EPSG:6318+{v1}", "v_shift": True})
+            elif vertical_axis_direction(v0) == "down" and vertical_axis_direction(v1) == "down":
+                steps.append({"crs_from": f"EPSG:6318+{v0}", "crs_to": f"EPSG:6318+{flip_vertical_vaxis(v0)}", "v_shift": True})
+                steps.append({"crs_from": f"EPSG:6318+{flip_vertical_vaxis(v0)}", "crs_to": f"EPSG:6318+{flip_vertical_vaxis(v1)}", "v_shift": True})
+                steps.append({"crs_from": f"EPSG:6318+{flip_vertical_vaxis(v1)}", "crs_to": f"EPSG:6318+{v1}", "v_shift": True})            
+            else:
+                steps.append({"crs_from": f"EPSG:6318+{v0}", "crs_to": f"EPSG:6318+{v1}", "v_shift": True})
 
     if pp.CRS(h1).geodetic_crs.to_authority() == ("EPSG", "4326"):
         steps.append({"crs_from": "EPSG:6318", "crs_to": "EPSG:9755", "v_shift": False})

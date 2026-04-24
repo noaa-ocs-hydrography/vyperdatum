@@ -1094,7 +1094,7 @@ def create_cutline_file(v_shift: bool,
         else:
             logger.warning(f"Grid file not found: {grid_file}")
     else:
-        cutline_path = None
+        cutline_path, overlap_pct = None, None
     return cutline_path, overlap_pct
 
 

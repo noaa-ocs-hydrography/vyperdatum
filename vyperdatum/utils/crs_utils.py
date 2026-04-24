@@ -244,12 +244,12 @@ def validate_transform_steps(steps: Optional[list[str]]) -> bool:
                     logger.error(err_msg)
                     print(Style.RESET_ALL)
                     raise NotImplementedError(err_msg)
-                ps = t1.to_proj4()
+                ps = t1.to_proj4() or str(t1)
                 error_hint = ""
                 if not ps:
                     error_hint = "Null Proj string"
-                elif "+proj=noop" in ps:
-                    error_hint = "+proj=noop"
+                elif "proj=noop" in ps:
+                    error_hint = "proj=noop"
                 elif "Error" in ps:
                     error_hint = "Error in Proj string"
                 if error_hint:
@@ -342,12 +342,12 @@ def validate_transform_steps_dict(steps: Optional[list[dict]]) -> bool:
                     logger.error(err_msg)
                     print(Style.RESET_ALL)
                     raise NotImplementedError(err_msg)
-                ps = t1.to_proj4()
+                ps = t1.to_proj4() or str(t1)
                 error_hint = ""
                 if not ps:
                     error_hint = "Null Proj string"
-                elif "+proj=noop" in ps:
-                    error_hint = "+proj=noop"
+                elif "proj=noop" in ps:
+                    error_hint = "proj=noop"
                 elif "Error" in ps:
                     error_hint = "Error in Proj string"
                 if error_hint:
@@ -463,3 +463,122 @@ def pipeline_string(crs_from: str, crs_to, input_metadata=None) -> Optional[str]
             break
         pipe += split
     return pipe
+
+
+def vertical_axis_direction(crs_auth_code) -> str:
+    crs = pp.CRS(crs_auth_code)    
+    if not crs.is_vertical and not crs.is_compound:
+        return "Not a vertical or compound CRS."    
+    crs_dict = crs.to_json_dict()    
+    if crs.is_compound:
+        v_crs_dict = crs_dict['components'][1]
+    else:
+        v_crs_dict = crs_dict
+
+    try:
+        axis = v_crs_dict['coordinate_system']['axis'][0]
+        direction = axis['direction'].lower()
+        
+        if direction in ["up", "down"]:
+            return direction
+        else:
+            axis_name = axis.get('name', 'unknown')
+            return f"Unknown direction: {direction} for {axis_name} axis in {crs_auth_code}"
+            
+    except (KeyError, IndexError):
+        return f"Could not parse axis information for {crs_auth_code}"
+
+
+
+def flip_vertical_vaxis(auth_code) -> str:
+    """
+    Finds the flipped VCRS by explicitly swapping 'height' and 'depth' 
+    in the CRS name and searching the database for that exact name.
+    """
+    original_crs = pp.CRS.from_user_input(auth_code)
+    auth_name = auth_code.split(':')[0]
+    try:
+        orig_name = original_crs.name
+    except AttributeError:
+        orig_name = original_crs.to_json_dict().get('name', '')
+    lower_name = orig_name.lower()
+    if "height" in lower_name:
+        target_name = orig_name.replace("height", "depth").replace("Height", "Depth")
+    elif "depth" in lower_name:
+        target_name = orig_name.replace("depth", "height").replace("Depth", "Height")
+    else:
+        raise ValueError(f"CRS name '{orig_name}' does not contain 'height' or 'depth'.")
+    codes = pp.get_codes(auth_name, "VERTICAL_CRS", allow_deprecated=True)
+    for code in codes:
+        full_code = f"{auth_name}:{code}"
+        if full_code == auth_code:
+            continue
+        candidate_crs = pp.CRS.from_user_input(full_code)
+        try:
+            cand_name = candidate_crs.name
+        except AttributeError:
+            cand_name = candidate_crs.to_json_dict().get('name', '')
+        if cand_name == target_name:
+            return full_code
+    raise ValueError(f"Could not find a CRS named '{target_name}' in authority {auth_name}.")
+
+
+def get_meter_vcrs(auth_code):
+    if auth_code is None:
+        return None
+        
+    crs = pp.CRS.from_user_input(auth_code)
+    auth_name = auth_code.split(':')[0].upper()
+    
+    crs_dict = crs.to_json_dict()
+    axis_info = crs_dict['coordinate_system']['axis'][0]
+    
+    if axis_info.get('unit') == "metre":
+        return auth_code
+
+    target_datum = crs_dict.get('datum', {}).get('name')
+    target_dir = axis_info.get('direction').lower()
+    target_bbox = crs_dict.get('bbox')
+    orig_name = crs_dict.get('name', '')
+
+    # Handle NOAA-specific versioning (e.g., "nwldatum_4.7.0")
+    version_clue = None
+    nwld_clue = "National_Water_Level_Datum/nwldatum_"
+    if auth_name == "NOAA" and nwld_clue in orig_name:
+        try:
+            version_clue = orig_name.split(nwld_clue)[1].split("_")[0]
+        except IndexError:
+            pass
+
+    codes = pp.get_codes(auth_name, "VERTICAL_CRS", allow_deprecated=True)
+    best_match = None
+    
+    for code in codes:
+        full_code = f"{auth_name}:{code}"
+        if full_code == auth_code:
+            continue
+            
+        candidate_crs = pp.CRS.from_user_input(full_code)
+        cand_dict = candidate_crs.to_json_dict()
+        cand_axis = cand_dict['coordinate_system']['axis'][0]
+        
+        if cand_axis.get('unit') != "metre":
+            continue
+        if cand_axis.get('direction').lower() != target_dir:
+            continue
+        if cand_dict.get('datum', {}).get('name') != target_datum:
+            continue
+
+        cand_name = cand_dict.get('name', '')        
+        if version_clue and version_clue not in cand_name:
+            continue
+
+        if cand_dict.get('bbox') == target_bbox:
+            return full_code
+            
+        best_match = full_code
+
+    if best_match:
+        return best_match
+        
+    raise ValueError(f"No meter-based VCRS found for {auth_code} in {auth_name}.")

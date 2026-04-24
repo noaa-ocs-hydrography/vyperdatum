@@ -135,7 +135,7 @@ class GeoParquet(Driver):
                                                                     vdatum_check=vdatum_check
                                                                     )
         new_geometry = [Point(xi, yi, zi) for xi, yi, zi in zip(xt, yt, zt)]
-        new_gdf = gpd.GeoDataFrame(gdf[["Uncertainty", "Classification"]].copy(),
+        new_gdf = gpd.GeoDataFrame(gdf[["uncertainty", "classification"]].copy(),
                                    geometry=new_geometry,
                                    crs=pp.CRS(transformer_instance.crs_to)
                                    )
