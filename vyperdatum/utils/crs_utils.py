@@ -1,4 +1,5 @@
 import logging
+import re
 import subprocess
 from colorama import Fore, Style
 from typing import Optional, Tuple
@@ -582,3 +583,30 @@ def get_meter_vcrs(auth_code):
         return best_match
         
     raise ValueError(f"No meter-based VCRS found for {auth_code} in {auth_name}.")
+
+
+
+def get_utm_zone_from_wkt(wkt_string: str) -> Optional[int]:
+    """
+    Detects if the horizontal component of a CRS (including compound) 
+    is UTM and returns the zone number.
+    """
+    try:
+        crs = pp.CRS.from_wkt(wkt_string)
+    except Exception as e:
+        return None
+
+    horizontal_crs = crs.sub_crs_list[0] if crs.is_compound else crs
+    if not horizontal_crs.is_projected:
+        return None
+
+    proj_name = horizontal_crs.coordinate_operation.name.lower()
+    crs_name = horizontal_crs.name.upper()
+
+    if "UTM" in crs_name or "TRANSVERSE MERCATOR" in proj_name:        
+        match = re.search(r'ZONE\s+(\d+)', crs_name)
+        if match:
+            return int(match.group(1))
+            
+    return None
+

@@ -111,26 +111,60 @@ def raster_metadata(raster_file: str, verbose: bool = False) -> dict:
     return metadata
 
 
-def add_overview(raster_file: str, compression: str = "", embedded: bool = True) -> None:
+def add_overview(raster_file: str, compression: str = "", embedded: bool = True,
+                 levels=None, resampling: str = "AVERAGE") -> None:
     """
-    Add overview bands to a raster file with no existing overviews.
+    Add overview bands to a raster file.
 
     parameters
     ----------
     raster_file: str
         Absolute full path to the raster file.
     compression: str
-        The name of compression algorithm.
+        The name of compression algorithm (e.g. ``DEFLATE``, ``LZW``).
+        For float rasters compressed with DEFLATE or LZW, ``PREDICTOR=3``
+        is set so the overview pyramid compresses as efficiently as the
+        original. Empty string leaves compression at GDAL defaults.
     embedded: bool, default=True
-        If True, the overviews will be embedded in the file, otherwise stored externally.
+        If True the overviews are embedded in the file, otherwise stored
+        externally as a .ovr sidecar.
+    levels: list[int] | None, default=None
+        Overview decimation factors. When None, an automatic pyramid is
+        derived from the raster's longer side so the smallest level is
+        no larger than approximately 256 pixels along its longer axis.
+        For typical bathymetric tiles this produces seven to eight
+        levels (e.g. 2, 4, 8, 16, 32, 64, 128).
+    resampling: str, default="AVERAGE"
+        Resampling algorithm. AVERAGE is appropriate for continuous data
+        such as elevation; NEAREST is appropriate for categorical bands
+        such as a contributor identifier raster.
     """
+    ds = None
+    set_predictor = False
     try:
         ds = gdal.Open(raster_file, gdal.GA_Update if embedded else gdal.GA_ReadOnly)
+        if levels is None:
+            longer_side = max(ds.RasterXSize, ds.RasterYSize)
+            levels = []
+            f = 2
+            while longer_side // f > 256:
+                levels.append(f)
+                f *= 2
+            if not levels:
+                levels = [2]
         if compression:
             gdal.SetConfigOption("COMPRESS_OVERVIEW", compression)
+            first_band = ds.GetRasterBand(1)
+            if compression.upper() in ("DEFLATE", "LZW") and first_band.DataType in (gdal.GDT_Float32, gdal.GDT_Float64):
+                gdal.SetConfigOption("PREDICTOR_OVERVIEW", "3")
+                set_predictor = True
+        ds.BuildOverviews(resampling, levels, gdal.TermProgress_nocb)
     finally:
-        ds.BuildOverviews("NEAREST", [2, 4, 16], gdal.TermProgress_nocb)
         ds = None
+        if compression:
+            gdal.SetConfigOption("COMPRESS_OVERVIEW", None)
+        if set_predictor:
+            gdal.SetConfigOption("PREDICTOR_OVERVIEW", None)
     return
 
 
@@ -513,9 +547,45 @@ def update_raster_wkt(input_file: str, wkt: str) -> None:
 
 def overwrite_with_original(input_file: str, output_file: str) -> None:
     """
-    Overwrite the non-elevation bands in the output file with the original input
-    file band arrays. If an uncertainty band exists, it will be masked so that
-    uncertainty is only present where elevation is valid (not NoData).
+    Copy the non-elevation bands from ``input_file`` into ``output_file``
+    and mask their values to NoData wherever the output elevation is
+    NoData.
+
+    Same-CRS path
+    -------------
+    When the input and output rasters have identical dimensions (the
+    expected case for same-CRS transforms after the cutline-anchored
+    two-pass warp), non-elevation bands are copied verbatim from the
+    input. No resampling is performed. The uncertainty (or other
+    non-elevation) band is masked so that values outside the valid
+    elevation region become the elevation's NoData value.
+
+    Different-CRS path
+    ------------------
+    When dimensions differ, the function falls back to GDAL's resampling
+    via ``buf_xsize`` / ``buf_ysize`` (the legacy behaviour). This path is
+    not yet anchored to a target-CRS pixel grid and will produce a
+    sub-pixel registration shift relative to the elevation band. A warning
+    is logged so this case is visible in production. A correct
+    different-CRS implementation requires re-warping each non-elevation
+    band through the same coordinate pipeline as the elevation band and
+    is deferred until that path is exercised.
+
+    Parameters
+    ----------
+    input_file : str
+        Path to the reference raster carrying the original non-elevation
+        bands (typically the original input to ``transform_raster``).
+    output_file : str
+        Path to the transformed raster whose non-elevation bands are to be
+        overwritten in place.
+
+    Raises
+    ------
+    ValueError
+        When the input or output cannot be opened, when no elevation band
+        is identified in the input, or when the input has fewer than two
+        bands (in which case nothing to do).
     """
     ds_in = gdal.Open(input_file, gdal.GA_ReadOnly)
     if ds_in is None:
@@ -549,24 +619,38 @@ def overwrite_with_original(input_file: str, output_file: str) -> None:
     input_metadata = raster_metadata(input_file)
     driver = gdal.GetDriverByName(input_metadata["driver"])
 
-    mem_path = f"/vsimem/{os.path.splitext(os.path.basename(output_file))[0]}.tiff"
+    w_in, h_in = ds_in.RasterXSize, ds_in.RasterYSize
+    w_out, h_out = ds_out.RasterXSize, ds_out.RasterYSize
+    same_dims = (w_in == w_out) and (h_in == h_out)
+    if not same_dims:
+        logger.warning(
+            "overwrite_with_original: input dimensions (%dx%d) do not match "
+            "output dimensions (%dx%d). Falling back to GDAL resampling for "
+            "non-elevation bands; this produces a sub-pixel registration "
+            "shift relative to the elevation band. This path is exercised "
+            "only when input and output horizontal CRSs differ and is not "
+            "yet correctly aligned; re-warping non-elevation bands through "
+            "the coordinate pipeline is the proper fix.",
+            w_in, h_in, w_out, h_out,
+        )
+
+    # mem_path = f"/vsimem/{os.path.splitext(os.path.basename(output_file))[0]}.tiff"
+    mem_path = output_file + ".vsimem_fallback.tmp"
     ds_temp = driver.Create(
         mem_path,
-        ds_in.RasterXSize,
-        ds_in.RasterYSize,
+        w_out,
+        h_out,
         ds_in.RasterCount,
         gdal.GDT_Float32
     )
     ds_temp.SetGeoTransform(ds_out.GetGeoTransform())
     ds_temp.SetProjection(ds_out.GetProjection())
 
-    # --- Read elevation (from ds_out) once and build a validity mask ---
     elev_out_band = ds_out.GetRasterBand(elevation_band)
     elev_arr = elev_out_band.ReadAsArray()
     elev_nodata = elev_out_band.GetNoDataValue()
 
     if elev_nodata is None:
-        # Fall back: treat non-finite as invalid
         valid_elev = np.isfinite(elev_arr)
     else:
         if np.isnan(elev_nodata):
@@ -574,52 +658,45 @@ def overwrite_with_original(input_file: str, output_file: str) -> None:
         else:
             valid_elev = (elev_arr != elev_nodata) & np.isfinite(elev_arr)
 
-    # --- Write all bands; mask uncertainty where elevation is invalid ---
     for b in range(1, ds_in.RasterCount + 1):
         out_band = ds_temp.GetRasterBand(b)
 
         if b == elevation_band:
-            # Write transformed elevation from ds_out
             out_band.SetDescription("Elevation")
             if elev_nodata is not None:
                 out_band.SetNoDataValue(float(elev_nodata))
             out_band.WriteArray(elev_arr.astype(np.float32, copy=False))
 
-        elif uncertainty_band is not None and b == uncertainty_band:
-            in_unc_band = ds_in.GetRasterBand(b)
-            unc_arr = in_unc_band.ReadAsArray().astype(np.float32, copy=False)
-
-            # Choose an output NoData for uncertainty
-            unc_nodata_in = in_unc_band.GetNoDataValue()
-            if unc_nodata_in is not None:
-                unc_nodata_out = float(unc_nodata_in)
-            elif elev_nodata is not None and np.isfinite(elev_nodata):
-                unc_nodata_out = float(elev_nodata)
-            else:
-                unc_nodata_out = input_metadata["band_no_data"][0]
-
-            # Mask uncertainty wherever elevation is NoData
-            unc_masked = np.array(unc_arr, copy=True)
-            unc_masked[~valid_elev] = unc_nodata_out
-
-            out_band.SetDescription("Uncertainty")
-            out_band.SetNoDataValue(unc_nodata_out)
-            out_band.WriteArray(unc_masked)
-
         else:
-            # Copy any other non-elevation bands from the input (mask at no elevation points)
             in_band = ds_in.GetRasterBand(b)
-            arr = in_band.ReadAsArray()
+
+            if same_dims:
+                # Exact copy: input pixel (i,j) corresponds 1:1 to output
+                # pixel (i,j). No resampling, no sub-pixel shift.
+                arr = in_band.ReadAsArray()
+            else:
+                # Different-CRS fallback path (see warning above).
+                arr = in_band.ReadAsArray(buf_xsize=w_out, buf_ysize=h_out)
+
             if elev_nodata is not None and np.isfinite(elev_nodata):
                 unc_nodata_out = float(elev_nodata)
             else:
                 unc_nodata_out = input_metadata["band_no_data"][0]
+
             arr_masked = np.array(arr, copy=True)
             arr_masked[~valid_elev] = unc_nodata_out
-            out_band.SetDescription(in_band.GetDescription())
+
+            if b == uncertainty_band:
+                out_band.SetDescription("Uncertainty")
+            else:
+                out_band.SetDescription(in_band.GetDescription())
+
             nd = in_band.GetNoDataValue()
             if nd is not None:
                 out_band.SetNoDataValue(float(nd))
+            else:
+                out_band.SetNoDataValue(unc_nodata_out)
+
             out_band.WriteArray(arr_masked.astype(np.float32, copy=False))
 
     ds_in, ds_out = None, None
@@ -627,7 +704,7 @@ def overwrite_with_original(input_file: str, output_file: str) -> None:
 
     cop = ["COMPRESS=DEFLATE"]
     if input_metadata["driver"].lower() == "gtiff":
-        cop.extend(["TILED=YES"])
+        cop.extend(["TILED=YES", "BIGTIFF=YES"])
 
     gdal.Translate(
         output_file,
@@ -638,8 +715,9 @@ def overwrite_with_original(input_file: str, output_file: str) -> None:
     )
 
     ds_temp = None
-    gdal.Unlink(mem_path)
-
+    # gdal.Unlink(mem_path)
+    if os.path.exists(mem_path):
+        os.remove(mem_path)    
 
 def update_stats(input_file):
     """
@@ -744,7 +822,7 @@ def add_uncertainty_band(input_file: str) -> None:
 
     cop = ["COMPRESS=DEFLATE"]
     if input_metadata["driver"].lower() == "gtiff":
-        cop.extend(["TILED=YES", "BIGTIFF=IF_SAFER"])
+        cop.extend(["TILED=YES", "BIGTIFF=YES"])
     gdal.Translate(
         destName=input_file,
         srcDS=tmp_uncompressed_path,
@@ -1100,50 +1178,172 @@ def create_cutline_file(v_shift: bool,
 
 def clip_raster_to_cutline(input_path: str, cutline_path: str, output_path: str) -> Optional[str]:
     """
-    Clips a raster to a cutline while preserving original resolution and metadata.
-    This creates a pre-masked file where all data points are guaranteed to be 
-    within the grid's valid area for the subsequent transformation.
+    Clip a raster against a cutline polygon while preserving the input's
+    exact pixel grid.
+
+    The clipped output is anchored to the input's geotransform: every
+    output pixel boundary coincides with an input pixel boundary, so no
+    sub-pixel shift is introduced by the clip step. The output extent is
+    the smallest input-pixel-aligned rectangle that contains the cutline's
+    envelope (intersected with the input's extent).
+
+    The cutline polygon may be in a different CRS than the input raster;
+    its envelope is reprojected on the fly into the input's CRS before
+    snapping to the input's pixel grid.
+
+    Pixels outside the cutline polygon are written as NoData. The output
+    resolution, NoData value, metadata tags, and CRS match the input.
+
+    Parameters
+    ----------
+    input_path : str
+        Path to the input raster.
+    cutline_path : str
+        Path to the cutline vector dataset (e.g. GeoPackage). Polygon CRS
+        may differ from the input raster's CRS.
+    output_path : str
+        Path where the clipped raster is written.
+
+    Returns
+    -------
+    str or None
+        ``output_path`` on success, ``None`` on failure.
     """
     try:
-        # Get original metadata to ensure we match resolution and nodata
         ds_in = gdal.Open(input_path, gdal.GA_ReadOnly)
         if ds_in is None:
             return None
 
-        # Get input NoData and GeoTransform
         gt = ds_in.GetGeoTransform()
-        x_res, y_res = abs(gt[1]), abs(gt[5])
+        x0, dx, _, y0, _, dy = gt
+        x_res = abs(dx)
+        y_res = abs(dy)
+        w_in = ds_in.RasterXSize
+        h_in = ds_in.RasterYSize
+
         band = ds_in.GetRasterBand(1)
         nodata = band.GetNoDataValue() if band.GetNoDataValue() is not None else -9999.0
 
-        # Use gdal.Warp to clip. We DO NOT change the CRS yet.
-        # This keeps the math local and simple.
+        input_srs = ds_in.GetSpatialRef()
+
+        # The cutline polygon may be in a different CRS than the input.
+        # Its envelope is reprojected into the input's CRS, so that
+        # outputBounds can be snapped to the input's pixel grid below.
+        cutline_ds = ogr.Open(cutline_path)
+        if cutline_ds is None:
+            logger.error(f"Could not open cutline: {cutline_path}")
+            ds_in = None
+            return None
+        cutline_layer = cutline_ds.GetLayer(0)
+        cutline_srs = cutline_layer.GetSpatialRef()
+        cutline_envelope_local = cutline_layer.GetExtent()  # (xmin, xmax, ymin, ymax)
+
+        cl_xmin, cl_xmax, cl_ymin, cl_ymax = cutline_envelope_local
+        cutline_ds = None
+
+        if cutline_srs is not None and input_srs is not None and not cutline_srs.IsSame(input_srs):
+            try:
+                cutline_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+            except Exception:
+                pass
+            try:
+                input_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+            except Exception:
+                pass
+            ct = osr.CoordinateTransformation(cutline_srs, input_srs)
+            corners = [
+                ct.TransformPoint(cl_xmin, cl_ymin),
+                ct.TransformPoint(cl_xmin, cl_ymax),
+                ct.TransformPoint(cl_xmax, cl_ymin),
+                ct.TransformPoint(cl_xmax, cl_ymax),
+            ]
+            xs = [c[0] for c in corners]
+            ys = [c[1] for c in corners]
+            env_xmin, env_xmax = min(xs), max(xs)
+            env_ymin, env_ymax = min(ys), max(ys)
+        else:
+            env_xmin, env_xmax = cl_xmin, cl_xmax
+            env_ymin, env_ymax = cl_ymin, cl_ymax
+
+        # Intersect the cutline envelope with the input raster's extent.
+        # The input extent in projected coordinates assuming a north-up
+        # geotransform (dy < 0):
+        in_xmin = x0
+        in_xmax = x0 + dx * w_in
+        in_ymax = y0
+        in_ymin = y0 + dy * h_in
+
+        clip_xmin = max(env_xmin, in_xmin)
+        clip_xmax = min(env_xmax, in_xmax)
+        clip_ymin = max(env_ymin, in_ymin)
+        clip_ymax = min(env_ymax, in_ymax)
+
+        if clip_xmin >= clip_xmax or clip_ymin >= clip_ymax:
+            logger.error(
+                f"Cutline envelope does not intersect input raster extent. "
+                f"cutline_env={(env_xmin, env_ymin, env_xmax, env_ymax)} "
+                f"input_ext={(in_xmin, in_ymin, in_xmax, in_ymax)}"
+            )
+            ds_in = None
+            return None
+
+        # Snap the clipping envelope outward to the input's pixel grid so
+        # the output's pixel boundaries coincide with the input's.
+        i_min = math.floor((clip_xmin - x0) / dx)
+        i_max = math.ceil((clip_xmax - x0) / dx)
+        j_min = math.floor((clip_ymax - y0) / dy)
+        j_max = math.ceil((clip_ymin - y0) / dy)
+
+        i_min = max(0, min(i_min, w_in))
+        i_max = max(0, min(i_max, w_in))
+        j_min = max(0, min(j_min, h_in))
+        j_max = max(0, min(j_max, h_in))
+
+        out_xmin = x0 + dx * i_min
+        out_xmax = x0 + dx * i_max
+        out_ymax = y0 + dy * j_min
+        out_ymin = y0 + dy * j_max
+
+        # gdal.Warp's outputBounds is always [minX, minY, maxX, maxY]
+        # regardless of whether dy is negative.
+        output_bounds = (
+            min(out_xmin, out_xmax),
+            min(out_ymin, out_ymax),
+            max(out_xmin, out_xmax),
+            max(out_ymin, out_ymax),
+        )
+
+        
+        input_metadata = raster_metadata(input_path)
+        cop = ["COMPRESS=DEFLATE", "TILED=YES"]
+        if input_metadata["driver"].lower() == "gtiff":
+            cop.append("BIGTIFF=YES")
         warp_options = gdal.WarpOptions(
             format="GTiff",
             cutlineDSName=cutline_path,
-            cropToCutline=True,  # Shrink the file extent to the grid overlap
             srcNodata=nodata,
             dstNodata=nodata,
             xRes=x_res,
             yRes=y_res,
+            outputBounds=output_bounds,
             resampleAlg="near",
-            creationOptions=["COMPRESS=DEFLATE", "TILED=YES"]
+            errorThreshold=0,
+            creationOptions=cop,
         )
 
-        # Run the clip
         ds_out = gdal.Warp(output_path, ds_in, options=warp_options)
 
         if ds_out:
-            # Transfer metadata tags (like Vyperdatum_Metadata)
             ds_out.SetMetadata(ds_in.GetMetadata())
             ds_out.FlushCache()
             ds_out = None
             ds_in = None
             return output_path
 
+        ds_in = None
         return None
     except Exception as e:
-        logging.error(f"Error in clip_raster_to_cutline: {e}")
+        logger.exception(f"Error in clip_raster_to_cutline: {e}")
         return None
 
 
