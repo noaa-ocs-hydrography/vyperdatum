@@ -13,7 +13,7 @@ import pytest
     ("EPSG:6319", "EPSG:6318+NOAA:98", True),
     ("NOAA:1096", "NOAA:1098", True),
     ("EPSG:6318+EPSG:5703", "EPSG:9990+NOAA:101", True),
-    ("EPSG:9755", "EPSG:6318", True),  # Is this a vertical shift? ellipsoids are not the same, therefore I suppose it should be considered as vertical shift
+    ("EPSG:9755", "EPSG:6318", True),  # Is this a vertical shift? ellipsoids are not the same, but is there a vertical shift? I think so, but need to confirm.
     ("EPSG:32618", "EPSG:9755", False),
     ])
 def test_verical_shift(crs_from: str, crs_to: str, vshift: bool):

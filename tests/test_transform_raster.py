@@ -20,27 +20,27 @@ def raster_wkt(raster_file: str):
     return wkt
 
 
-# @pytest.mark.parametrize("input_file, bench_file, func", [
-#     (r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\Modeling_BC25L26L_20230919.tiff",
-#      r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\BlueTopo_BC25L26L_20230919.tiff",
-#      "bluetopo")
-#     ])
-# def test_transform_bluetopo(input_file: str, bench_file: str, func: str):
-#     xform_file = globals()[func](input_file)
-#     gen_ds = gdal.Open(xform_file)
-#     target_ds = gdal.Open(bench_file)
-#     gen_band = np.nan_to_num(gen_ds.GetRasterBand(1).ReadAsArray())
-#     target_band = np.nan_to_num(target_ds.GetRasterBand(1).ReadAsArray())
-#     assert gen_ds.RasterCount == target_ds.RasterCount, "unexpected band counts"
-#     assert pytest.approx(gen_band.min(), 0.001) == target_band.min(), f"inconsistent min band value (gen_min: {gen_band.min()} vs target_min: {target_band.min()})"
-#     assert pytest.approx(gen_band.max(), 0.001) == target_band.max(), f"inconsistent max band value (gen_max: {gen_band.max()} vs target_max: {target_band.max()})"
-#     gen_band.flags.writeable = False
-#     target_band.flags.writeable = False
-#     # assert hash(gen_band) == hash(target_band), f"hash check failed ({hash(gen_band)} vs {hash(target_band)})"
-#     # assert gen_ds.GetRasterBand(1).Checksum() == target_ds.GetRasterBand(1).Checksum(), f"checksum failed ({gen_ds.GetRasterBand(1).Checksum()} vs {target_ds.GetRasterBand(1).Checksum()})"
-#     # assert pp.CRS(raster_wkt(bench_file)).equals(pp.CRS(raster_wkt(xform_file))), "inconsistent crs."
-#     gen_ds, target_ds = None, None
-#     gen_band, target_band = None, None
+@pytest.mark.parametrize("input_file, bench_file, func", [
+    (r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\Modeling_BC25L26L_20230919.tiff",
+     r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\raster\BlueTopo_BC25L26L_20230919.tiff",
+     "bluetopo")
+    ])
+def test_transform_bluetopo(input_file: str, bench_file: str, func: str):
+    xform_file = globals()[func](input_file)
+    gen_ds = gdal.Open(xform_file)
+    target_ds = gdal.Open(bench_file)
+    gen_band = np.nan_to_num(gen_ds.GetRasterBand(1).ReadAsArray())
+    target_band = np.nan_to_num(target_ds.GetRasterBand(1).ReadAsArray())
+    assert gen_ds.RasterCount == target_ds.RasterCount, "unexpected band counts"
+    assert pytest.approx(gen_band.min(), 0.001) == target_band.min(), f"inconsistent min band value (gen_min: {gen_band.min()} vs target_min: {target_band.min()})"
+    assert pytest.approx(gen_band.max(), 0.001) == target_band.max(), f"inconsistent max band value (gen_max: {gen_band.max()} vs target_max: {target_band.max()})"
+    gen_band.flags.writeable = False
+    target_band.flags.writeable = False
+    # assert hash(gen_band) == hash(target_band), f"hash check failed ({hash(gen_band)} vs {hash(target_band)})"
+    # assert gen_ds.GetRasterBand(1).Checksum() == target_ds.GetRasterBand(1).Checksum(), f"checksum failed ({gen_ds.GetRasterBand(1).Checksum()} vs {target_ds.GetRasterBand(1).Checksum()})"
+    # assert pp.CRS(raster_wkt(bench_file)).equals(pp.CRS(raster_wkt(xform_file))), "inconsistent crs."
+    gen_ds, target_ds = None, None
+    gen_band, target_band = None, None
 
 
 

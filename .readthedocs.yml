@@ -12,9 +12,5 @@ sphinx:
   configuration: docs/conf.py
 
 formats:
-   - pdf
-   - epub
-
-submodules:
-  include: all
-  recursive: true
+  - pdf
+  - epub

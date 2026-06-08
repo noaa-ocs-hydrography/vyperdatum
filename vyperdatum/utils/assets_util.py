@@ -20,6 +20,7 @@ def datums_missing(datums_dir: str):
 
 
 class DOI(TypedDict):
+    """Typed mapping describing a datum archive download: source URL and target directory name."""
     url: str
     dir_name: str
 
