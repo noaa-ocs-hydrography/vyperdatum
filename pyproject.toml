@@ -5,15 +5,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vyperdatum"
-version = "0.3.59"
+version = "0.3.60"
 authors = [
     {name = "Mohammad Ashkezari", email = "mohammad.ashkezari@noaa.gov"},
+    {name = "Glen Rice", email = "mohammad.ashkezari@noaa.gov"},
 ]
-description = "Vyperdatum with built-in regional datums, proj.db, and vdatum vector files."
+description = "Vyperdatum with built-in national datums, and proj.db files."
 license = { file = "LICENSE" }
 readme = "README.md"
 requires-python = ">=3.8"
-keywords = ["bathymetry", "datum", "NOAA", "NBS"]
+keywords = ["bathymetry", "datum", "NOAA", "OCS", "NBS"]
 dependencies = [
     "numpy",
     "pyarrow",
@@ -58,7 +59,7 @@ docs = [
 
 [project.urls]
 Documentation = "https://vyperdatum.readthedocs.io/en/latest/"
-Repository = "https://github.com/mohammadashkezari-noaa/vyperdatum"
+Repository = "https://github.com/noaa-ocs-hydrography/vyperdatum"
 
 
 [tool.pytest.ini_options]
