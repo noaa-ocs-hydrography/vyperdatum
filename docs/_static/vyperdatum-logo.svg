@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 470 128" width="470" height="128" role="img" aria-label="Vyperdatum">
+  <title>Vyperdatum</title>
+  <defs>
+    <linearGradient id="vd-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#08344F"/>
+      <stop offset="1" stop-color="#0B7077"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="28" fill="url(#vd-bg)"/>
+  <g fill="none" stroke-linecap="round">
+    <path d="M32 46 Q64 43 96 46" stroke="#D4F1EE" stroke-width="3"/>
+    <path d="M32 65 C48 57 80 57 96 65" stroke="#5BD2CC" stroke-width="3.4"/>
+    <path d="M32 84 q8 -7 16 0 t16 0 t16 0 t16 0" stroke="#2DB7B0" stroke-width="4"/>
+    <path d="M46 50 L46 80" stroke="#F4A92B" stroke-width="2.6"/>
+  </g>
+  <polygon points="46,43 41.5,50.5 50.5,50.5" fill="#F4A92B"/>
+  <polygon points="46,87 41.5,79.5 50.5,79.5" fill="#F4A92B"/>
+  <circle cx="88" cy="62" r="2.6" fill="#F4A92B"/>
+  <text x="150" y="82" font-family="'Helvetica Neue', Arial, sans-serif" font-size="54" font-weight="700" letter-spacing="-0.5">
+    <tspan fill="#0A2E45">vyper</tspan><tspan fill="#0E7C84">datum</tspan>
+  </text>
+</svg>

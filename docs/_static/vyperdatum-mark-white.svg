@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Vyperdatum">
+  <title>Vyperdatum</title>
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round">
+    <path d="M32 46 Q64 43 96 46" stroke-width="3"/>
+    <path d="M32 65 C48 57 80 57 96 65" stroke-width="3.4"/>
+    <path d="M32 84 q8 -7 16 0 t16 0 t16 0 t16 0" stroke-width="4"/>
+    <path d="M46 50 L46 80" stroke-width="2.6"/>
+  </g>
+  <polygon points="46,43 41.5,50.5 50.5,50.5" fill="#FFFFFF"/>
+  <polygon points="46,87 41.5,79.5 50.5,79.5" fill="#FFFFFF"/>
+  <circle cx="88" cy="62" r="2.6" fill="#FFFFFF"/>
+</svg>

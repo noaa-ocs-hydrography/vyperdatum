@@ -1,0 +1,12 @@
+name: vyper-docs
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip>=20.1
+  - pip:
+    - sphinx==7.4.7
+    - sphinx_rtd_theme==2.0.0
+    - sphinx-notfound-page==1.0.4
+    - sphinx-autoapi==3.3.3
+    - astroid==3.3.5

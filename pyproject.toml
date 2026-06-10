@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools", "setuptools_scm", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "vyperdatum"
+version = "0.3.59"
+authors = [
+    {name = "Mohammad Ashkezari", email = "mohammad.ashkezari@noaa.gov"},
+]
+description = "Vyperdatum with built-in regional datums, proj.db, and vdatum vector files."
+license = { file = "LICENSE" }
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = ["bathymetry", "datum", "NOAA", "NBS"]
+dependencies = [
+    "numpy",
+    "pyarrow",
+    "pyproj",
+    "pandas",
+    "geopandas",
+    "tqdm",
+    "colorama",
+    "pydantic",
+    "networkx",
+    "h5py",
+    "lxml",
+    "requests",
+    "laspy",
+    "shapely"
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python"
+]
+
+
+[tool.setuptools]
+packages = ["vyperdatum"]
+include-package-data = true
+
+
+[project.optional-dependencies]
+tests = [
+  "pytest",
+  "pytest-cov"
+]
+lint = [
+  "flake8",
+  "black"
+]
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme"
+]
+
+
+[project.urls]
+Documentation = "https://vyperdatum.readthedocs.io/en/latest/"
+Repository = "https://github.com/mohammadashkezari-noaa/vyperdatum"
+
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules -W error::UserWarning"
+testpaths = ["tests"]
