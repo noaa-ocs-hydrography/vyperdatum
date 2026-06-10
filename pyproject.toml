@@ -8,7 +8,7 @@ name = "vyperdatum"
 version = "0.3.60"
 authors = [
     {name = "Mohammad Ashkezari", email = "mohammad.ashkezari@noaa.gov"},
-    {name = "Glen Rice", email = "mohammad.ashkezari@noaa.gov"},
+    {name = "Glen Rice", email = "glen.rice@noaa.gov"},
 ]
 description = "Vyperdatum with built-in national datums, and proj.db files."
 license = { file = "LICENSE" }
