@@ -109,12 +109,13 @@ def base_grid_point_transform(fname: str,
             y = np.append(y, [_y])
             z = np.append(z, vr_elev[i, j])
 
-    _, _, _, zz = tf.transform_points(x, y, z)
-    zz = np.where(z == nodata_value, z, zz)
-    zz = zz.reshape(vr_elev_shape)
-
+    success, _, _, zz = tf.transform_points(x, y, z)
     ds_gdal = None
     bag.close()
+    if not success:
+        raise ValueError(f"Point transformation of the VR BAG base grid failed for {fname}.")
+    zz = np.where(z == nodata_value, z, zz)
+    zz = zz.reshape(vr_elev_shape)
     return zz
 
 
@@ -245,16 +246,21 @@ def single_subgrid_point_transform(fname: str,
     """
     try:
         start, x, y, z = get_subgrid_points(fname, i, j)
-        _, _, _, zz = tf.transform_points(x, y, z)
-        zz = np.where(z == nodata_value, z, zz)
+        if start is None:
+            # `get_subgrid_points()` already logged its error; the caller skips this subgrid.
+            return None, None
+        success, _, _, zz = tf.transform_points(x, y, z)
     except Exception as e:
         logger.exception(f"Unexpected exception in single_subgrid_point_transform for subgrid {i}, {j}: {e}")
         f = open("error.txt", "a")
         f.write(f"Unexpected exception in single_subgrid_point_transform for subgrid {i}, {j}: {e}\n")
         f.close()
-        start, zz = None, None
-
-    return start, zz
+        return None, None
+    # Raised outside the try block so that a failed transformation fails the whole VR BAG
+    # transform instead of leaving this subgrid silently untransformed.
+    if not success:
+        raise ValueError(f"Point transformation of VR BAG subgrid {i}, {j} failed for {fname}.")
+    return start, np.where(z == nodata_value, z, zz)
 
 
 def subgrid_point_transform(fname: str,
@@ -598,8 +604,12 @@ def update_vr_refinements(fname: str,
     # _, y1, x1, _ = tf.transform_points([y1], [x1], [0], always_xy=False, allow_ballpark=False)
     # _, y2, x2, _ = tf.transform_points([y2], [x2], [0], always_xy=False, allow_ballpark=False)
 
-    _, x1, y1, _ = tf.transform_points([y1], [x1], [0], always_xy=False, allow_ballpark=False)
-    _, x2, y2, _ = tf.transform_points([y2], [x2], [0], always_xy=False, allow_ballpark=False)
+    success1, x1, y1, _ = tf.transform_points([y1], [x1], [0],
+                                              always_xy=False, allow_ballpark=False)
+    success2, x2, y2, _ = tf.transform_points([y2], [x2], [0],
+                                              always_xy=False, allow_ballpark=False)
+    if not (success1 and success2):
+        raise ValueError(f"Point transformation of the VR BAG corner points failed for {fname}.")
 
 
     # using old WKT1_GDAL for compatibility with older GDAL/QGIS

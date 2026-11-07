@@ -149,14 +149,21 @@ class NPZ(Driver):
         transformer_instance: vyperdatum.transformer.Transform
             Instance of the transformer class.
 
+        Raises
+        -----------
+        ValueError:
+            If the point transformation fails. The npz file is left unchanged.
+
         Returns
         -----------
         bool:
-            True if successful, otherwise False.
+            True if successful.
         """
         x, y, z, u = self.xyzu()
         success, xx, yy, zz = transformer_instance.transform_points(x, y, z,
                                                                     vdatum_check=vdatum_check)
+        if not success:
+            raise ValueError(f"NPZ transformation failed for {self.input_file}.")
         target_wkt = transformer_instance.crs_to.to_wkt()
         data = np.zeros([len(x), 4], dtype=np.float64)
         data[:, 0], data[:, 1], data[:, 2], data[:, 3] = xx, yy, zz, u
