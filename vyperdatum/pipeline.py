@@ -393,7 +393,11 @@ def nwld_NAD832011_steps(h0: str, v0: Optional[str], h1: str, v1: Optional[str])
     if v0 is None and v1 is None:
         return [{"crs_from": h0, "crs_to": h1, "v_shift": False}]
 
-    NAD83_geo = ["EPSG:6318", "EPSG:4269"]
+    # Horizontal CRSs that need no horizontal step to or from the NAD83(2011) pivot.
+    # EPSG:6319 (NAD83(2011) 3D) is already the ellipsoidal-height end of the vertical
+    # shift steps below, and its geodetic CRS is itself, so a horizontal step would be
+    # a no-op (6319 -> 6319 on input, 6318 -> 6319 on output) and fail step validation.
+    NAD83_geo = ["EPSG:6318", "EPSG:6319", "EPSG:4269"]
     steps = []
     if pp.CRS(h0).geodetic_crs.to_authority() == ("EPSG", "4326"):
         steps.append({"crs_from": h0, "crs_to": "EPSG:9755", "v_shift": False})
