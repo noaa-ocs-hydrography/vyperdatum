@@ -260,17 +260,12 @@ class Transformer():
             If True, runs a series of validation checks, such as validating the input and output
             CRSs, before and after transformation operation.
 
-        Raises
-        -------
-        FileNotFoundError:
-            If the input  file is not found.
-        NotImplementedError:
-            If the input file is not supported by vyperdatum.
-
         Returns
         -----------
         bool:
-            True if successful, otherwise False.
+            True if successful, otherwise False. Errors are logged rather than
+            raised; for example, a missing input file (FileNotFoundError) or an
+            unsupported input file (NotImplementedError) returns False.
         """
         try:
             success = False    
