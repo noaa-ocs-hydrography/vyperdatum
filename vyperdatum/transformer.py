@@ -331,8 +331,10 @@ class Transformer():
             # elif vector files
             else:
                 raise NotImplementedError(f"Unsupported input file: {input_file}")
-        finally:
-            return success
+        except Exception as e:
+            logger.exception(f"Exception in `transform()`: {str(e)}")
+            return False
+        return success
 
     def transform_points(self,
                          x: Union[list, np.ndarray],
@@ -459,9 +461,8 @@ class Transformer():
 
         except Exception:
             logger.exception("Error while running the point transformation.")
-            return success, None, None, None
-        finally:
-            return success, xt, yt, zt
+            return False, None, None, None
+        return success, xt, yt, zt
 
     def transform_vrbag(self,
                         input_file: str,
@@ -522,8 +523,8 @@ class Transformer():
             logger.exception(f"Exception in `transform_vrbag()`: {str(e)}")
             if os.path.isfile(output_file):
                 os.remove(output_file)
-        finally:
-            return success
+            return False
+        return success
 
     def transform_laz(self,
                       input_file: str,
@@ -579,8 +580,8 @@ class Transformer():
             logger.exception(f"Exception in `transform_laz()`: {str(e)}")
             if os.path.isfile(output_file):
                 os.remove(output_file)
-        finally:
-            return success
+            return False
+        return success
 
     def transform_xyz(self,
                       input_file: str,
@@ -632,8 +633,8 @@ class Transformer():
             logger.exception(f"Exception in `transform_xyz()`: {str(e)}")
             if os.path.isfile(output_file):
                 os.remove(output_file)
-        finally:
-            return success
+            return False
+        return success
 
     def transform_geoparquet(self,
                              input_file: str,
@@ -684,8 +685,8 @@ class Transformer():
             logger.exception(f"Exception in `transform_geoparquet()`: {str(e)}")
             if os.path.isfile(output_file):
                 os.remove(output_file)
-        finally:
-            return success
+            return False
+        return success
 
     def transform_npz(self,
                       input_file: str,
@@ -741,8 +742,8 @@ class Transformer():
             logger.exception(f"Exception in `transform_npz()`: {str(e)}")
             if os.path.isfile(output_file):
                 os.remove(output_file)
-        finally:
-            return success
+            return False
+        return success
 
     def transform_pdal(self,
                        input_file: str,
@@ -798,8 +799,8 @@ class Transformer():
             logger.exception(f"Exception in `transform_pdal()`: {e}")
             if os.path.isfile(output_file):
                 os.remove(output_file)
-        finally:
-            return success
+            return False
+        return success
 
     def transform_raster(self,
                          input_file: str,
