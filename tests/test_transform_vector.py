@@ -32,6 +32,13 @@ def test_transform_vector_Hudson():
     assert T.transform_vector(input_file=input_file, output_file=transformed_file), "Hudson river vector transformation failed"
 
 
-
-
-test_transform_vector_Hudson()
+def test_transform_vector_missing_file_returns_false(tmp_path, caplog):
+    """
+    A missing input file must return False and log the error, rather than
+    raising UnboundLocalError from the cleanup.
+    """
+    tf = Transformer(crs_from="EPSG:6318", crs_to="EPSG:6346")
+    success = tf.transform_vector(input_file=str(tmp_path / "missing.gpkg"),
+                                  output_file=str(tmp_path / "out.gpkg"))
+    assert success is False
+    assert "Exception in `transform_vector()`" in caplog.text

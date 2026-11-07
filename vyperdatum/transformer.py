@@ -918,6 +918,8 @@ class Transformer():
             output_ds = None
             temp_pass1 = None
             tiles_dir = None
+            output_vrt = None
+            cutline_path = None
             if not str(output_file).lower().startswith("/vsimem/"):
                 pathlib.Path(os.path.split(output_file)[0]).mkdir(parents=True, exist_ok=True)
             input_metadata = raster_metadata(input_file)
@@ -1188,6 +1190,8 @@ class Transformer():
             efile = open(out_dir / f"{os.path.split(input_file)[1]}_error.txt", "w")
             efile.write(str(e))
             efile.close()
+            logger.exception(f"Exception in `transform_raster()`: {str(e)}")
+            return False
         finally:
             ds, ds_pass1, output_ds = None, None, None
             def safe_remove(path):
@@ -1208,7 +1212,7 @@ class Transformer():
                         shutil.rmtree(str(tiles_dir))
                 except Exception as e:
                     logger.warning(f"Could not delete Pass 1 tiles directory {tiles_dir}. Exception: {str(e)}")
-            return success
+        return success
 
     def transform_vector(self,
                          input_file: str,
@@ -1237,10 +1241,10 @@ class Transformer():
         bool:
             True if successful, otherwise False.
         """
+        pbar, success = None, False
         try:
             self._validate_input_file(input_file)
             pathlib.Path(os.path.split(output_file)[0]).mkdir(parents=True, exist_ok=True)
-            pbar, success = None, False
             ds = gdal.OpenEx(input_file)
             driver = ogr.GetDriverByName(ds.GetDriver().ShortName)
             inSpatialRef = osr.SpatialReference()
@@ -1280,7 +1284,10 @@ class Transformer():
                     pbar.set_description(f"Processing Layer {layer_index+1} / {layer_count}")
             inDataSet, outDataSet, ds = None, None, None
             success = True
+        except Exception as e:
+            logger.exception(f"Exception in `transform_vector()`: {str(e)}")
+            return False
         finally:
             if pbar:
                 pbar.close()
-            return success
+        return success
