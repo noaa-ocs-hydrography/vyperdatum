@@ -19,6 +19,26 @@ Automatic steps
                     crs_to=crs_to,
                     )
 
+NGVD29 to NAVD88
+~~~~~~~~~~~~~~~~
+
+Legacy NGVD29 heights (``EPSG:7968`` in metres, ``EPSG:5702`` in US survey
+feet) are usually paired with NAD27 (``EPSG:4267``, or a NAD27 projected CRS
+such as ``EPSG:26718``). The automatic steps apply the NAD27 to NAD83(2011)
+datum shift (NADCON5) followed by the NGVD29 to NAVD88 shift (VERTCON). Both
+use PROJ's standard grids, which are fetched from the PROJ CDN when PROJ
+network access is enabled.
+
+.. code-block:: python
+
+   from vyperdatum.transformer import Transformer
+
+   crs_from = "EPSG:26718+EPSG:5702"   # NAD27 / UTM 18N + NGVD29 height (ftUS)
+   crs_to = "EPSG:26918+EPSG:5703"     # NAD83 / UTM 18N + NAVD88 height
+   tf = Transformer(crs_from=crs_from,
+                    crs_to=crs_to,
+                    )
+
 Prescribed steps
 ----------------
 
