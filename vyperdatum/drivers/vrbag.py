@@ -289,9 +289,6 @@ def subgrid_point_transform(fname: str,
             ii.append(i)
             jj.append(j)
     bag.close()
-
-    ii = ii[:3]
-    jj = jj[:3]
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futureObjs = executor.map(single_subgrid_point_transform,
                                   [fname] * len(ii),
@@ -303,14 +300,6 @@ def subgrid_point_transform(fname: str,
             if fo[0] is not None:
                 start_indices.append(fo[0])
                 transformed_refs.append(fo[1])
-
-
-    # for i in tqdm(range(len(ii))):    
-    #     s, z = single_subgrid_point_transform(fname, ii[i], jj[i], tf, vrb_enum.NDV_REF.value)
-    #     if s is not None:
-    #         start_indices.append(s)
-    #         transformed_refs.append(z)
-    # # print(start_indices, transformed_refs)    
     return start_indices, transformed_refs
 
 
