@@ -76,4 +76,5 @@ def test_nwld_NAD832011_steps_nad83_3d(crs_from, crs_to, expected):
     h1, v1 = crs_utils.crs_components(crs_to)
     steps = nwld_NAD832011_steps(h0, v0, h1, v1)
     assert steps == expected, f"Unexpected steps for {crs_from} --> {crs_to}: {steps}"
-    assert crs_utils.validate_transform_steps_dict(steps), f"Invalid steps for {crs_from} --> {crs_to}: {steps}"
+    assert crs_utils.validate_transform_steps_dict(steps), (f"Invalid steps for"
+                                                            f" {crs_from} --> {crs_to}: {steps}")

@@ -17,11 +17,12 @@ def test_6349_to_6319():
     NAD83_2011_3D returns 0.0 leading to the test failure.
     """
 
-    coords_lat_lon = (39, -76.5, 0)
-    success, x, y, z = Transformer(crs_from=6349, crs_to=6319).transform_points(*([c] for c in coords_lat_lon))
+    lat, lon, h = 39, -76.5, 0
+    tf = Transformer(crs_from=6349, crs_to=6319)
+    success, x, y, z = tf.transform_points([lat], [lon], [h])
     assert success, "transformation failed."
-    assert pytest.approx(x[0], abs=.01) == coords_lat_lon[0], "x coordinate should remain unchanged."
-    assert pytest.approx(y[0], abs=.01) == coords_lat_lon[1], "y coordinate should remain unchanged."
+    assert pytest.approx(x[0], abs=.01) == lat, "x coordinate should remain unchanged."
+    assert pytest.approx(y[0], abs=.01) == lon, "y coordinate should remain unchanged."
     assert pytest.approx(z[0], abs=.01) == -33.29, "incorrect z coordinate transformation."
 
 
@@ -37,14 +38,20 @@ def test_6319_to_mllw_auto_steps():
     z = [10.5, 11.0, 11.5]
     crs_from, crs_to = "EPSG:6319", "EPSG:6318+NOAA:98"
     explicit = [{"crs_from": crs_from, "crs_to": crs_to, "v_shift": True}]
+
     auto_tf = Transformer(crs_from=crs_from, crs_to=crs_to)
     assert auto_tf.steps == explicit, f"unexpected automatic steps: {auto_tf.steps}"
     success, xa, ya, za = auto_tf.transform_points(x, y, z, always_xy=True)
     assert success, "automatic-steps transformation failed."
-    _, xe, ye, ze = Transformer(crs_from=crs_from, crs_to=crs_to, steps=explicit).transform_points(x, y, z, always_xy=True)
+
+    explicit_tf = Transformer(crs_from=crs_from, crs_to=crs_to, steps=explicit)
+    success, _, _, ze = explicit_tf.transform_points(x, y, z, always_xy=True)
+    assert success, "explicit-steps transformation failed."
+
     assert list(za) == pytest.approx(list(ze)), "automatic and explicit steps disagree."
-    assert list(xa) == pytest.approx(x) and list(ya) == pytest.approx(y), "x/y should remain unchanged."
-    assert list(za) == pytest.approx([47.73, 48.21, 48.68], abs=.01), "incorrect z coordinate transformation."
+    assert list(xa) == pytest.approx(x), "x coordinate should remain unchanged."
+    assert list(ya) == pytest.approx(y), "y coordinate should remain unchanged."
+    assert list(za) == pytest.approx([47.73, 48.21, 48.68], abs=.01), "incorrect z transformation."
 
 
 @pytest.mark.parametrize("fname", [
