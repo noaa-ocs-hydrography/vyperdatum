@@ -634,6 +634,11 @@ class RasterArrays:
             if not wrote_any_rows:
                 raise ValueError("No finite transformed points were available to write.")
 
+            # Close here rather than in `finally`: writing the Parquet footer can fail too
+            # (a full disk, for example), and the `except` below then removes the
+            # incomplete file.
+            writer.close()
+            writer = None
             return True
 
         except Exception:

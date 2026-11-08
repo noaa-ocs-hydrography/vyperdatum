@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import h5py
 import laspy
 import numpy as np
+import pyarrow.parquet as pq
 import pyproj as pp
 import pytest
 import geopandas as gpd
@@ -20,6 +21,7 @@ from vyperdatum.transformer import Transformer
 from vyperdatum.drivers import vrbag
 from vyperdatum.drivers import npz as npz_driver
 from vyperdatum.drivers.npz import NPZ
+from vyperdatum.scripts import raster_arrays
 from vyperdatum.scripts.raster_arrays import RasterArrays
 
 gdal.UseExceptions()
@@ -181,11 +183,12 @@ def _vrbag_layers(fname):
                 np.array(bag["BAG_root/elevation"]))
 
 
-@pytest.mark.parametrize("failing_step", ["base grid", "corner points"])
+@pytest.mark.parametrize("failing_step", ["base grid", "corner points", "target WKT"])
 def test_vrbag_update_leaves_file_unchanged_on_failure(failing_step, tf, tmp_path, monkeypatch):
     """
-    `update_vr_refinements()` transforms the base grid and the corner points before it
-    writes anything, so when either fails the VR BAG is left exactly as it was.
+    `update_vr_refinements()` transforms the base grid and the corner points, and builds
+    the target WKT, before it writes anything, so when any of them fails the VR BAG is
+    left exactly as it was. The target here, EPSG:6319, can't be written as WKT1_GDAL.
     """
     fname = tmp_path / "fake_vr.bag"
     _write_fake_vrbag(fname, elevation=np.array([[-1.0, vrbag.vrb_enum.NDV_REF.value],
@@ -196,14 +199,16 @@ def test_vrbag_update_leaves_file_unchanged_on_failure(failing_step, tf, tmp_pat
 
     def transform_points(self, x, y, z, **kwargs):
         # The base grid passes arrays, the corner points pass lists.
-        is_corner = isinstance(x, list)
-        if (failing_step == "corner points") == is_corner:
+        step = "corner points" if isinstance(x, list) else "base grid"
+        if step == failing_step:
             return FAILED
         return True, x, y, np.asarray(z, dtype=float) + 100.0
 
     monkeypatch.setattr(Transformer, "transform_points", transform_points)
     before = _vrbag_layers(fname)
-    with pytest.raises(ValueError, match=f"VR BAG {failing_step}"):
+    expected = (pytest.raises(pp.exceptions.CRSError) if failing_step == "target WKT"
+                else pytest.raises(ValueError, match=f"VR BAG {failing_step}"))
+    with expected:
         vrbag.update_vr_refinements(str(fname), index=[0],
                                     arr=[np.array([9.0, 9.0, 9.0, 9.0])], tf=tf)
     after = _vrbag_layers(fname)
@@ -282,6 +287,40 @@ def test_raster_arrays_transform_raises_and_removes_partial_output(tf, raster, t
                          set_extent_metadata=False)
     assert len(calls) == 2
     assert not output_file.exists()
+
+
+class _CloseFails(pq.ParquetWriter):
+    """A ParquetWriter whose close() writes the footer, then fails (a full disk, say)."""
+
+    def close(self):
+        super().close()
+        raise OSError("simulated failure while closing")
+
+
+@pytest.mark.parametrize("chunk_fails", [True, False], ids=["chunk fails", "all chunks ok"])
+def test_raster_arrays_close_failure_removes_output(chunk_fails, tf, raster, tmp_path,
+                                                    monkeypatch, caplog):
+    """
+    If closing the writer fails, the output is still removed. When a chunk had already
+    failed, that original error is the one raised; otherwise the close error is.
+    """
+    calls = []
+
+    def transform_points(self, x, y, z, **kwargs):
+        calls.append(len(x))
+        return FAILED if (chunk_fails and len(calls) > 1) else (True, x, y, z)
+
+    monkeypatch.setattr(Transformer, "transform_points", transform_points)
+    monkeypatch.setattr(raster_arrays.pq, "ParquetWriter", _CloseFails)
+    output_file = tmp_path / "out.parquet"
+    expected = (pytest.raises(ValueError, match="Point transformation failed") if chunk_fails
+                else pytest.raises(OSError, match="simulated failure while closing"))
+    with expected:
+        raster.transform(tf, output_file=str(output_file), chunk_size=4,
+                         set_extent_metadata=False)
+    assert not output_file.exists()
+    if chunk_fails:
+        assert "Could not close" in caplog.text
 
 
 def test_raster_arrays_transform_success(tf, raster, tmp_path, monkeypatch):

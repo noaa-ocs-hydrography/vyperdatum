@@ -583,6 +583,16 @@ def update_vr_refinements(fname: str,
                                               always_xy=False, allow_ballpark=False)
     if not (success1 and success2):
         raise ValueError(f"Point transformation of the VR BAG corner points failed for {fname}.")
+    # using old WKT1_GDAL for compatibility with older GDAL/QGIS. Some CRSs (EPSG:6319,
+    # for example) can't be expressed in it, which raises here, also before any write.
+    if tf.crs_to.is_compound:
+        wkt_h = tf.crs_to.sub_crs_list[0].to_wkt(version=WktVersion.WKT1_GDAL)
+        wkt_v = tf.crs_to.sub_crs_list[1].to_wkt(version=WktVersion.WKT1_GDAL)
+    else:
+        wkt_h = tf.crs_to.to_wkt(version=WktVersion.WKT1_GDAL)
+        wkt_v = ""
+    wkt_h = wkt_h if wkt_h else ""
+    wkt_v = wkt_v if wkt_v else ""
 
     print("\nUpdating varres_refinements layer...\n")
     bag = h5py.File(fname, "r+")
@@ -611,16 +621,6 @@ def update_vr_refinements(fname: str,
     bag.close()
     # update the base grid and its attributes
     update_vr_elevation(fname=fname, arr=zt)
-
-    # using old WKT1_GDAL for compatibility with older GDAL/QGIS
-    if tf.crs_to.is_compound:
-        wkt_h = tf.crs_to.sub_crs_list[0].to_wkt(version=WktVersion.WKT1_GDAL)
-        wkt_v = tf.crs_to.sub_crs_list[1].to_wkt(version=WktVersion.WKT1_GDAL)
-    else:
-        wkt_h = tf.crs_to.to_wkt(version=WktVersion.WKT1_GDAL)
-        wkt_v = ""
-    wkt_h = wkt_h if wkt_h else ""
-    wkt_v = wkt_v if wkt_v else ""
     change_corner_points_and_wkt(fname=fname,
                                  new_points=f"{x1[0]},{y1[0]} {x2[0]},{y2[0]}",
                                  wkt_h=wkt_h,
