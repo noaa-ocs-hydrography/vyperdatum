@@ -1,7 +1,7 @@
 import numpy as np
 import pathlib
 from collections import Counter
-from typing import Tuple
+from typing import Optional, Tuple
 import pyproj as pp
 from vyperdatum.drivers.base import Driver
 
@@ -13,8 +13,9 @@ class NPZ(Driver):
     ----------
     input_file: str
         Full path to the npz file.
-    content: np.lib.npyio.NpzFile
-        The object containing the numpy arrays stored in the npz file.
+    content: dict[str, numpy.ndarray]
+        The numpy arrays stored in the npz file, keyed by name. They are read into
+        memory when the file is loaded, so the file is not kept open.
 
     Example
     --------
@@ -49,14 +50,14 @@ class NPZ(Driver):
         self.content = self.load()
         schema = ["wkt", "data", "minmax"]
         try:
-            self.is_npz = Counter(self.content.files) == Counter(schema)
+            self.is_npz = Counter(self.content.keys()) == Counter(schema)
         except:
             self.is_npz = False
         if invalid_error and not self.is_npz:
             raise ValueError(("Expected the following keys in the .npz file: "
-                              f"{schema}, but receieved {self.content.files}."))
+                              f"{schema}, but receieved {list(self.content or [])}."))
 
-    def load(self) -> np.lib.npyio.NpzFile:
+    def load(self) -> Optional[dict]:
         """
         Load a numpy .npz file (collection of numpy arrays).
         Return None when any exception take place or when the file is invalid. 
@@ -72,7 +73,10 @@ class NPZ(Driver):
 
         Returns
         --------
-        Optional[numpy.lib.npyio.NpzFile]
+        Optional[dict[str, numpy.ndarray]]
+            The arrays in the file, read into memory. The file is closed before returning,
+            so it can be overwritten or removed afterwards (Windows refuses to remove a
+            file that is still open).
         """
         try:
             if not self.input_file:
@@ -80,7 +84,8 @@ class NPZ(Driver):
             input_file = pathlib.Path(self.input_file)
             if not input_file.is_file():
                 raise FileNotFoundError(f"The npz file not found at: {input_file}")         
-            bundle = np.load(input_file)
+            with np.load(input_file) as npz_file:
+                bundle = {key: npz_file[key] for key in npz_file.files}
         except:
             return None
         return bundle
@@ -149,14 +154,21 @@ class NPZ(Driver):
         transformer_instance: vyperdatum.transformer.Transform
             Instance of the transformer class.
 
+        Raises
+        -----------
+        ValueError:
+            If the point transformation fails. The npz file is left unchanged.
+
         Returns
         -----------
         bool:
-            True if successful, otherwise False.
+            True if successful.
         """
         x, y, z, u = self.xyzu()
         success, xx, yy, zz = transformer_instance.transform_points(x, y, z,
                                                                     vdatum_check=vdatum_check)
+        if not success:
+            raise ValueError(f"NPZ transformation failed for {self.input_file}.")
         target_wkt = transformer_instance.crs_to.to_wkt()
         data = np.zeros([len(x), 4], dtype=np.float64)
         data[:, 0], data[:, 1], data[:, 2], data[:, 3] = xx, yy, zz, u
