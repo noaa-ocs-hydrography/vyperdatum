@@ -91,3 +91,6 @@ def test_log_untransformed_points_never_raises():
     # x and y have shapes that can't be combined.
     x, y = [1.0, 2.0], [1.0, 2.0, 3.0]
     assert vtf._log_untransformed_points(x, y, [0.0], [1.0], [1.0], [1.0]) == 0
+    # Sizes that broadcast but differ: the failed index is past the end of x.
+    assert vtf._log_untransformed_points([1.0], [1.0], [0.0, 0.0, 0.0],
+                                         [1.0], [1.0], [1.0, np.inf, np.inf]) == 0

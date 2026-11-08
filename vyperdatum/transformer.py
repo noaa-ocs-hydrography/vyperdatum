@@ -129,17 +129,17 @@ def _log_untransformed_points(x, y, z, xt, yt, zt) -> int:
         finite_in = np.isfinite(x) & np.isfinite(y) & np.isfinite(z)
         finite_out = np.isfinite(xt) & np.isfinite(yt) & np.isfinite(zt)
         failed = np.flatnonzero(finite_in & ~finite_out)
+        first_point = (x[failed[0]], y[failed[0]], z[failed[0]]) if failed.size else None
     except Exception:
         # Only a diagnostic: it must never change the outcome of the transformation.
         logger.debug("Could not check the transformed points for non-finite values.",
                      exc_info=True)
         return 0
     if failed.size:
-        first = failed[0]
         logger.warning(f"{failed.size} of {finite_in.size} point(s) could not be transformed "
                        "and were returned as inf, for example because they fall outside the "
                        "coverage of a transformation grid. First such input point: "
-                       f"({x[first]}, {y[first]}, {z[first]}).")
+                       f"{first_point}.")
     return int(failed.size)
 
 
