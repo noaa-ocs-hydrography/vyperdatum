@@ -18,6 +18,7 @@ from shapely.geometry import Point
 
 from vyperdatum.transformer import Transformer
 from vyperdatum.drivers import vrbag
+from vyperdatum.drivers import npz as npz_driver
 from vyperdatum.drivers.npz import NPZ
 from vyperdatum.scripts.raster_arrays import RasterArrays
 
@@ -62,13 +63,35 @@ def test_npz_transform_raises_on_failure(failing_tf, tmp_path):
     fname = tmp_path / "in.npz"
     data = _write_npz(fname)
     nz = NPZ(input_file=str(fname))
-    content = nz.content
     with pytest.raises(ValueError, match="NPZ transformation failed"):
         nz.transform(transformer_instance=failing_tf, vdatum_check=False)
-    # The file must be closed, or Windows can't remove it (transform_npz() does on failure).
-    assert content.fid is None, "NPZ.transform() left the npz file open"
     with np.load(fname) as saved:
         np.testing.assert_array_equal(saved["data"], data)
+
+
+def test_npz_does_not_keep_the_file_open(tmp_path, monkeypatch):
+    """
+    `NPZ` must close the file it reads. `transform_npz()` removes its output when a
+    later step fails (the pre-transformation checks or the transformation itself),
+    and Windows refuses to remove a file that is still open.
+    """
+    fname = tmp_path / "in.npz"
+    _write_npz(fname)
+    opened, real_load = [], np.load
+
+    def recording_load(*args, **kwargs):
+        npz_file = real_load(*args, **kwargs)
+        opened.append(npz_file)
+        return npz_file
+
+    monkeypatch.setattr(npz_driver.np, "load", recording_load)
+    nz = NPZ(input_file=str(fname))
+    monkeypatch.undo()
+    assert opened, "NPZ did not read the file through np.load()"
+    assert all(f.fid is None for f in opened), "NPZ left the npz file open"
+    assert nz.is_npz
+    x, _, _, _ = nz.xyzu()
+    assert len(x) == 5
 
 
 def test_transform_npz_removes_output_on_failure(failing_tf, tmp_path, caplog):
@@ -150,6 +173,42 @@ def test_vrbag_base_grid_raises_on_failure(failing_tf, tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="VR BAG base grid failed"):
         vrbag.base_grid_point_transform(fname=str(fname), tf=failing_tf,
                                         nodata_value=vrbag.vrb_enum.NDV_REF.value)
+
+
+def _vrbag_layers(fname):
+    with h5py.File(fname) as bag:
+        return (np.array(bag["BAG_root/varres_refinements"][0]["depth"]),
+                np.array(bag["BAG_root/elevation"]))
+
+
+@pytest.mark.parametrize("failing_step", ["base grid", "corner points"])
+def test_vrbag_update_leaves_file_unchanged_on_failure(failing_step, tf, tmp_path, monkeypatch):
+    """
+    `update_vr_refinements()` transforms the base grid and the corner points before it
+    writes anything, so when either fails the VR BAG is left exactly as it was.
+    """
+    fname = tmp_path / "fake_vr.bag"
+    _write_fake_vrbag(fname, elevation=np.array([[-1.0, vrbag.vrb_enum.NDV_REF.value],
+                                                 [-3.0, -4.0]], dtype=np.float32))
+    fake_ds = SimpleNamespace(GetGeoTransform=lambda: (-76.5, 0.01, 0, 39.1, 0, -0.01))
+    monkeypatch.setattr(vrbag, "gdal", SimpleNamespace(Open=lambda fname: fake_ds))
+    monkeypatch.setattr(vrbag, "corner_points", lambda fname: (-76.5, 39.0, -76.4, 39.1))
+
+    def transform_points(self, x, y, z, **kwargs):
+        # The base grid passes arrays, the corner points pass lists.
+        is_corner = isinstance(x, list)
+        if (failing_step == "corner points") == is_corner:
+            return FAILED
+        return True, x, y, np.asarray(z, dtype=float) + 100.0
+
+    monkeypatch.setattr(Transformer, "transform_points", transform_points)
+    before = _vrbag_layers(fname)
+    with pytest.raises(ValueError, match=f"VR BAG {failing_step}"):
+        vrbag.update_vr_refinements(str(fname), index=[0],
+                                    arr=[np.array([9.0, 9.0, 9.0, 9.0])], tf=tf)
+    after = _vrbag_layers(fname)
+    np.testing.assert_array_equal(after[0], before[0])
+    np.testing.assert_array_equal(after[1], before[1])
 
 
 def test_vrbag_subgrid_raises_on_failure(failing_tf, monkeypatch):

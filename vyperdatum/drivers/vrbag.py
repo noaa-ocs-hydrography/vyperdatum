@@ -571,6 +571,19 @@ def update_vr_refinements(fname: str,
     ----------
     None
     """
+    # Transform the base grid and the corner points before writing anything, so that a
+    # failed transformation leaves the file unchanged.
+    zt = base_grid_point_transform(fname=fname, tf=tf, nodata_value=vrb_enum.NDV_REF.value)
+    x1, y1, x2, y2 = corner_points(fname=fname)
+    # _, y1, x1, _ = tf.transform_points([y1], [x1], [0], always_xy=False, allow_ballpark=False)
+    # _, y2, x2, _ = tf.transform_points([y2], [x2], [0], always_xy=False, allow_ballpark=False)
+    success1, x1, y1, _ = tf.transform_points([y1], [x1], [0],
+                                              always_xy=False, allow_ballpark=False)
+    success2, x2, y2, _ = tf.transform_points([y2], [x2], [0],
+                                              always_xy=False, allow_ballpark=False)
+    if not (success1 and success2):
+        raise ValueError(f"Point transformation of the VR BAG corner points failed for {fname}.")
+
     print("\nUpdating varres_refinements layer...\n")
     bag = h5py.File(fname, "r+")
     root = bag.require_group("/BAG_root")
@@ -597,20 +610,7 @@ def update_vr_refinements(fname: str,
     root["varres_refinements"].attrs.create("min_uncrt", np.nanmin(uarr), dtype=np.float32)
     bag.close()
     # update the base grid and its attributes
-    zt = base_grid_point_transform(fname=fname, tf=tf, nodata_value=vrb_enum.NDV_REF.value)
     update_vr_elevation(fname=fname, arr=zt)
-    # update xml
-    x1, y1, x2, y2 = corner_points(fname=fname)
-    # _, y1, x1, _ = tf.transform_points([y1], [x1], [0], always_xy=False, allow_ballpark=False)
-    # _, y2, x2, _ = tf.transform_points([y2], [x2], [0], always_xy=False, allow_ballpark=False)
-
-    success1, x1, y1, _ = tf.transform_points([y1], [x1], [0],
-                                              always_xy=False, allow_ballpark=False)
-    success2, x2, y2, _ = tf.transform_points([y2], [x2], [0],
-                                              always_xy=False, allow_ballpark=False)
-    if not (success1 and success2):
-        raise ValueError(f"Point transformation of the VR BAG corner points failed for {fname}.")
-
 
     # using old WKT1_GDAL for compatibility with older GDAL/QGIS
     if tf.crs_to.is_compound:
