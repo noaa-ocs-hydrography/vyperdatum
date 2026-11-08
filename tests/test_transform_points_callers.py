@@ -62,9 +62,13 @@ def test_npz_transform_raises_on_failure(failing_tf, tmp_path):
     fname = tmp_path / "in.npz"
     data = _write_npz(fname)
     nz = NPZ(input_file=str(fname))
+    content = nz.content
     with pytest.raises(ValueError, match="NPZ transformation failed"):
         nz.transform(transformer_instance=failing_tf, vdatum_check=False)
-    np.testing.assert_array_equal(np.load(fname)["data"], data)
+    # The file must be closed, or Windows can't remove it (transform_npz() does on failure).
+    assert content.fid is None, "NPZ.transform() left the npz file open"
+    with np.load(fname) as saved:
+        np.testing.assert_array_equal(saved["data"], data)
 
 
 def test_transform_npz_removes_output_on_failure(failing_tf, tmp_path, caplog):

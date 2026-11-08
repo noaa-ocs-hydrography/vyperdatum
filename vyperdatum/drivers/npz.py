@@ -160,6 +160,11 @@ class NPZ(Driver):
             True if successful.
         """
         x, y, z, u = self.xyzu()
+        # Release the file before transforming. It is overwritten below, and when the
+        # transformation fails the caller removes it, which Windows refuses while the
+        # np.load() handle is still open.
+        self.content.close()
+        self.content = None
         success, xx, yy, zz = transformer_instance.transform_points(x, y, z,
                                                                     vdatum_check=vdatum_check)
         if not success:
