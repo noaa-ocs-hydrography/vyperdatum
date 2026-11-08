@@ -112,6 +112,34 @@ def _pass1_warp_tiled(input_file, output_vrt_path, warp_kwargs_template,
         raise
 
 
+def _log_untransformed_points(x, y, z, xt, yt, zt) -> int:
+    """
+    Log a warning for points that had finite input coordinates but came out of
+    the transformation as non-finite (PROJ returns `inf` for points it cannot
+    transform, for example outside the coverage of a transformation grid).
+
+    Returns
+    --------
+    int:
+        The number of points that could not be transformed.
+    """
+    finite_in = np.isfinite(np.asarray(x, dtype=float))
+    finite_in &= np.isfinite(np.asarray(y, dtype=float))
+    finite_in &= np.isfinite(np.asarray(z, dtype=float))
+    finite_out = np.isfinite(np.asarray(xt, dtype=float))
+    finite_out &= np.isfinite(np.asarray(yt, dtype=float))
+    finite_out &= np.isfinite(np.asarray(zt, dtype=float))
+    failed = np.flatnonzero(finite_in & ~finite_out)
+    if failed.size:
+        first = failed[0]
+        logger.warning(f"{failed.size} of {finite_in.size} point(s) could not be transformed "
+                       "and were returned as inf, for example because they fall outside the "
+                       "coverage of a transformation grid. First such input point: "
+                       f"({np.asarray(x)[first]}, {np.asarray(y)[first]}, "
+                       f"{np.asarray(z)[first]}).")
+    return int(failed.size)
+
+
 class Transformer():
     def __init__(self,
                  crs_from: Union[pp.CRS, int, str],
@@ -343,7 +371,7 @@ class Transformer():
                          area_of_interest: Optional[AreaOfInterest] = None,
                          authority: Optional[str] = None,
                          accuracy: Optional[float] = None,
-                         allow_ballpark: Optional[bool] = True,
+                         allow_ballpark: Optional[bool] = False,
                          force_over: bool = False,
                          only_best: Optional[bool] = True
                          ) -> tuple[Optional[Union[list, np.ndarray]],
@@ -381,9 +409,12 @@ class Transformer():
         accuracy: float, optional
             The minimum desired accuracy (in metres) of the candidate
             coordinate operations.
-        allow_ballpark: bool, optional, default=True
-            Set to False to disallow the use of Ballpark transformation
-            in the candidate coordinate operations. Default is to allow.
+        allow_ballpark: bool, optional, default=False
+            Set to True to allow the use of Ballpark transformation
+            in the candidate coordinate operations. Default is to disallow.
+            A ballpark operation can be a no-op, so when it is allowed, points
+            outside the coverage of a transformation grid are returned
+            unchanged instead of as `inf`.
         force_over: bool, default=False
             If True, it will to force the +over flag on the transformation.
             Requires PROJ 9+.
@@ -410,6 +441,10 @@ class Transformer():
            Transformed y coordinate(s).
         numeric scalar or array, optional
            Transformed z coordinate(s).
+
+        Points that cannot be transformed, for example because they fall outside
+        the coverage of a transformation grid, are returned as `inf` and a warning
+        is logged with their count.
         """
 
         try:
@@ -428,6 +463,7 @@ class Transformer():
                                                      force_over=force_over,
                                                      only_best=only_best
                                                      ).transform(xt, yt, zt)
+            _log_untransformed_points(x, y, z, xt, yt, zt)
             success = True
             if vdatum_check:
                 vdatum_cv, vdatum_df = vdatum_cross_validate(s_wkt=pp.CRS(self.steps[0]["crs_from"]).to_wkt(),
