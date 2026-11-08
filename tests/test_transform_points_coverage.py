@@ -63,3 +63,31 @@ def test_log_untransformed_points_ignores_non_finite_input():
     zt = np.array([0.5, np.nan, np.inf])
     assert vtf._log_untransformed_points(x, y, z, x, y, zt) == 1
     assert vtf._log_untransformed_points(x, y, z, x, y, np.array([0.5, np.nan, 0.5])) == 0
+
+
+@pytest.mark.parametrize("shape", [(1, 3), (3, 1), ()], ids=["1x3", "3x1", "scalar"])
+def test_transform_points_outside_coverage_any_input_shape(shape, caplog):
+    """
+    The out-of-coverage check must work for any input shape (2-D arrays, numpy
+    scalars) and must never turn a successful transformation into a failure.
+    """
+    if shape == ():
+        lon, lat, h = np.float64(COVERAGE_LON[2]), np.float64(COVERAGE_LAT[2]), np.float64(5.0)
+        expected_failed = 1
+    else:
+        lon, lat = COVERAGE_LON.reshape(shape), COVERAGE_LAT.reshape(shape)
+        h = np.full(shape, 5.0)
+        expected_failed = 2
+    success, _, _, zt = _ellipsoid_to_mllw_transformer().transform_points(
+        lon, lat, h, always_xy=True)
+    assert success is True
+    assert np.shape(zt) == shape
+    assert np.isinf(zt).sum() == expected_failed
+    assert f"{expected_failed} of " in caplog.text
+
+
+def test_log_untransformed_points_never_raises():
+    """Inputs the check can't handle are skipped rather than failing the transformation."""
+    # x and y have shapes that can't be combined.
+    x, y = [1.0, 2.0], [1.0, 2.0, 3.0]
+    assert vtf._log_untransformed_points(x, y, [0.0], [1.0], [1.0], [1.0]) == 0
