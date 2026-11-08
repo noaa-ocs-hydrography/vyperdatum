@@ -28,6 +28,23 @@ from vyperdatum.pipeline import nwld_ITRF2020_steps, nwld_NAD832011_steps
 logger = logging.getLogger("root_logger")
 gdal.UseExceptions()
 
+
+def _remove_failed_output(output_file: str) -> None:
+    """
+    Remove the output file of a failed transformation, if there is one.
+
+    A file that can't be removed (on Windows, for example, while a driver still
+    has it open) is logged as a warning instead of raising, so the error that
+    failed the transformation is the one reported and the caller gets `False`.
+    """
+    try:
+        if os.path.isfile(output_file):
+            os.remove(output_file)
+    except OSError as e:
+        logger.warning(f"Could not remove the output of the failed transformation "
+                       f"{output_file}: {e}")
+
+
 # os.environ["CPL_DEBUG"] = "ON"
 # os.environ["CPL_LOG_ERRORS"] = "ON"
 # os.environ["PROJ_DEBUG"] = "3"
@@ -516,8 +533,7 @@ class Transformer():
                                                                )
         except Exception as e:
             logger.exception(f"Exception in `transform_vrbag()`: {str(e)}")
-            if os.path.isfile(output_file):
-                os.remove(output_file)
+            _remove_failed_output(output_file)
             return False
         return success
 
@@ -573,8 +589,7 @@ class Transformer():
                                                              )
         except Exception as e:
             logger.exception(f"Exception in `transform_laz()`: {str(e)}")
-            if os.path.isfile(output_file):
-                os.remove(output_file)
+            _remove_failed_output(output_file)
             return False
         return success
 
@@ -626,8 +641,7 @@ class Transformer():
                                         vdatum_check=vdatum_check)
         except Exception as e:
             logger.exception(f"Exception in `transform_xyz()`: {str(e)}")
-            if os.path.isfile(output_file):
-                os.remove(output_file)
+            _remove_failed_output(output_file)
             return False
         return success
 
@@ -678,8 +692,7 @@ class Transformer():
                                    vdatum_check=vdatum_check)
         except Exception as e:
             logger.exception(f"Exception in `transform_geoparquet()`: {str(e)}")
-            if os.path.isfile(output_file):
-                os.remove(output_file)
+            _remove_failed_output(output_file)
             return False
         return success
 
@@ -735,8 +748,7 @@ class Transformer():
                                                              )
         except Exception as e:
             logger.exception(f"Exception in `transform_npz()`: {str(e)}")
-            if os.path.isfile(output_file):
-                os.remove(output_file)
+            _remove_failed_output(output_file)
             return False
         return success
 
@@ -792,8 +804,7 @@ class Transformer():
                                                               )
         except Exception as e:
             logger.exception(f"Exception in `transform_pdal()`: {e}")
-            if os.path.isfile(output_file):
-                os.remove(output_file)
+            _remove_failed_output(output_file)
             return False
         return success
 

@@ -89,6 +89,28 @@ def test_transform_missing_file_returns_false(caplog, tmp_path):
     assert "FileNotFoundError" in caplog.text
 
 
+def test_transform_npz_cleanup_failure_returns_false(caplog, tmp_path, monkeypatch):
+    """
+    If the output of a failed transformation can't be removed (on Windows, while
+    the file is still open), the method still returns False, logs the original
+    error, and only warns about the leftover file instead of raising.
+    """
+    input_file = tmp_path / "not_an_npz.npz"
+    input_file.write_bytes(b"not an npz file")
+
+    def locked_remove(path):
+        raise PermissionError(13, "The process cannot access the file", str(path))
+
+    monkeypatch.setattr(vtf.os, "remove", locked_remove)
+    success = _navd88_transformer().transform_npz(input_file=str(input_file),
+                                                  output_file=str(tmp_path / "out.npz"),
+                                                  pre_post_checks=False,
+                                                  vdatum_check=False)
+    assert success is False
+    assert "Exception in `transform_npz()`" in caplog.text
+    assert "Could not remove the output of the failed transformation" in caplog.text
+
+
 @pytest.mark.parametrize("fname", [
     r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\point\npz\2018_NCMP_MA_19TCF2495_BareEarth_1mGrid_transformed.bruty.bruty.npz",
     r"C:\Users\mohammad.ashkezari\Documents\projects\vyperdatum\untrack\data\point\npz\W00405_MB_1m_MLLW_1of4_transformed.bruty.npz"
