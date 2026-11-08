@@ -119,7 +119,7 @@ class GeoParquet(Driver):
         Returns
         -----------
         bool:
-            True if successful, otherwise False.
+            True if successful.
         """
         if not hasattr(self, "x"):
             self.get_points()

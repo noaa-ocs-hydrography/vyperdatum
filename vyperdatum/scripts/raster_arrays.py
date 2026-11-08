@@ -5,6 +5,7 @@ import os
 import tempfile
 import json
 import gc
+import logging
 from pathlib import Path
 from typing import List, Optional
 
@@ -17,6 +18,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 
+logger = logging.getLogger("root_logger")
 gdal.UseExceptions()
 
 
@@ -635,11 +637,19 @@ class RasterArrays:
             return True
 
         except Exception:
-            # Don't leave a partially written (truncated) GeoParquet behind.
+            # Don't leave a partially written GeoParquet behind. A failure while closing or
+            # removing it is only logged, so it doesn't hide the error that stopped the run.
             if writer is not None:
-                writer.close()
+                try:
+                    writer.close()
+                except Exception as close_error:
+                    logger.warning(f"Could not close {output_path}: {close_error}")
                 writer = None
-                output_path.unlink(missing_ok=True)
+                try:
+                    output_path.unlink(missing_ok=True)
+                except OSError as remove_error:
+                    logger.warning(f"Could not remove the partial output {output_path}: "
+                                   f"{remove_error}")
             raise
 
         finally:
