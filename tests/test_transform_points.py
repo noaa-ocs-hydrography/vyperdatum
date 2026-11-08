@@ -1,6 +1,9 @@
 import pytest
 import os
+import numpy as np
+import pandas as pd
 import pyproj as pp
+import vyperdatum.transformer as vtf
 from vyperdatum.transformer import Transformer
 from vyperdatum.drivers.npz import NPZ
 from vyperdatum.drivers.laz import LAZ
@@ -22,6 +25,90 @@ def test_6349_to_6319():
     assert pytest.approx(x, abs=.01) == coords_lat_lon[0], "x coordinate should remain unchanged."
     assert pytest.approx(y, abs=.01) == coords_lat_lon[1], "y coordinate should remain unchanged."
     assert pytest.approx(z, abs=.01) == -33.29, "incorrect z coordinate transformation."
+
+
+NAVD88_TO_NAD83_3D = [{"crs_from": "EPSG:6318+EPSG:5703", "crs_to": "EPSG:6319", "v_shift": True}]
+
+
+def _navd88_transformer(steps=NAVD88_TO_NAD83_3D):
+    return Transformer(crs_from="EPSG:6318+EPSG:5703", crs_to="EPSG:6319", steps=steps)
+
+
+def test_transform_points_success():
+    """A valid point transformation returns success and the transformed coordinates."""
+    success, xt, yt, zt = _navd88_transformer().transform_points(np.array([39.0]),
+                                                                 np.array([-76.5]),
+                                                                 np.array([0.0]))
+    assert success is True
+    assert pytest.approx(xt[0], abs=.01) == 39
+    assert pytest.approx(yt[0], abs=.01) == -76.5
+    assert pytest.approx(zt[0], abs=.01) == -33.29
+
+
+def test_transform_points_invalid_input_returns_none(caplog):
+    """
+    Input that fails before the outputs are assigned (scalars have no `.copy()`)
+    must return (False, None, None, None) and log the original error, rather than
+    raising UnboundLocalError.
+    """
+    result = _navd88_transformer().transform_points(39, -76.5, 0)
+    assert result == (False, None, None, None)
+    assert "Error while running the point transformation." in caplog.text
+    assert "AttributeError" in caplog.text
+
+
+def test_transform_points_failed_step_returns_none():
+    """
+    A failure in a later step must not leak the partially transformed
+    arrays from the earlier steps.
+    """
+    tf = _navd88_transformer()
+    # bypass the constructor's step validation to inject a failing second step
+    tf.steps = NAVD88_TO_NAD83_3D + [{"crs_from": "EPSG:6319", "crs_to": "NOT:A_CRS",
+                                      "v_shift": False}]
+    result = tf.transform_points(np.array([39.0]), np.array([-76.5]), np.array([0.0]))
+    assert result == (False, None, None, None)
+
+
+def test_transform_points_failed_vdatum_check_returns_none(monkeypatch, tmp_path):
+    """A failed VDatum cross-validation must return (False, None, None, None)."""
+    monkeypatch.setattr(vtf, "vdatum_cross_validate", lambda **kwargs: (False, pd.DataFrame()))
+    monkeypatch.chdir(tmp_path)
+    result = _navd88_transformer().transform_points(np.array([39.0]),
+                                                    np.array([-76.5]),
+                                                    np.array([0.0]),
+                                                    vdatum_check=True)
+    assert result == (False, None, None, None)
+
+
+def test_transform_missing_file_returns_false(caplog, tmp_path):
+    """`transform()` logs the error and returns False for a missing input file."""
+    success = _navd88_transformer().transform(input_file=str(tmp_path / "missing.tif"),
+                                              output_file=str(tmp_path / "out.tif"))
+    assert success is False
+    assert "FileNotFoundError" in caplog.text
+
+
+def test_transform_npz_cleanup_failure_returns_false(caplog, tmp_path, monkeypatch):
+    """
+    If the output of a failed transformation can't be removed (on Windows, while
+    the file is still open), the method still returns False, logs the original
+    error, and only warns about the leftover file instead of raising.
+    """
+    input_file = tmp_path / "not_an_npz.npz"
+    input_file.write_bytes(b"not an npz file")
+
+    def locked_remove(path):
+        raise PermissionError(13, "The process cannot access the file", str(path))
+
+    monkeypatch.setattr(vtf.os, "remove", locked_remove)
+    success = _navd88_transformer().transform_npz(input_file=str(input_file),
+                                                  output_file=str(tmp_path / "out.npz"),
+                                                  pre_post_checks=False,
+                                                  vdatum_check=False)
+    assert success is False
+    assert "Exception in `transform_npz()`" in caplog.text
+    assert "Could not remove the output of the failed transformation" in caplog.text
 
 
 @pytest.mark.parametrize("fname", [

@@ -28,6 +28,23 @@ from vyperdatum.pipeline import nwld_ITRF2020_steps, nwld_NAD832011_steps
 logger = logging.getLogger("root_logger")
 gdal.UseExceptions()
 
+
+def _remove_failed_output(output_file: str) -> None:
+    """
+    Remove the output file of a failed transformation, if there is one.
+
+    A file that can't be removed (on Windows, for example, while a driver still
+    has it open) is logged as a warning instead of raising, so the error that
+    failed the transformation is the one reported and the caller gets `False`.
+    """
+    try:
+        if os.path.isfile(output_file):
+            os.remove(output_file)
+    except OSError as e:
+        logger.warning(f"Could not remove the output of the failed transformation "
+                       f"{output_file}: {e}")
+
+
 # os.environ["CPL_DEBUG"] = "ON"
 # os.environ["CPL_LOG_ERRORS"] = "ON"
 # os.environ["PROJ_DEBUG"] = "3"
@@ -260,17 +277,12 @@ class Transformer():
             If True, runs a series of validation checks, such as validating the input and output
             CRSs, before and after transformation operation.
 
-        Raises
-        -------
-        FileNotFoundError:
-            If the input  file is not found.
-        NotImplementedError:
-            If the input file is not supported by vyperdatum.
-
         Returns
         -----------
         bool:
-            True if successful, otherwise False.
+            True if successful, otherwise False. Errors are logged rather than
+            raised; for example, a missing input file (FileNotFoundError) or an
+            unsupported input file (NotImplementedError) returns False.
         """
         try:
             success = False    
@@ -331,8 +343,10 @@ class Transformer():
             # elif vector files
             else:
                 raise NotImplementedError(f"Unsupported input file: {input_file}")
-        finally:
-            return success
+        except Exception as e:
+            logger.exception(f"Exception in `transform()`: {str(e)}")
+            return False
+        return success
 
     def transform_points(self,
                          x: Union[list, np.ndarray],
@@ -459,9 +473,8 @@ class Transformer():
 
         except Exception:
             logger.exception("Error while running the point transformation.")
-            return success, None, None, None
-        finally:
-            return success, xt, yt, zt
+            return False, None, None, None
+        return success, xt, yt, zt
 
     def transform_vrbag(self,
                         input_file: str,
@@ -520,10 +533,9 @@ class Transformer():
                                                                )
         except Exception as e:
             logger.exception(f"Exception in `transform_vrbag()`: {str(e)}")
-            if os.path.isfile(output_file):
-                os.remove(output_file)
-        finally:
-            return success
+            _remove_failed_output(output_file)
+            return False
+        return success
 
     def transform_laz(self,
                       input_file: str,
@@ -577,10 +589,9 @@ class Transformer():
                                                              )
         except Exception as e:
             logger.exception(f"Exception in `transform_laz()`: {str(e)}")
-            if os.path.isfile(output_file):
-                os.remove(output_file)
-        finally:
-            return success
+            _remove_failed_output(output_file)
+            return False
+        return success
 
     def transform_xyz(self,
                       input_file: str,
@@ -630,10 +641,9 @@ class Transformer():
                                         vdatum_check=vdatum_check)
         except Exception as e:
             logger.exception(f"Exception in `transform_xyz()`: {str(e)}")
-            if os.path.isfile(output_file):
-                os.remove(output_file)
-        finally:
-            return success
+            _remove_failed_output(output_file)
+            return False
+        return success
 
     def transform_geoparquet(self,
                              input_file: str,
@@ -682,10 +692,9 @@ class Transformer():
                                    vdatum_check=vdatum_check)
         except Exception as e:
             logger.exception(f"Exception in `transform_geoparquet()`: {str(e)}")
-            if os.path.isfile(output_file):
-                os.remove(output_file)
-        finally:
-            return success
+            _remove_failed_output(output_file)
+            return False
+        return success
 
     def transform_npz(self,
                       input_file: str,
@@ -739,10 +748,9 @@ class Transformer():
                                                              )
         except Exception as e:
             logger.exception(f"Exception in `transform_npz()`: {str(e)}")
-            if os.path.isfile(output_file):
-                os.remove(output_file)
-        finally:
-            return success
+            _remove_failed_output(output_file)
+            return False
+        return success
 
     def transform_pdal(self,
                        input_file: str,
@@ -796,10 +804,9 @@ class Transformer():
                                                               )
         except Exception as e:
             logger.exception(f"Exception in `transform_pdal()`: {e}")
-            if os.path.isfile(output_file):
-                os.remove(output_file)
-        finally:
-            return success
+            _remove_failed_output(output_file)
+            return False
+        return success
 
     def transform_raster(self,
                          input_file: str,
@@ -917,6 +924,8 @@ class Transformer():
             output_ds = None
             temp_pass1 = None
             tiles_dir = None
+            output_vrt = None
+            cutline_path = None
             if not str(output_file).lower().startswith("/vsimem/"):
                 pathlib.Path(os.path.split(output_file)[0]).mkdir(parents=True, exist_ok=True)
             input_metadata = raster_metadata(input_file)
@@ -1187,6 +1196,8 @@ class Transformer():
             efile = open(out_dir / f"{os.path.split(input_file)[1]}_error.txt", "w")
             efile.write(str(e))
             efile.close()
+            logger.exception(f"Exception in `transform_raster()`: {str(e)}")
+            return False
         finally:
             ds, ds_pass1, output_ds = None, None, None
             def safe_remove(path):
@@ -1207,7 +1218,7 @@ class Transformer():
                         shutil.rmtree(str(tiles_dir))
                 except Exception as e:
                     logger.warning(f"Could not delete Pass 1 tiles directory {tiles_dir}. Exception: {str(e)}")
-            return success
+        return success
 
     def transform_vector(self,
                          input_file: str,
@@ -1236,10 +1247,10 @@ class Transformer():
         bool:
             True if successful, otherwise False.
         """
+        pbar, success = None, False
         try:
             self._validate_input_file(input_file)
             pathlib.Path(os.path.split(output_file)[0]).mkdir(parents=True, exist_ok=True)
-            pbar, success = None, False
             ds = gdal.OpenEx(input_file)
             driver = ogr.GetDriverByName(ds.GetDriver().ShortName)
             inSpatialRef = osr.SpatialReference()
@@ -1279,7 +1290,10 @@ class Transformer():
                     pbar.set_description(f"Processing Layer {layer_index+1} / {layer_count}")
             inDataSet, outDataSet, ds = None, None, None
             success = True
+        except Exception as e:
+            logger.exception(f"Exception in `transform_vector()`: {str(e)}")
+            return False
         finally:
             if pbar:
                 pbar.close()
-            return success
+        return success
