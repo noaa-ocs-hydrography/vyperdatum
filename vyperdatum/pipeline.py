@@ -395,11 +395,17 @@ def nwld_NAD832011_steps(h0: str, v0: Optional[str], h1: str, v1: Optional[str])
 
     NAD83_geo = ["EPSG:6318", "EPSG:4269"]
     steps = []
-    if pp.CRS(h0).geodetic_crs.to_authority() == ("EPSG", "4326"):
+    h0_geodetic = pp.CRS(h0).geodetic_crs.to_authority()
+    if h0_geodetic == ("EPSG", "4326"):
         steps.append({"crs_from": h0, "crs_to": "EPSG:9755", "v_shift": False})
         steps.append({"crs_from": "EPSG:9755", "crs_to": "EPSG:6318", "v_shift": False})
+    elif h0_geodetic == ("EPSG", "4267"):
+        # NAD27 (the usual horizontal datum for NGVD29 data) is not interchangeable with
+        # NAD83, so an explicit NAD27 -> NAD83(2011) datum shift (NADCON5 in PROJ) is
+        # required before the vertical shift steps below, which all assume EPSG:6318.
+        steps.append({"crs_from": h0, "crs_to": "EPSG:6318", "v_shift": False})
     elif h0 not in NAD83_geo:
-        steps.append({"crs_from": h0, "crs_to": ":".join(pp.CRS(h0).geodetic_crs.to_authority()), "v_shift": False})
+        steps.append({"crs_from": h0, "crs_to": ":".join(h0_geodetic), "v_shift": False})
     
     # Registry limitation: if input vert was in ft, change to m first, before any vertical shift ops
     v0_meter = get_meter_vcrs(v0)
