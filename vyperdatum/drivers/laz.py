@@ -84,10 +84,15 @@ class LAZ(Driver):
         transformer_instance: vyperdatum.transformer.Transform
             Instance of the transformer class.
 
+        Raises
+        -----------
+        ValueError:
+            If the point transformation fails. The laz file is left unchanged.
+
         Returns
         -----------
         bool:
-            True if successful, otherwise False.
+            True if successful.
         """
         lf = laspy.read(self.input_file)
         success, xx, yy, zz = transformer_instance.transform_points(self.x,
@@ -95,6 +100,8 @@ class LAZ(Driver):
                                                                     self.z,
                                                                     vdatum_check=vdatum_check
                                                                     )
+        if not success:
+            raise ValueError(f"LAZ transformation failed for {self.input_file}.")
         lf.x, lf.y, lf.z = xx, yy, zz
         lf.header.add_crs(transformer_instance.crs_to)
         lf.write(self.input_file)

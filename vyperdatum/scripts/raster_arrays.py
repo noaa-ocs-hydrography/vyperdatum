@@ -5,6 +5,7 @@ import os
 import tempfile
 import json
 import gc
+import logging
 from pathlib import Path
 from typing import List, Optional
 
@@ -17,6 +18,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 
+logger = logging.getLogger("root_logger")
 gdal.UseExceptions()
 
 
@@ -321,6 +323,7 @@ class RasterArrays:
         """
         Compute output XY extent of the points that will actually be written.
         Returns [xmin, ymin, xmax, ymax] or None if no valid points exist.
+        Raises ValueError if the point transformation of any chunk fails.
         """
         xmin = np.inf
         ymin = np.inf
@@ -340,6 +343,11 @@ class RasterArrays:
             success, xt, yt, zt = transformer_instance.transform_points(
                 x, y, z, vdatum_check=False
             )
+            if not success:
+                raise ValueError(
+                    f"Point transformation failed for points {start}:{stop} of {self.path} "
+                    "while computing the output extent."
+                )
 
             xt = np.asarray(xt)
             yt = np.asarray(yt)
@@ -437,10 +445,17 @@ class RasterArrays:
             Constant integer value written to the "classification" column when
             include_NBS_additional=True.
 
+        Raises
+        ------
+        ValueError
+            If the point transformation of any chunk fails, or if no finite
+            transformed points are available to write. A partially written
+            output file is removed.
+
         Returns
         -------
         bool
-            True if all chunks reported success, else False.
+            True if all chunks were transformed and written.
         """
         output_path = Path(output_file)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -448,7 +463,6 @@ class RasterArrays:
         target_crs = pp.CRS(transformer_instance.crs_to)
         writer = None
         schema = None
-        all_success = True
         wrote_any_rows = False
 
         overall_bbox = None
@@ -488,7 +502,10 @@ class RasterArrays:
                 success, xt, yt, zt = transformer_instance.transform_points(
                     x, y, z, vdatum_check=False, allow_ballpark=False
                 )
-                all_success = all_success and bool(success)
+                if not success:
+                    raise ValueError(
+                        f"Point transformation failed for points {start}:{stop} of {self.path}."
+                    )
 
                 xt = np.asarray(xt)
                 yt = np.asarray(yt)
@@ -617,7 +634,28 @@ class RasterArrays:
             if not wrote_any_rows:
                 raise ValueError("No finite transformed points were available to write.")
 
-            return all_success
+            # Close here rather than in `finally`: writing the Parquet footer can fail too
+            # (a full disk, for example), and the `except` below then removes the
+            # incomplete file.
+            writer.close()
+            writer = None
+            return True
+
+        except Exception:
+            # Don't leave a partially written GeoParquet behind. A failure while closing or
+            # removing it is only logged, so it doesn't hide the error that stopped the run.
+            if writer is not None:
+                try:
+                    writer.close()
+                except Exception as close_error:
+                    logger.warning(f"Could not close {output_path}: {close_error}")
+                writer = None
+                try:
+                    output_path.unlink(missing_ok=True)
+                except OSError as remove_error:
+                    logger.warning(f"Could not remove the partial output {output_path}: "
+                                   f"{remove_error}")
+            raise
 
         finally:
             if writer is not None:

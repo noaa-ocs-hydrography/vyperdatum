@@ -111,10 +111,15 @@ class GeoParquet(Driver):
         output_file: str
             Path to the output geoparquet file.
 
+        Raises
+        -----------
+        ValueError:
+            If the point transformation fails. No output file is written.
+
         Returns
         -----------
         bool:
-            True if successful, otherwise False.
+            True if successful.
         """
         if not hasattr(self, "x"):
             self.get_points()
@@ -134,6 +139,8 @@ class GeoParquet(Driver):
                                                                     self.z,
                                                                     vdatum_check=vdatum_check
                                                                     )
+        if not success:
+            raise ValueError(f"GeoParquet transformation failed for {self.input_file}.")
         new_geometry = [Point(xi, yi, zi) for xi, yi, zi in zip(xt, yt, zt)]
         new_gdf = gpd.GeoDataFrame(gdf[["uncertainty", "classification"]].copy(),
                                    geometry=new_geometry,
