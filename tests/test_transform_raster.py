@@ -4,6 +4,7 @@ from osgeo import gdal, osr
 import numpy as np
 import pyproj as pp
 import pytest
+import vyperdatum.transformer as vtf
 from vyperdatum.transformer import Transformer
 from vyperdatum.drivers.npz import NPZ
 
@@ -75,3 +76,68 @@ def test_transform_raster(input_file: str, output_file: str, crs_from: str, crs_
                                   overview=False,
                                   )
     assert success, "Raster transformation unsuccessful."
+
+
+NAVD88_TO_MLLW = [{"crs_from": "EPSG:6318+EPSG:5703", "crs_to": "EPSG:6318+NOAA:98",
+                   "v_shift": True}]
+
+
+def _navd88_to_mllw_transformer():
+    return Transformer(crs_from="EPSG:6318+EPSG:5703", crs_to="EPSG:6318+NOAA:98",
+                       steps=NAVD88_TO_MLLW)
+
+
+def _write_navd88_raster(fname: str):
+    """Write a small constant-value NAD83(2011) + NAVD88 GeoTIFF near Norfolk, VA."""
+    ds = gdal.GetDriverByName("GTiff").Create(fname, 20, 20, 1, gdal.GDT_Float32)
+    ds.SetGeoTransform((-76.25, 0.005, 0, 37.20, 0, -0.005))
+    srs = osr.SpatialReference()
+    srs.SetFromUserInput("EPSG:6318+EPSG:5703")
+    ds.SetProjection(srs.ExportToWkt())
+    band = ds.GetRasterBand(1)
+    band.WriteArray(np.full((20, 20), 5.0, dtype=np.float32))
+    band.SetNoDataValue(-9999)
+    ds = None
+
+
+def test_transform_raster_unreadable_input_returns_false(tmp_path, caplog):
+    """
+    A failure before the temporary-file paths are assigned must return False and
+    log the original error, rather than raising UnboundLocalError from the cleanup.
+    """
+    input_file = tmp_path / "not_a_raster.tif"
+    input_file.write_text("not a raster")
+    success = _navd88_to_mllw_transformer().transform_raster(str(input_file),
+                                                             str(tmp_path / "out.tif"),
+                                                             pre_post_checks=False,
+                                                             vdatum_check=False)
+    assert success is False
+    assert "Exception in `transform_raster()`" in caplog.text
+
+
+def test_transform_raster_success(tmp_path):
+    input_file, output_file = str(tmp_path / "navd88.tif"), str(tmp_path / "mllw.tif")
+    _write_navd88_raster(input_file)
+    success = _navd88_to_mllw_transformer().transform_raster(input_file, output_file,
+                                                             overview=False,
+                                                             vdatum_check=False)
+    assert success is True
+    assert os.path.isfile(output_file)
+
+
+def test_transform_raster_late_exception_returns_false(tmp_path, monkeypatch, caplog):
+    """
+    An exception raised after `success` was set to True (here, in the VDatum
+    cross-validation) must make transform_raster return False.
+    """
+    def failing_vdatum_check(**kwargs):
+        raise RuntimeError("simulated VDatum failure")
+
+    monkeypatch.setattr(vtf, "vdatum_cross_validate", failing_vdatum_check)
+    input_file, output_file = str(tmp_path / "navd88.tif"), str(tmp_path / "mllw.tif")
+    _write_navd88_raster(input_file)
+    success = _navd88_to_mllw_transformer().transform_raster(input_file, output_file,
+                                                             overview=False,
+                                                             vdatum_check=True)
+    assert success is False
+    assert "simulated VDatum failure" in caplog.text
